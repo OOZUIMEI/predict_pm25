@@ -14,9 +14,10 @@ from tensorflow.contrib.rnn import BasicLSTMCell, GRUCell
 class Model():
 
     
-    def __init__(self, max_input_len=30, embed_size=12, hidden_size=128, relu_size=64, learning_rate = 0.001, batch_size=54, 
+    def __init__(self, max_sent_len=24, max_input_len=30, embed_size=12, hidden_size=128, relu_size=64, learning_rate = 0.001, batch_size=54, 
                 lr_decayable=True, using_bidirection=False, fw_cell='basic', bw_cell='gru', is_classify=True, target=5, loss='softmax', 
                 acc_range=10, use_tanh_prediction=True):
+        self.max_sent_len = max_sent_len
         self.max_input_len = max_input_len
         self.embed_size = embed_size
         self.batch_size = batch_size
@@ -59,8 +60,10 @@ class Model():
     def add_placeholders(self):
         """add data placeholder to graph """
         
-        self.input_placeholder = tf.placeholder(tf.float32, shape=(self.batch_size, self.max_input_len, self.embed_size))  
+        self.input_placeholder = tf.placeholder(tf.float32, shape=(self.batch_size, self.max_sent_len, self.max_input_len, self.embed_size))  
         # if self.is_classify:
+        self.input_len_placeholder = tf.placeholder(tf.int32, shape=(self.batch_size * self.max_sent_len,))
+
         self.pred_placeholder = tf.placeholder(
             tf.int32, shape=(self.batch_size,))
         # else:
@@ -72,19 +75,25 @@ class Model():
 
     def inference(self):
         """Performs inference on the DMN model"""
-        with tf.variable_scope("input", initializer=tf.contrib.layers.xavier_initializer()):
+        with tf.variable_scope("word_shift", initializer=tf.contrib.layers.xavier_initializer()):
             print('==> get input representation rnn')
-            word_reps = self.get_input_representation()
-            word_reps = tf.reduce_mean(word_reps, axis=0)
-        
+            word_reps = self.get_shift_representation()
+            # reduce over shift
+            word_reps = tf.reduce_mean(word_reps, axis=1)
+            word_reps = tf.reshape(word_reps, [self.batch_size, self.max_sent_len, self.embed_size])        
+
+        with tf.variable_scope("sentence", initializer=tf.contrib.layers.xavier_initializer()):
+            sent_reps = self.get_input_representation(word_reps)
+            sent_reps = tf.reduce_mean(sent_reps, axis=0)
+
         with tf.variable_scope("hidden", initializer=tf.contrib.layers.xavier_initializer()):
             if self.is_classify:
-                output = tf.layers.dense(word_reps,
+                output = tf.layers.dense(sent_reps,
                                     self.hidden_size,
                                     activation=tf.nn.tanh,
                                     name="h2")
                 
-                output = tf.layers.dense(word_reps,
+                output = tf.layers.dense(output,
                                         self.relu_size,
                                         activation=tf.nn.relu,
                                         name="relu")
@@ -92,21 +101,57 @@ class Model():
                 output = tf.nn.dropout(output, self.dropout_placeholder)
             else:
                 if self.use_tanh_prediction:
-                    output = tf.layers.dense(word_reps,
+                    output = tf.layers.dense(sent_reps,
                                         self.hidden_size,
                                         activation=tf.nn.tanh,
                                         name="h2")
                 else:
                     # simple model with only one hidden layer to predict
-                    output = word_reps
+                    output = sent_reps
             output = tf.layers.dense(output,
                                     self.target,
                                     name="fn")
         return output
 
-    def get_input_representation(self):
+    # rnn over each 1min
+    def get_shift_representation(self):
+        
+        inputs = tf.reshape(self.input_placeholder, [self.batch_size * self.max_sent_len, self.max_input_len, self.embed_size])
+        # input_len = tf.reshape(self.input_len_placeholder, [self.batch_size * self.max_sent_len])
+        input_len = self.input_len_placeholder
+        if self.fw_cell == 'basic':
+            fw_cell = BasicLSTMCell(self.embed_size)
+        else:
+            fw_cell = GRUCell(self.embed_size)
+        if not self.using_bidirection:
+            # outputs with [batch_size, max_time, cell_bw.output_size]
+            outputs, _ = tf.nn.dynamic_rnn(
+                fw_cell,
+                inputs,
+                dtype=np.float32,
+                sequence_length=input_len,
+            )
+        else:
+            if self.bw_cell == 'basic':
+                back_cell = BasicLSTMCell(self.embed_size)
+            else:
+                back_cell = GRUCell(self.embed_size)
+            outputs, _  = tf.nn.bidirectional_dynamic_rnn(
+                fw_cell,
+                back_cell,
+                inputs, 
+                dtype=np.float32,
+                sequence_length=input_len,
+            )
+            
+            outputs = tf.concat(outputs, 2)
+
+        return outputs
+
+    # rnn through each 30', 1h 
+    def get_input_representation(self, inputs):
         """Get fact (sentence) vectors via embedding, positional encoding and bi-directional GRU"""
-        inputs = tf.unstack(self.input_placeholder, self.max_input_len, 1)
+        inputs = tf.unstack(inputs, self.max_sent_len, 1)
         # use encoding to get sentence representation plus position encoding
         # (like fb represent)
         if self.fw_cell == 'basic':
@@ -114,7 +159,7 @@ class Model():
         else:
             fw_cell = GRUCell(self.embed_size)
         if not self.using_bidirection:
-            # outputs with [batch_size, max_time, cell_bw.output_size]
+            # outputs is array of max_time of [batch_size, cell_bw.output_size]
             outputs, _ = tf.nn.static_rnn(
                 fw_cell,
                 inputs,
@@ -197,19 +242,20 @@ class Model():
 
         # shuffle data
         r = np.random.permutation(dt_length)
-        ct, pr = data
-        ct, pr = np.asarray(ct, dtype=np.float32), np.asarray(pr, dtype=np.float32)
-        ct, pr = ct[r], pr[r]
+        ct, ct_l, pr = data
+        ct, ct_l, pr = np.asarray(ct, dtype=np.float32), np.asarray(ct_l, dtype=np.int32), np.asarray(pr, dtype=np.int32)
+        ct, ct_l, pr = ct[r], ct_l[r], pr[r]
         preds = []
         for step in range(total_steps):
             index = range(step * self.batch_size,
                           (step + 1) * self.batch_size)
+            l = np.reshape(ct_l[index], [self.batch_size * self.max_sent_len])
+            pred_labels = pr[index]
             feed = {self.input_placeholder: ct[index],
-                    self.pred_placeholder: pr[index],
+                    self.input_len_placeholder: l,
+                    self.pred_placeholder: pred_labels,
                     self.dropout_placeholder: dp,
                     self.iteration: num_epoch}
-            
-            pred_labels = pr[step * self.batch_size:(step + 1) * self.batch_size]
             
             loss, pred, summary, _ = session.run(
                 [self.calculate_loss, self.pred, self.merged, train_op], feed_dict=feed)

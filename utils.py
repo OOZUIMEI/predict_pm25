@@ -10,10 +10,11 @@ def validate_path(name):
     tmp = ""
     if paths:
         for e, folder in enumerate(paths):
-            tmp += folder
-            if not path.exists(tmp):
-                os.makedirs(tmp)
-            tmp += "/"
+            if folder:
+                tmp += folder
+                if not path.exists(tmp):
+                    os.makedirs(tmp)
+                tmp += "/"
 
 
 def save_file(name, obj, use_pickle=True):
@@ -28,6 +29,16 @@ def save_file(name, obj, use_pickle=True):
 def save_file_utf8(name, obj):
     with codecs.open(name, "w", "utf-8") as file:
         file.write(u'%s' % obj)
+
+
+def array_to_str(obj):
+    tmp = ""
+    l = len(obj) - 1
+    for i, x in enumerate(obj):
+        tmp += str(x) + ""
+        if i < l:
+            tmp += "\n"
+    return tmp
 
 
 def load_file(pathfile, use_pickle=True):

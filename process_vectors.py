@@ -99,11 +99,14 @@ def concate_vector(url1, url2, url3, url4, sent_length):
     utils.save_file("full_vectors.pkl", vectors)
 
 
-def parse_full_vector(url, m, d):
+def parse_full_vector(url, out_url, m, d):
+    print(url)
     data = utils.load_file(url, False)
     res = []
-    df = np.zeros(d, dtype=np.float32)
+    res_l = []
+    df = np.zeros(d, dtype=np.float32).tolist()
     for d in data:
+        # each row record
         d_ = d.rstrip("\n")
         arr = d_.split(",WrappedArray")
         arr = arr[1:]
@@ -119,19 +122,63 @@ def parse_full_vector(url, m, d):
                     a_v = a_.replace("[", "").replace("]", "").replace(")", "")
                     a_v = a_v.split(",")
                     for a_j in a_v:
-                        vecs[a_i].append(float(a_j))
+                        a_j = a_j.strip()
+                        if a_j == "null":
+                            vecs[a_i].append(float(0))
+                        else:
+                            vecs[a_i].append(float(a_j))
             else:
                 fl = False
                 a = e_.split(",")
                 for a_i, a_ in enumerate(a):
-                    vecs[a_i].append(float(a_))
-            l = len(a)
-            re = m - l
-            if re:
-                for x in xrange(re):
-                    vecs[x + l].append(df)
+                    a_ = a_.strip().replace("[", "").replace("]", "").replace(")", "")
+                    if a_ == "null":
+                        vecs[a_i].append(float(0))
+                    else:
+                        vecs[a_i].append(float(a_))
+            # check first aggregated vector to get length of shift
+            if not i:
+                l = len(a)
+                res_l.append(l)
+                re = m - l
+                if re:
+                    for x in xrange(re):
+                        vecs[x + l] = df
+        # s = np.shape(vecs)
+        # if len(s) != 2 or s[1] == 1:
+        #     break
         res.append(vecs)
-    utils.save_file("full_featured_vectors.pkl", res)
+    print(np.shape(res))
+    print("len", len(res_l))
+    utils.save_file("%s_len" % out_url, res_l)
+    utils.save_file("%s" % out_url, res)
+
+
+def merge_vectors(url, url1, url2):
+    data1 = utils.load_file(url)
+    data2 = utils.load_file(url1)
+    arr = []
+    for x, y in zip(data1, data2):
+        shi = [x1 + y1 for x1, y1 in zip(x, y)]
+        arr.append(shi)            
+        print(np.shape(shi))
+    print(np.shape(arr))
+            
+
+def get_labels(url, url1, url2=None):
+    data = utils.load_file(url, False)
+    res = []
+    for d in data:
+        d_ = d.rstrip("\n")
+        arr = d_.split(",WrappedArray")
+        e = arr[1]
+        e_ = e.lstrip("(").rstrip(")").split(',')
+        res.append(int(round(float(e_[0]) * 500)))
+    # if valid url2 then save text file
+    if url2:
+        tmp = utils.array_to_str(res)
+        utils.save_file(url2, tmp, False)
+    utils.save_file(url1, res)
 
 
 if __name__ == "__main__":
@@ -162,8 +209,21 @@ if __name__ == "__main__":
         concate_vector(u, u1, u2, u3, args.sent_length, args.doc_length)
     elif args.task == 2:
         if args.prefix:
-            args.url = args.prefix + args.url
-        parse_full_vector(args.url, args.max, args.dim)
+            args.url = args.prefix + "/" + args.url
+            args.url1 = args.prefix + "/" + args.url1
+        parse_full_vector(args.url, args.url1, args.max, args.dim)
+    elif args.task == 3:
+        if args.prefix:
+            args.url = args.prefix + "/" + args.url
+            args.url1 = args.prefix + "/" + args.url1
+            args.url2 = args.prefix + "/" + args.url2
+        merge_vectors(args.url, args.url1, args.url2)
+    elif args.task == 4:
+        if args.prefix:
+            args.url = args.prefix + "/" + args.url
+            args.url1 = args.prefix + "/" + args.url1
+            args.url2 = args.prefix + "/" + args.url2
+        get_labels(args.url, args.url1, args.url2)
     else:
         clear_vector(args.url)
         
