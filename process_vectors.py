@@ -166,13 +166,14 @@ def merge_vectors(url, url1, url2):
             
 
 def get_labels(url, url1, url2=None):
+    print(url)
     data = utils.load_file(url, False)
     res = []
     for d in data:
         d_ = d.rstrip("\n")
         arr = d_.split(",WrappedArray")
         e = arr[1]
-        e_ = e.lstrip("(").rstrip(")").split(',')
+        e_ = e.lstrip("(").rstrip(")").lstrip("[").split(',')
         res.append(int(round(float(e_[0]) * 500)))
     # if valid url2 then save text file
     if url2:

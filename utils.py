@@ -2,6 +2,7 @@ import pickle
 import os.path as path
 import os
 import codecs
+import numpy as np
 
 
 def validate_path(name):
@@ -63,6 +64,11 @@ def check_file(pathfile):
     return path.exists(pathfile)
 
 
+def assert_url(url):
+    if not check_file(url):
+        raise ValueError("%s is not existed" % url)
+
+
 def intersect(c1, c2):
     return list(set(c1).intersection(c2))
 
@@ -89,3 +95,13 @@ def update_progress(progress, sleep=0.01, barLength=20):
     sys.stdout.write(text)
     sys.stdout.flush()
     time.sleep(sleep)
+
+
+def calculate_accuracy(pred, pred_labels, rng, is_classify):
+    accuracy = 0
+    if is_classify:
+        accuracy = np.sum(pred == pred_labels)
+    else:
+        accuracy = np.sum([1 for x, y in zip(pred, pred_labels) if abs(x - y) <= rng])
+
+    return accuracy

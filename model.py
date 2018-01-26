@@ -10,13 +10,15 @@ import tensorflow as tf
 
 from tensorflow.contrib.rnn import BasicLSTMCell, GRUCell
 
+import utils
+
 
 class Model():
 
     
     def __init__(self, max_sent_len=24, max_input_len=30, embed_size=12, hidden_size=128, relu_size=64, learning_rate = 0.001, batch_size=54, 
                 lr_decayable=True, using_bidirection=False, fw_cell='basic', bw_cell='gru', is_classify=True, target=5, loss='softmax', 
-                acc_range=10, use_tanh_prediction=True):
+                acc_range=10, use_tanh_prediction=True, input_rnn=True):
         self.max_sent_len = max_sent_len
         self.max_input_len = max_input_len
         self.embed_size = embed_size
@@ -38,6 +40,7 @@ class Model():
         self.is_classify = is_classify
         self.use_tanh_prediction = use_tanh_prediction
         self.loss = loss
+        self.input_rnn = input_rnn
 
     def set_data(self, train, valid):
         self.train = train
@@ -76,11 +79,14 @@ class Model():
     def inference(self):
         """Performs inference on the DMN model"""
         with tf.variable_scope("word_shift", initializer=tf.contrib.layers.xavier_initializer()):
-            print('==> get input representation rnn')
-            word_reps = self.get_shift_representation()
-            # reduce over shift
-            word_reps = tf.reduce_mean(word_reps, axis=1)
-            word_reps = tf.reshape(word_reps, [self.batch_size, self.max_sent_len, self.embed_size])        
+            if self.input_rnn:
+                print('==> get input representation rnn')
+                word_reps = self.get_shift_representation()
+                # reduce over shift
+                word_reps = tf.reduce_mean(word_reps, axis=1)
+                word_reps = tf.reshape(word_reps, [self.batch_size, self.max_sent_len, self.embed_size])        
+            else:
+                word_reps = tf.reduce_mean(self.input_placeholder, axis=2)
 
         with tf.variable_scope("sentence", initializer=tf.contrib.layers.xavier_initializer()):
             sent_reps = self.get_input_representation(word_reps)
@@ -221,21 +227,13 @@ class Model():
             pred = output
         return pred
 
-    def calculate_accuracy(self, pred, pred_labels):
-        accuracy = 0
-        if self.is_classify:
-            accuracy = np.sum(pred == pred_labels)
-        else:
-            accuracy = np.sum([1 for x, y in zip(pred, pred_labels) if abs(x - y) <= self.range])
-
-        return accuracy
-
     def run_epoch(self, session, data, num_epoch=0, train_writer=None, train_op=None, verbose=2, train=False):
         dp = self.dropout
         if train_op is None:
             train_op = tf.no_op()
             dp = 1
         dt_length = len(data[0])
+        # print("data_size: ", dt_length)
         total_steps = dt_length // self.batch_size
         total_loss = []
         accuracy = 0
@@ -264,7 +262,7 @@ class Model():
                     summary, num_epoch * total_steps + step)
             
             preds += [x for x in pred]
-            accuracy += self.calculate_accuracy(pred, pred_labels)
+            accuracy += utils.calculate_accuracy(pred, pred_labels, self.range, self.is_classify)
 
             total_loss.append(loss)
 
@@ -277,5 +275,5 @@ class Model():
             sys.stdout.write('\r')
         avg_acc = 0.
         if total_steps:
-            avg_acc = accuracy * 1.0 / dt_length
-        return np.sum(total_loss), avg_acc, preds, pr.tolist()
+            avg_acc = accuracy * 1.0 / len(preds)
+        return np.mean(total_loss), avg_acc, preds, pr.tolist()

@@ -14,20 +14,20 @@ def save_predictions(best_preds, best_lb, prefix=""):
     tmp = ""
     for x, y in zip(best_preds, best_lb):
         tmp += "%i|%i\n" % (x, y)
-    utils.save_file("%spreds.txt" % prefix, tmp, False)
+    utils.save_file("accuracies/%spreds.txt" % prefix, tmp, False)
 
 
-def process_data(dataset, data_len, pred, batch_size, max_sent):
+def process_data(dataset, data_len, pred, batch_size, max_sent, is_test=False):
     dlength = len(dataset) - 1
     # total batch
     dlength_b = dlength // batch_size
-    dlength = dlength_b * batch_size
-    dataset = dataset[:dlength]
-    data_len = data_len[:dlength]
+    maximum = dlength_b * batch_size
+    dataset = dataset[:-1]
+    data_len = data_len[:-1]
     new_data = []
     new_data_len = []
     new_pred = []
-    for x in xrange(dlength):
+    for x in xrange(maximum):
         e = x + max_sent
         if e <= dlength:
             arr = dataset[x : e]
@@ -37,44 +37,56 @@ def process_data(dataset, data_len, pred, batch_size, max_sent):
             new_pred.append(pred[e])
         else:
             break
-    r = np.random.permutation(len(new_data_len))
-    new_data, new_data_len, new_pred = np.asarray(new_data, dtype=np.float32), np.asarray(new_data_len, dtype=np.int32), np.asarray(new_pred, dtype=np.int32)
-    new_data, new_data_len, new_pred = new_data[r], new_data_len[r], new_pred[r]
-    
-    train_len = int(dlength_b * 0.8) * batch_size
-    train_data = new_data[:train_len]
-    train_data_len = new_data_len[:train_len]
-    train_pred = new_pred[:train_len]
-    valid_data = new_data[train_len:]
-    valid_data_len = new_data_len[train_len:]
-    valid_pred = new_pred[train_len:]
-    train = (train_data, train_data_len, train_pred)
-    dev = (valid_data, valid_data_len, valid_pred)
+    if not is_test:
+        r = np.random.permutation(len(new_data_len))
+        new_data, new_data_len, new_pred = np.asarray(new_data, dtype=np.float32), np.asarray(new_data_len, dtype=np.int32), np.asarray(new_pred, dtype=np.int32)
+        new_data, new_data_len, new_pred = new_data[r], new_data_len[r], new_pred[r]
+        train_len = int(dlength_b * 0.8) * batch_size
+        train_data = new_data[:train_len]
+        train_data_len = new_data_len[:train_len]
+        train_pred = new_pred[:train_len]
+        valid_data = new_data[train_len:]
+        valid_data_len = new_data_len[train_len:]
+        valid_pred = new_pred[train_len:]
+        train = (train_data, train_data_len, train_pred)
+        dev = (valid_data, valid_data_len, valid_pred)
+    else:
+        train = None
+        dev = (new_data, new_data_len, new_pred)
     return train, dev
 
 
 
-def main(prefix="", url_feature="", url_pred="", url_len="", batch_size=126, max_input_len=30, max_sent_length=24, lr_decayable=False, using_bidirection=False, 
-        forward_cell='', backward_cell='', embed_size=None, target=5, is_classify=True, loss=None, acc_range=None, usp=None):
-    if utils.check_file(url_feature):
+def main(prefix="", url_feature="", url_pred="", url_len="",  url_feature1="", url_pred1="", url_len1="", 
+        batch_size=126, max_input_len=30, max_sent_length=24, lr_decayable=False, using_bidirection=False, 
+        forward_cell='', backward_cell='', embed_size=None, target=5, is_classify=True, loss=None, acc_range=None, 
+        usp=None, input_rnn=None, reload_data=True):
+    if reload_data:
+        utils.assert_url(url_feature)
+        utils.assert_url(url_pred)
+        utils.assert_url(url_len)
+        if url_feature1:
+            utils.assert_url(url_feature1)
+            utils.assert_url(url_pred1)
+            utils.assert_url(url_len1)
         print("Loading dataset")
         dataset = utils.load_file(url_feature)
-    else:
-        raise ValueError("%s is not existed" % url_feature)
-    if utils.check_file(url_pred):
-        pred = utils.load_file(url_pred)
-    else:
-        raise ValueError("%s is not existed" % url_pred)
-    if utils.check_file(url_len):
         data_len = utils.load_file(url_len)
+        pred = utils.load_file(url_pred, False)
+        pred = [round(float(x.replace("\n", ""))) for x in pred]
+        train, dev = process_data(dataset, data_len, pred, batch_size, max_sent_length)
+        utils.save_file(p.train_url, train)
+        utils.save_file(p.dev_url, dev)
     else:
-        raise ValueError("%s is not existed" % url_len)
+        utils.assert_url(p.train_url)
+        utils.assert_url(p.dev_url)
+        train = utils.load_file(p.train_url)
+        dev = utils.load_file(p.dev_url)
         # config.strong_supervision = True
     model = Model(max_input_len=max_input_len, max_sent_len=max_sent_length, embed_size=embed_size, learning_rate = 0.001, lr_decayable=lr_decayable, 
                  using_bidirection=using_bidirection, fw_cell=forward_cell, bw_cell=backward_cell, batch_size=batch_size,
-                 target=target, is_classify=is_classify, loss=loss, acc_range=acc_range, use_tanh_prediction=usp)
+                 target=target, is_classify=is_classify, loss=loss, acc_range=acc_range, use_tanh_prediction=usp, input_rnn=input_rnn)
     
-    train, dev = process_data(dataset, data_len, pred, batch_size, max_sent_length)
     model.set_data(train, dev)
     # model.init_data_node()
     with tf.device('/cpu'):
@@ -143,35 +155,51 @@ def main(prefix="", url_feature="", url_pred="", url_len="", batch_size=126, max
             print('Total time: {}'.format(time.time() - start))
         tmp = 'Best validation accuracy: %.4f' % best_val_accuracy
         print(tmp)
-        utils.save_file("%saccuracy.txt" % prefix, tmp, False)
+        utils.save_file("accuracies/%saccuracy.txt" % prefix, tmp, False)
         utils.save_file("logs/%slosses.pkl" % prefix, {"train_loss": train_losses, "train_acc": train_accuracies, "valid_loss": val_losses, "valid_acc" : val_acces})
         save_predictions(best_preds, best_lb, prefix) 
+        if url_feature1:
+            dataset_t = utils.load_file(url_feature1)
+            data_len_t = utils.load_file(url_len1)
+            pred_t = utils.load_file(url_pred1)
+            _, test = process_data(dataset_t, data_len_t, pred_t, batch_size, max_sent_length)
+            valid_loss, valid_accuracy, preds, lb = model.run_epoch(session, test)
+            print("Test", valid_loss, valid_accuracy)
+            save_predictions(preds, lb, prefix + "_test_") 
+
 
 
 if __name__ == "__main__":
     # 10110 -> 10080 -> 126 batch 
+    # python train.py -pr "vectors/labels" -f "vectors/full_data" -fl "vectors/full_data_len" -p "train_basic_64b_tanh_12h_" -fw "basic" -dc 1 -l mae -r 10 -usp 1 -e 13 -bs 126 -sl 24 -ir 0 
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--feature_path", help="prefix to save weighted files")
     parser.add_argument("-pr", "--pred_path", help="prefix to save weighted files")
     parser.add_argument("-fl", "--feature_len_path", help="prefix to save weighted files")
+    parser.add_argument("-f1", "--feature_path1", help="prefix to save weighted files")
+    parser.add_argument("-pr1", "--pred_path1", help="prefix to save weighted files")
+    parser.add_argument("-fl1", "--feature_len_path1", help="prefix to save weighted files")
     parser.add_argument("-p", "--prefix", help="prefix to save weighted files")
     parser.add_argument("-fw", "--forward_cell", default='basic')
     parser.add_argument("-bw", "--backward_cell", default='basic')
     parser.add_argument("-bd", "--bidirection", type=int)
     parser.add_argument("-dc", "--lr_decayable", type=int)
     parser.add_argument("-bs", "--batch_size", type=int, default=54)
-    parser.add_argument("-t", "--target", type=int, default=5)
-    parser.add_argument("-c", "--classify", type=int, default=1)
+    parser.add_argument("-t", "--target", type=int, default=1)
+    parser.add_argument("-c", "--classify", type=int, default=0)
     parser.add_argument("-l", "--loss", default='softmax')
     parser.add_argument("-r", "--acc_range", type=int, default=10)
     parser.add_argument("-usp", "--use_tanh_pred", type=int, default=1)
     parser.add_argument("-e", "--embed_size", type=int, default=12)
     parser.add_argument("-il", "--input_size", type=int, default=30)
     parser.add_argument("-sl", "--sent_size", type=int, default=12)
+    parser.add_argument("-ir", "--input_rnn", type=int, default=1)
+    parser.add_argument("-rl", "--reload_data", type=int, default=1)
 
     args = parser.parse_args()
 
-    main(args.prefix, args.feature_path, args.pred_path, args.feature_len_path, args.batch_size, args.input_size, args.sent_size, args.lr_decayable, 
+    main(args.prefix, args.feature_path, args.pred_path, args.feature_len_path, args.feature_path1, args.pred_path1, args.feature_len_path1,
+        args.batch_size, args.input_size, args.sent_size, args.lr_decayable, 
         args.bidirection, args.forward_cell, args.backward_cell, args.embed_size, args.target, args.classify, 
-        args.loss, args.acc_range, args.use_tanh_pred)
+        args.loss, args.acc_range, args.use_tanh_pred, args.input_rnn, args.reload_data)
     
