@@ -227,7 +227,7 @@ class Model():
             pred = output
         return pred
 
-    def run_epoch(self, session, data, num_epoch=0, train_writer=None, train_op=None, verbose=2, train=False):
+    def run_epoch(self, session, data, num_epoch=0, train_writer=None, train_op=None, verbose=2, train=False, shuffle=True):
         dp = self.dropout
         if train_op is None:
             train_op = tf.no_op()
@@ -238,22 +238,25 @@ class Model():
         total_loss = []
         accuracy = 0
 
-        # shuffle data
-        r = np.random.permutation(dt_length)
         ct, ct_l, pr = data
         ct, ct_l, pr = np.asarray(ct, dtype=np.float32), np.asarray(ct_l, dtype=np.int32), np.asarray(pr, dtype=np.int32)
-        ct, ct_l, pr = ct[r], ct_l[r], pr[r]
+        print(len(pr))
+        if shuffle:
+            # shuffle data
+            r = np.random.permutation(dt_length)
+            ct, ct_l, pr = ct[r], ct_l[r], pr[r]
         preds = []
         for step in range(total_steps):
             index = range(step * self.batch_size,
                           (step + 1) * self.batch_size)
-            l = np.reshape(ct_l[index], [self.batch_size * self.max_sent_len])
             pred_labels = pr[index]
             feed = {self.input_placeholder: ct[index],
-                    self.input_len_placeholder: l,
                     self.pred_placeholder: pred_labels,
                     self.dropout_placeholder: dp,
                     self.iteration: num_epoch}
+            if self.input_rnn:
+                l = np.reshape(ct_l[index], [self.batch_size * self.max_sent_len])
+                feed[self.input_len_placeholder] = l
             
             loss, pred, summary, _ = session.run(
                 [self.calculate_loss, self.pred, self.merged, train_op], feed_dict=feed)

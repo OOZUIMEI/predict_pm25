@@ -14,7 +14,7 @@ def save_predictions(best_preds, best_lb, prefix=""):
     tmp = ""
     for x, y in zip(best_preds, best_lb):
         tmp += "%i|%i\n" % (x, y)
-    utils.save_file("%stest_preds.txt" % prefix, tmp, False)
+    utils.save_file("test_acc/%stest_preds.txt" % prefix, tmp, False)
 
 
 def process_data(dataset, data_len, pred, batch_size, max_sent):
@@ -35,7 +35,6 @@ def process_data(dataset, data_len, pred, batch_size, max_sent):
             new_pred.append(pred[e])
         else:
             break
-    r = np.random.permutation(len(new_data_len))
     data = (new_data, new_data_len, new_pred)
     return data
 
@@ -48,7 +47,8 @@ def main(prefix="", url_feature="", url_pred="", url_len="", url_weight="", batc
         utils.assert_url(url_pred)
         utils.assert_url(url_len)
         dataset = utils.load_file(url_feature)
-        pred = utils.load_file(url_pred)
+        pred = utils.load_file(url_pred, False)
+        pred = [round(float(x.replace("\n", ""))) for x in pred]
         data_len = utils.load_file(url_len)
         test = process_data(dataset, data_len, pred, batch_size, max_sent_length)
     else:
@@ -73,11 +73,11 @@ def main(prefix="", url_feature="", url_pred="", url_len="", url_weight="", batc
         # saver = tf.train.import_meta_graph(url_weight + ".meta")
         saver.restore(session, url_weight)
         print('==> running model')
-        valid_loss, valid_accuracy, preds, lb = model.run_epoch(session, test)
+        valid_loss, valid_accuracy, preds, lb = model.run_epoch(session, test,  shuffle=False)
         print('Validation loss: {}'.format(valid_loss))
         print('Validation accuracy: {}'.format(valid_accuracy))
         tmp = 'Test validation accuracy: %.4f' % valid_accuracy
-        utils.save_file("%stest_accuracy.txt" % prefix, tmp, False)
+        utils.save_file("test_acc/%stest_accuracy.txt" % prefix, tmp, False)
         save_predictions(preds, lb, prefix)
 
 

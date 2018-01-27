@@ -108,8 +108,8 @@ def parse_full_vector(url, out_url, m, d):
     for d in data:
         # each row record
         d_ = d.rstrip("\n")
-        arr = d_.split(",WrappedArray")
-        arr = arr[1:]
+        arr_ = d_.split(",WrappedArray")
+        arr = arr_[1:]
         vecs = None
         for i, e in enumerate(arr):
             if not i:
@@ -118,6 +118,8 @@ def parse_full_vector(url, out_url, m, d):
             a = None
             if "[" in e_:
                 a = e_.split("], ")
+                if len(a) == (2 * m):
+                    a = [x for t, x in enumerate(a) if (t % 2) == 0]
                 for a_i, a_ in enumerate(a):
                     a_v = a_.replace("[", "").replace("]", "").replace(")", "")
                     a_v = a_v.split(",")
@@ -136,6 +138,7 @@ def parse_full_vector(url, out_url, m, d):
                         vecs[a_i].append(float(0))
                     else:
                         vecs[a_i].append(float(a_))
+                    print(arr_[0])
             # check first aggregated vector to get length of shift
             if not i:
                 l = len(a)

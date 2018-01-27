@@ -75,8 +75,8 @@ def main(prefix="", url_feature="", url_pred="", url_len="",  url_feature1="", u
         pred = utils.load_file(url_pred, False)
         pred = [round(float(x.replace("\n", ""))) for x in pred]
         train, dev = process_data(dataset, data_len, pred, batch_size, max_sent_length)
-        utils.save_file(p.train_url, train)
-        utils.save_file(p.dev_url, dev)
+        utils.save_file(p.train_url % ("_" + str(max_sent_length)), train)
+        utils.save_file(p.dev_url % ("_" + str(max_sent_length)), dev)
     else:
         utils.assert_url(p.train_url)
         utils.assert_url(p.dev_url)
