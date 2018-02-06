@@ -14,10 +14,10 @@ def save_predictions(best_preds, best_lb, prefix=""):
     tmp = ""
     for x, y in zip(best_preds, best_lb):
         tmp += "%i|%i\n" % (x, y)
-    utils.save_file("test_acc/%stest_preds.txt" % prefix, tmp, False)
+    utils.save_file("test_acc/%s_test_preds.txt" % prefix, tmp, False)
 
 
-def process_data(dataset, data_len, pred, batch_size, max_sent):
+def process_data(dataset, data_len, pred, batch_size, max_sent, sight=1):
     dlength = len(dataset) - 1
     # total batch
     dlength_b = dlength // batch_size
@@ -25,23 +25,28 @@ def process_data(dataset, data_len, pred, batch_size, max_sent):
     dataset = dataset[:-1]
     data_len = data_len[:-1]
     new_data, new_data_len, new_pred = [], [], []
+    decode_vec = []
     for x in xrange(maximum):
         e = x + max_sent
-        if e <= dlength:
+        p_i = e + sight - 1
+        d_e = p_i + 1
+        if e <= dlength and d_e <= dlength:
             arr = dataset[x : e]
             arr_l = data_len[x : e]
+            arr_d =[x[0][7:] for x in dataset[e : d_e]] 
             new_data.append(arr)
             new_data_len.append(arr_l)
-            new_pred.append(pred[e])
+            new_pred.append(pred[p_i])
+            decode_vec.append(arr_d)
         else:
             break
-    data = (new_data, new_data_len, new_pred)
+    data = (new_data, new_data_len, new_pred, decode_vec)
     return data
 
 
 
 def main(prefix="", url_feature="", url_pred="", url_len="", url_weight="", batch_size=126, max_input_len=30, max_sent_length=24, 
-        embed_size=13, acc_range=10):
+        embed_size=13, acc_range=10, sight=1):
     utils.assert_url(url_feature)
     if url_pred:
         utils.assert_url(url_pred)
@@ -50,13 +55,14 @@ def main(prefix="", url_feature="", url_pred="", url_len="", url_weight="", batc
         pred = utils.load_file(url_pred, False)
         pred = [round(float(x.replace("\n", ""))) for x in pred]
         data_len = utils.load_file(url_len)
-        test = process_data(dataset, data_len, pred, batch_size, max_sent_length)
+        test = process_data(dataset, data_len, pred, batch_size, max_sent_length, sight)
     else:
         test = utils.load_file(url_feature)
     # init model
     model = Model(max_input_len=max_input_len, max_sent_len=max_sent_length, embed_size=embed_size, 
                  using_bidirection=False, fw_cell="basic", bw_cell="basic", batch_size=batch_size,
-                 is_classify=False, use_tanh_prediction=True, target=1, loss="mae", acc_range=acc_range, input_rnn=False)
+                 is_classify=False, use_tanh_prediction=True, target=1, loss="mae", acc_range=acc_range, input_rnn=False,
+                 sight=sight, dvs=4)
     
     
     # model.init_data_node()
@@ -77,8 +83,8 @@ def main(prefix="", url_feature="", url_pred="", url_len="", url_weight="", batc
         print('Validation loss: {}'.format(valid_loss))
         print('Validation accuracy: {}'.format(valid_accuracy))
         tmp = 'Test validation accuracy: %.4f' % valid_accuracy
-        utils.save_file("test_acc/%stest_accuracy.txt" % prefix, tmp, False)
-        save_predictions(preds, lb, prefix)
+        utils.save_file("test_acc/%s_test_acc.txt" % prefix, tmp, False)
+        utils.save_predictions(preds, lb,  p.test_preds % prefix)
 
 
 if __name__ == "__main__":
@@ -95,9 +101,10 @@ if __name__ == "__main__":
     parser.add_argument("-e", "--embed_size", type=int, default=11)
     parser.add_argument("-il", "--input_size", type=int, default=30)
     parser.add_argument("-sl", "--sent_size", type=int, default=24)
+    parser.add_argument("-s", "--sight", type=int, default=1)
 
     args = parser.parse_args()
 
     main(args.prefix, args.feature_path, args.pred_path, args.feature_len_path, args.w_url, args.batch_size, 
-        args.input_size, args.sent_size, args.embed_size, args.acc_range)
+        args.input_size, args.sent_size, args.embed_size, args.acc_range, args.sight)
     

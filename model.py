@@ -9,16 +9,18 @@ import numpy as np
 import tensorflow as tf
 
 from tensorflow.contrib.rnn import BasicLSTMCell, GRUCell
+from attention_cell import AttentionCell
 
+import properties as pr
 import utils
 
 
 class Model():
 
     
-    def __init__(self, max_sent_len=24, max_input_len=30, embed_size=12, hidden_size=128, relu_size=64, learning_rate = 0.001, batch_size=54, 
+    def __init__(self, max_sent_len=24, max_input_len=30, embed_size=12, hidden_size=128, hidden2_size=64, relu_size=64, learning_rate = 0.001, batch_size=54, 
                 lr_decayable=True, using_bidirection=False, fw_cell='basic', bw_cell='gru', is_classify=True, target=5, loss='softmax', 
-                acc_range=10, use_tanh_prediction=True, input_rnn=True):
+                acc_range=10, use_tanh_prediction=True, input_rnn=True, sight=1, dvs=4):
         self.max_sent_len = max_sent_len
         self.max_input_len = max_input_len
         self.embed_size = embed_size
@@ -29,6 +31,7 @@ class Model():
         self.fw_cell = fw_cell
         self.bw_cell = bw_cell
         self.hidden_size = hidden_size
+        self.hidden2_size = hidden2_size
         self.relu_size = relu_size
         self.l2 = 0.0001
         self.target = target
@@ -41,6 +44,8 @@ class Model():
         self.use_tanh_prediction = use_tanh_prediction
         self.loss = loss
         self.input_rnn = input_rnn
+        self.decode_length = sight
+        self.decode_vector_size = dvs
 
     def set_data(self, train, valid):
         self.train = train
@@ -64,8 +69,9 @@ class Model():
         """add data placeholder to graph """
         
         self.input_placeholder = tf.placeholder(tf.float32, shape=(self.batch_size, self.max_sent_len, self.max_input_len, self.embed_size))  
-        # if self.is_classify:
         self.input_len_placeholder = tf.placeholder(tf.int32, shape=(self.batch_size * self.max_sent_len,))
+
+        self.decode_placeholder = tf.placeholder(tf.float32, shape=(self.batch_size, self.decode_length, self.decode_vector_size))  
 
         self.pred_placeholder = tf.placeholder(
             tf.int32, shape=(self.batch_size,))
@@ -79,22 +85,36 @@ class Model():
     def inference(self):
         """Performs inference on the DMN model"""
         with tf.variable_scope("word_shift", initializer=tf.contrib.layers.xavier_initializer()):
-            if self.input_rnn:
-                print('==> get input representation rnn')
-                word_reps = self.get_shift_representation()
-                # reduce over shift
-                word_reps = tf.reduce_mean(word_reps, axis=1)
-                word_reps = tf.reshape(word_reps, [self.batch_size, self.max_sent_len, self.embed_size])        
-            else:
-                word_reps = tf.reduce_mean(self.input_placeholder, axis=2)
+            # if self.input_rnn:
+            #     print('==> get input representation rnn')
+            #     word_reps = self.get_shift_representation()
+            #     # reduce over shift
+            #     word_reps = tf.reduce_mean(word_reps, axis=1)
+            #     word_reps = tf.reshape(word_reps, [self.batch_size, self.max_sent_len, self.embed_size])        
+            word_reps = tf.reduce_mean(self.input_placeholder, axis=2)
 
         with tf.variable_scope("sentence", initializer=tf.contrib.layers.xavier_initializer()):
-            sent_reps = self.get_input_representation(word_reps)
+            # decode with attention 
+            sent_reps, fn_state = self.get_input_representation(word_reps, self.fw_cell)
             sent_reps = tf.reduce_mean(sent_reps, axis=0)
+
+        # add attention layer
+        with tf.variable_scope("attention", initializer=tf.contrib.layers.xavier_initializer()):
+            attention = tf.layers.dense(sent_reps, 
+                                        self.hidden_size, 
+                                        activation=tf.nn.tanh,
+                                        name="attention")
+            
+        with tf.variable_scope("decoder", initializer=tf.contrib.layers.xavier_initializer()):
+            attention = tf.reshape(tf.tile(attention, [1, self.decode_length]), [self.batch_size, self.decode_length, self.hidden_size])
+            decode_input = tf.concat([attention, self.decode_placeholder], axis=2)
+            _, fn_state = self.get_input_representation(decode_input, "basic", self.decode_length)
+            # _, fn_state = self.get_input_representation(self.decode_placeholder, "att", self.decode_length, attention=attention)
+            input_hidden = fn_state[1]
 
         with tf.variable_scope("hidden", initializer=tf.contrib.layers.xavier_initializer()):
             if self.is_classify:
-                output = tf.layers.dense(sent_reps,
+                output = tf.layers.dense(input_hidden,
                                     self.hidden_size,
                                     activation=tf.nn.tanh,
                                     name="h2")
@@ -107,8 +127,8 @@ class Model():
                 output = tf.nn.dropout(output, self.dropout_placeholder)
             else:
                 if self.use_tanh_prediction:
-                    output = tf.layers.dense(sent_reps,
-                                        self.hidden_size,
+                    output = tf.layers.dense(input_hidden,
+                                        self.hidden2_size,
                                         activation=tf.nn.tanh,
                                         name="h2")
                 else:
@@ -120,53 +140,54 @@ class Model():
         return output
 
     # rnn over each 1min
-    def get_shift_representation(self):
+    # def get_shift_representation(self):
         
-        inputs = tf.reshape(self.input_placeholder, [self.batch_size * self.max_sent_len, self.max_input_len, self.embed_size])
-        # input_len = tf.reshape(self.input_len_placeholder, [self.batch_size * self.max_sent_len])
-        input_len = self.input_len_placeholder
-        if self.fw_cell == 'basic':
-            fw_cell = BasicLSTMCell(self.embed_size)
-        else:
-            fw_cell = GRUCell(self.embed_size)
-        if not self.using_bidirection:
-            # outputs with [batch_size, max_time, cell_bw.output_size]
-            outputs, _ = tf.nn.dynamic_rnn(
-                fw_cell,
-                inputs,
-                dtype=np.float32,
-                sequence_length=input_len,
-            )
-        else:
-            if self.bw_cell == 'basic':
-                back_cell = BasicLSTMCell(self.embed_size)
-            else:
-                back_cell = GRUCell(self.embed_size)
-            outputs, _  = tf.nn.bidirectional_dynamic_rnn(
-                fw_cell,
-                back_cell,
-                inputs, 
-                dtype=np.float32,
-                sequence_length=input_len,
-            )
+    #     inputs = tf.reshape(self.input_placeholder, [self.batch_size * self.max_sent_len, self.max_input_len, self.embed_size])
+    #     # input_len = tf.reshape(self.input_len_placeholder, [self.batch_size * self.max_sent_len])
+    #     input_len = self.input_len_placeholder
+    #     if self.fw_cell == 'basic':
+    #         fw_cell = BasicLSTMCell(self.embed_size)
+    #     else:
+    #         fw_cell = GRUCell(self.embed_size)
+    #     if not self.using_bidirection:
+    #         # outputs with [batch_size, max_time, cell_bw.output_size]
+    #         outputs, _ = tf.nn.dynamic_rnn(
+    #             fw_cell,
+    #             inputs,
+    #             dtype=np.float32,
+    #             sequence_length=input_len,
+    #         )
+    #     else:
+    #         if self.bw_cell == 'basic':
+    #             back_cell = BasicLSTMCell(self.embed_size)
+    #         else:
+    #             back_cell = GRUCell(self.embed_size)
+    #         outputs, _  = tf.nn.bidirectional_dynamic_rnn(
+    #             fw_cell,
+    #             back_cell,
+    #             inputs, 
+    #             dtype=np.float32,
+    #             sequence_length=input_len,
+    #         )
             
-            outputs = tf.concat(outputs, 2)
+    #         outputs = tf.concat(outputs, 2)
 
-        return outputs
+    #     return outputs
 
     # rnn through each 30', 1h 
-    def get_input_representation(self, inputs):
-        """Get fact (sentence) vectors via embedding, positional encoding and bi-directional GRU"""
-        inputs = tf.unstack(inputs, self.max_sent_len, 1)
-        # use encoding to get sentence representation plus position encoding
-        # (like fb represent)
-        if self.fw_cell == 'basic':
+    def get_input_representation(self, inputs, fw_cell="basic", length=None, attention=None):
+        if fw_cell == 'basic':
             fw_cell = BasicLSTMCell(self.embed_size)
+        elif fw_cell == 'att':
+            fw_cell = AttentionCell(self.embed_size, max_val=pr.pm25_max, min_val=0.0, attention=attention)
         else:
             fw_cell = GRUCell(self.embed_size)
         if not self.using_bidirection:
+            if not length:
+                length = self.max_sent_len
+            inputs = tf.unstack(inputs, length, 1)
             # outputs is array of max_time of [batch_size, cell_bw.output_size]
-            outputs, _ = tf.nn.static_rnn(
+            outputs, fn_state = tf.nn.static_rnn(
                 fw_cell,
                 inputs,
                 dtype=np.float32
@@ -177,14 +198,14 @@ class Model():
             else:
                 back_cell = GRU
                 Cell(self.embed_size)
-            outputs, _  = tf.nn.static_bidirectional_rnn(
+            outputs, fn_state  = tf.nn.static_bidirectional_rnn(
                 fw_cell,
                 back_cell,
                 inputs, 
                 dtype=np.float32
             )
             outputs = tf.concat(outputs, 2)
-        return outputs
+        return outputs, fn_state
 
     def add_loss_op(self, output):
         """Calculate loss"""
@@ -238,13 +259,12 @@ class Model():
         total_loss = []
         accuracy = 0
 
-        ct, ct_l, pr = data
-        ct, ct_l, pr = np.asarray(ct, dtype=np.float32), np.asarray(ct_l, dtype=np.int32), np.asarray(pr, dtype=np.int32)
-        print(len(pr))
+        ct, ct_l, pr, dec = data
+        ct, ct_l, pr, dec = np.asarray(ct, dtype=np.float32), np.asarray(ct_l, dtype=np.int32), np.asarray(pr, dtype=np.int32), np.asarray(dec, dtype=np.float32)
         if shuffle:
             # shuffle data
             r = np.random.permutation(dt_length)
-            ct, ct_l, pr = ct[r], ct_l[r], pr[r]
+            ct, ct_l, pr, dec = ct[r], ct_l[r], pr[r], dec[r]
         preds = []
         for step in range(total_steps):
             index = range(step * self.batch_size,
@@ -253,6 +273,7 @@ class Model():
             feed = {self.input_placeholder: ct[index],
                     self.pred_placeholder: pred_labels,
                     self.dropout_placeholder: dp,
+                    self.decode_placeholder: dec[index],
                     self.iteration: num_epoch}
             if self.input_rnn:
                 l = np.reshape(ct_l[index], [self.batch_size * self.max_sent_len])

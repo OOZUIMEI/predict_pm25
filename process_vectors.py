@@ -9,6 +9,7 @@ from datetime import datetime
 file_path = "/home/alex/Documents/datasets/featured_vectors"
 m = 30
 fixed = datetime.strptime("2017-06-01 00:00:00", '%Y-%m-%d %H:%M:%S')
+wind = ["E","ENE","ESE","N","NE","NNE","NNW","NW","S","SE","SSE","SSW","SW","W","WNW","WSW","CALM"]
 
 
 def get_date_offset(tm):
@@ -99,15 +100,32 @@ def concate_vector(url1, url2, url3, url4, sent_length):
     utils.save_file("full_vectors.pkl", vectors)
 
 
-def parse_full_vector(url, out_url, m, d):
+def add_element(a_j, a_i, vecs, use_wind=True):
+    if a_j == "null":
+        vecs[a_i].append(float(0))
+    elif a_j in wind:
+        if use_wind:
+            i = wind.index(a_j)
+            for j in xrange(len(wind)):
+                if j == i:
+                    vecs[a_i].append(1)
+                else:
+                    vecs[a_i].append(0)
+    else:
+        vecs[a_i].append(float(a_j))
+
+
+def parse_full_vector(url, out_url, m, d, use_wind=True):
     print(url)
     data = utils.load_file(url, False)
     res = []
     res_l = []
+    if use_wind:
+        d = d + len(wind)
     df = np.zeros(d, dtype=np.float32).tolist()
-    for d in data:
+    for r in data:
         # each row record
-        d_ = d.rstrip("\n")
+        d_ = r.rstrip("\n")
         arr_ = d_.split(",WrappedArray")
         arr = arr_[1:]
         vecs = None
@@ -125,20 +143,13 @@ def parse_full_vector(url, out_url, m, d):
                     a_v = a_v.split(",")
                     for a_j in a_v:
                         a_j = a_j.strip()
-                        if a_j == "null":
-                            vecs[a_i].append(float(0))
-                        else:
-                            vecs[a_i].append(float(a_j))
+                        add_element(a_j, a_i, vecs, use_wind)
             else:
                 fl = False
                 a = e_.split(",")
                 for a_i, a_ in enumerate(a):
                     a_ = a_.strip().replace("[", "").replace("]", "").replace(")", "")
-                    if a_ == "null":
-                        vecs[a_i].append(float(0))
-                    else:
-                        vecs[a_i].append(float(a_))
-                    print(arr_[0])
+                    add_element(a_, a_i, vecs, use_wind)
             # check first aggregated vector to get length of shift
             if not i:
                 l = len(a)
@@ -197,6 +208,7 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--doc_length", type=int, default=12)
     parser.add_argument("-m", "--max", type=int, default=30)
     parser.add_argument("-dim", "--dim", type=int, default=13)
+    parser.add_argument("-w", "--use_wind", type=int, default=1)
     args = parser.parse_args()
     if args.task == 1:
         if args.prefix:
@@ -215,7 +227,7 @@ if __name__ == "__main__":
         if args.prefix:
             args.url = args.prefix + "/" + args.url
             args.url1 = args.prefix + "/" + args.url1
-        parse_full_vector(args.url, args.url1, args.max, args.dim)
+        parse_full_vector(args.url, args.url1, args.max, args.dim, args.use_wind)
     elif args.task == 3:
         if args.prefix:
             args.url = args.prefix + "/" + args.url

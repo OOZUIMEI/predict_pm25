@@ -5,6 +5,13 @@ import codecs
 import numpy as np
 
 
+def save_predictions(best_preds, best_lb, path):
+    tmp = "preds,labels\n"
+    for x, y in zip(best_preds, best_lb):
+        tmp += "%i,%i\n" % (x, y)
+    save_file(path, tmp, False)
+
+
 def validate_path(name):
     paths = name.split("/")
     paths = paths[:-1]
