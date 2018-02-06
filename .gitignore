@@ -1,0 +1,6 @@
+*.pyc
+weights/
+accuracies/
+summaries/
+vectors/
+properties.py
