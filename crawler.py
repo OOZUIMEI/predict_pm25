@@ -56,6 +56,7 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--task", default=1, type=int)
     parser.add_argument("-u", "--url")
     parser.add_argument("-s", "--start_time")
+    parser.add_argument("-e", "--end_time")
     parser.add_argument("-u1", "--url1")
     parser.add_argument("-i", "--interval", type=int, default=3600)
 
@@ -70,11 +71,16 @@ if __name__ == "__main__":
         conn = msql.connect(host="220.123.184.109", port=3306, user="adw", passwd="adw2017!", db="kisti")
         try:
             db = conn.cursor()
-            while True:
-                now = datetime.fromtimestamp(time.mktime(time.localtime()))
-                if (now - start).total_seconds() >= interval:
-                    crawler(db, start, now, args.url)
-                    start = now
+            if args.end_time:
+                #2018-01-26 14:20:16
+                end = datetime.strptime(args.end_time, p.fm)
+                crawler(db, start, end, args.url)
+            else:
+                while True:
+                    now = datetime.fromtimestamp(time.mktime(time.localtime()))
+                    if (now - start).total_seconds() >= interval:
+                        crawler(db, start, now, args.url)
+                        start = now
         except Exception as e:
             print(e)
             conn.close()
