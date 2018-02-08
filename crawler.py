@@ -51,6 +51,11 @@ def data_to_csv(data):
     return tmp
 
 
+def connect():
+    conn = msql.connect(host="220.123.184.109", port=3306, user="adw", passwd="adw2017!", db="kisti")
+    return conn, conn.cursor()
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", "--task", default=1, type=int)
@@ -68,22 +73,26 @@ if __name__ == "__main__":
         else:
             start = datetime.strptime(args.start_time, p.fm)
         interval = args.interval
-        conn = msql.connect(host="220.123.184.109", port=3306, user="adw", passwd="adw2017!", db="kisti")
+        
         try:
-            db = conn.cursor()
             if args.end_time:
+                conn, db = connect()
                 #2018-01-26 14:20:16
                 end = datetime.strptime(args.end_time, p.fm)
                 crawler(db, start, end, args.url)
+                conn.close()
             else:
                 while True:
                     now = datetime.fromtimestamp(time.mktime(time.localtime()))
                     if (now - start).total_seconds() >= interval:
+                        conn, db = connect()
                         crawler(db, start, now, args.url)
                         start = now
+                        conn.close()
         except Exception as e:
             print(e)
-            conn.close()
+            if conn:
+                conn.close()
     elif args.task == 2 and args.url:
         print("==> load file %s" % args.url)
         data = utils.load_file(args.url)

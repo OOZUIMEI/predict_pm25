@@ -107,8 +107,25 @@ def update_progress(progress, sleep=0.01, barLength=20):
 def calculate_accuracy(pred, pred_labels, rng, is_classify):
     accuracy = 0
     if is_classify:
-        accuracy = np.sum(pred == pred_labels)
+        accuracy = np.sum([1 for x, y in zip(pred, pred_labels) if x == y])
     else:
         accuracy = np.sum([1 for x, y in zip(pred, pred_labels) if abs(x - y) <= rng])
 
     return accuracy
+
+
+def get_pm25_class(index):
+    cl = 0
+    if index <= 50:
+        cl = 0
+    elif index > 50 and index <= 100:
+        cl = 1
+    elif index > 100 and index <= 150:
+        cl = 2
+    elif index > 150 and index <= 200:
+        cl = 3
+    elif index > 200 and index <= 300:
+        cl = 4
+    else:
+        cl = 5
+    return cl

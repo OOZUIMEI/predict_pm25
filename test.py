@@ -46,24 +46,12 @@ def process_data(dataset, data_len, pred, batch_size, max_sent, sight=1):
 
 
 def main(prefix="", url_feature="", url_pred="", url_len="", url_weight="", batch_size=126, max_input_len=30, max_sent_length=24, 
-        embed_size=13, acc_range=10, sight=1):
-    utils.assert_url(url_feature)
-    if url_pred:
-        utils.assert_url(url_pred)
-        utils.assert_url(url_len)
-        dataset = utils.load_file(url_feature)
-        pred = utils.load_file(url_pred, False)
-        pred = [round(float(x.replace("\n", ""))) for x in pred]
-        data_len = utils.load_file(url_len)
-        test = process_data(dataset, data_len, pred, batch_size, max_sent_length, sight)
-    else:
-        test = utils.load_file(url_feature)
+        embed_size=13, acc_range=10, sight=1, is_classify=0):
     # init model
     model = Model(max_input_len=max_input_len, max_sent_len=max_sent_length, embed_size=embed_size, 
                  using_bidirection=False, fw_cell="basic", bw_cell="basic", batch_size=batch_size,
-                 is_classify=False, use_tanh_prediction=True, target=1, loss="mae", acc_range=acc_range, input_rnn=False,
-                 sight=sight, dvs=4)
-    
+                 is_classify=is_classify, use_tanh_prediction=True, target=5 if is_classify else 1, 
+                 loss="softmax" if is_classify else "mae", acc_range=acc_range, input_rnn=False, sight=sight, dvs=4)
     
     # model.init_data_node()
     tf.reset_default_graph()
@@ -71,6 +59,21 @@ def main(prefix="", url_feature="", url_pred="", url_len="", url_weight="", batc
         model.init_ops()
         saver = tf.train.Saver()
     
+    utils.assert_url(url_feature)
+    if url_pred:
+        utils.assert_url(url_pred)
+        utils.assert_url(url_len)
+        dataset = utils.load_file(url_feature)
+        pred = utils.load_file(url_pred, False)
+        if is_classify:
+            pred = [utils.get_pm25_class(round(float(x.replace("\n", "")))) for x in pred]
+        else:
+            pred = [round(float(x.replace("\n", ""))) for x in pred]
+        data_len = utils.load_file(url_len)
+        test = process_data(dataset, data_len, pred, batch_size, max_sent_length, sight)
+    else:
+        test = utils.load_file(url_feature)
+        
     tconfig = tf.ConfigProto(allow_soft_placement=True)
     
     with tf.Session(config=tconfig) as session:
@@ -102,9 +105,10 @@ if __name__ == "__main__":
     parser.add_argument("-il", "--input_size", type=int, default=30)
     parser.add_argument("-sl", "--sent_size", type=int, default=24)
     parser.add_argument("-s", "--sight", type=int, default=1)
+    parser.add_argument("-c", "--classify", type=int, default=0)
 
     args = parser.parse_args()
 
     main(args.prefix, args.feature_path, args.pred_path, args.feature_len_path, args.w_url, args.batch_size, 
-        args.input_size, args.sent_size, args.embed_size, args.acc_range, args.sight)
+        args.input_size, args.sent_size, args.embed_size, args.acc_range, args.sight, args.classify)
     

@@ -10,7 +10,7 @@ import properties as p
 from model import Model
 
 
-def process_data(dataset, data_len, pred, batch_size, max_sent, is_test=False, pred_sight=1):
+def process_data(dataset, data_len, pred, batch_size, max_sent, is_test=False, pred_sight=1, is_classify=False):
     dlength = len(dataset) - 1
     # total batch
     dlength_b = dlength // batch_size
@@ -58,8 +58,9 @@ def process_data(dataset, data_len, pred, batch_size, max_sent, is_test=False, p
 
 def main(prefix="", url_feature="", url_pred="", url_len="",  url_feature1="", url_pred1="", url_len1="", 
         batch_size=126, max_input_len=30, max_sent_length=24, lr_decayable=False, using_bidirection=False, 
-        forward_cell='', backward_cell='', embed_size=None, target=5, is_classify=True, loss=None, acc_range=None, 
+        forward_cell='', backward_cell='', embed_size=None, is_classify=True, loss=None, acc_range=None, 
         usp=None, input_rnn=None, reload_data=True, pred_sight=1):
+    target = 5 if is_classify else 1
     model = Model(max_input_len=max_input_len, max_sent_len=max_sent_length, embed_size=embed_size, learning_rate = 0.001, lr_decayable=lr_decayable, 
                  using_bidirection=using_bidirection, fw_cell=forward_cell, bw_cell=backward_cell, batch_size=batch_size,
                  target=target, is_classify=is_classify, loss=loss, acc_range=acc_range, use_tanh_prediction=usp, input_rnn=input_rnn, 
@@ -83,7 +84,10 @@ def main(prefix="", url_feature="", url_pred="", url_len="",  url_feature1="", u
         dataset = utils.load_file(url_feature)
         data_len = utils.load_file(url_len)
         pred = utils.load_file(url_pred, False)
-        pred = [round(float(x.replace("\n", ""))) for x in pred]
+        if is_classify:
+            pred = [utils.get_pm25_class(round(float(x.replace("\n", "")))) for x in pred]
+        else:
+            pred = [round(float(x.replace("\n", ""))) for x in pred]
         train, dev = process_data(dataset, data_len, pred, batch_size, max_sent_length, False, pred_sight)
         # utils.save_file(p.train_url % ("_" + prefix + "_" + str(max_sent_length)), train)
         # utils.save_file(p.dev_url % ("_" + prefix + "_" +str(max_sent_length)), dev)
@@ -186,7 +190,6 @@ if __name__ == "__main__":
     parser.add_argument("-bd", "--bidirection", type=int)
     parser.add_argument("-dc", "--lr_decayable", type=int, default=1)
     parser.add_argument("-bs", "--batch_size", type=int, default=54)
-    parser.add_argument("-t", "--target", type=int, default=1)
     parser.add_argument("-c", "--classify", type=int, default=0)
     parser.add_argument("-l", "--loss", default='softmax')
     parser.add_argument("-r", "--acc_range", type=int, default=10)
@@ -202,6 +205,6 @@ if __name__ == "__main__":
 
     main(args.prefix, args.feature_path, args.pred_path, args.feature_len_path, args.feature_path1, args.pred_path1, args.feature_len_path1,
         args.batch_size, args.input_size, args.sent_size, args.lr_decayable, 
-        args.bidirection, args.forward_cell, args.backward_cell, args.embed_size, args.target, args.classify, 
+        args.bidirection, args.forward_cell, args.backward_cell, args.embed_size, args.classify, 
         args.loss, args.acc_range, args.use_tanh_pred, args.input_rnn, args.reload_data, args.pred_sight)
     
