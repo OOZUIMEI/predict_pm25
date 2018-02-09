@@ -30,6 +30,8 @@ if __name__ == "__main__":
     else:
         pred_ = [utils.get_pm25_class(x) for x in pred]
         labs_ = [utils.get_pm25_class(x) for x in labs]
+        tes = [x if (x==y) else -1 for x, y in zip(pred_, labs_) ]
+        print(tes)
         cacc = utils.calculate_accuracy(pred_, labs_, 0, True)
         cacc = float(cacc) / l * 100
         print("classified accuracy:%.2f" % cacc)

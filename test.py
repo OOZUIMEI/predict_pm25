@@ -46,13 +46,13 @@ def process_data(dataset, data_len, pred, batch_size, max_sent, sight=1):
 
 
 def main(prefix="", url_feature="", url_pred="", url_len="", url_weight="", batch_size=126, max_input_len=30, max_sent_length=24, 
-        embed_size=13, acc_range=10, sight=1, is_classify=0, decoder_size=4):
+        embed_size=13, acc_range=10, sight=1, is_classify=0, decoder=1, decoder_size=4):
     # init model
     model = Model(max_input_len=max_input_len, max_sent_len=max_sent_length, embed_size=embed_size, 
                  using_bidirection=False, fw_cell="basic", bw_cell="basic", batch_size=batch_size,
                  is_classify=is_classify, use_tanh_prediction=True, target=5 if is_classify else 1, 
                  loss="softmax" if is_classify else "mae", acc_range=acc_range, input_rnn=False, sight=sight, 
-                 dvs=decoder_size)
+                 use_decoder=decoder, dvs=decoder_size)
     
     # model.init_data_node()
     tf.reset_default_graph()
@@ -107,10 +107,11 @@ if __name__ == "__main__":
     parser.add_argument("-sl", "--sent_size", type=int, default=24)
     parser.add_argument("-s", "--sight", type=int, default=1)
     parser.add_argument("-c", "--classify", type=int, default=0)
+    parser.add_argument("-d", "--decoder", type=int, default=1)
     parser.add_argument("-ds", "--decoder_size", type=int, default=4)
 
     args = parser.parse_args()
 
     main(args.prefix, args.feature_path, args.pred_path, args.feature_len_path, args.w_url, args.batch_size, 
-        args.input_size, args.sent_size, args.embed_size, args.acc_range, args.sight, args.classify, args.decoder_size)
+        args.input_size, args.sent_size, args.embed_size, args.acc_range, args.sight, args.classify, args.decoder, args.decoder_size)
     
