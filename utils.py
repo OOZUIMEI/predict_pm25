@@ -110,7 +110,7 @@ def calculate_accuracy(pred, pred_labels, rng, is_classify):
         accuracy = np.sum([1 for x, y in zip(pred, pred_labels) if x == y])
     else:
         accuracy = np.sum([1 for x, y in zip(pred, pred_labels) if abs(x - y) <= rng])
-
+        # print([(x, y) for x, y in zip(pred, pred_labels) if abs(round(x) - round(y)) <= rng])
     return accuracy
 
 

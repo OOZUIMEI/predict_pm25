@@ -288,19 +288,21 @@ class Model():
                 train_writer.add_summary(
                     summary, num_epoch * total_steps + step)
             
-            preds += [x for x in pred]
-            accuracy += utils.calculate_accuracy(pred, pred_labels, self.range, self.is_classify)
-
+            pred = [int(round(x)) if x > 0 else 0 for x in pred]
+            preds += pred
+            acc = utils.calculate_accuracy(pred, pred_labels, self.range, self.is_classify)
+            accuracy += acc
             total_loss.append(loss)
 
-            if verbose and step % verbose == 0:
-                sys.stdout.write('\r{} / {} : loss = {}'.format(
-                    step, total_steps, np.mean(total_loss)))
-                sys.stdout.flush()
+        #     if verbose and step % verbose == 0:
+        #         sys.stdout.write('\r{} / {} : loss = {}'.format(
+        #             step, total_steps, np.mean(total_loss)))
+        #         sys.stdout.flush()
 
-        if verbose:
-            sys.stdout.write('\r')
+        # if verbose:
+        #     sys.stdout.write('\r')
         avg_acc = 0.
         if total_steps:
+            print(accuracy)
             avg_acc = accuracy * 1.0 / len(preds)
         return np.mean(total_loss), avg_acc, preds, pr.tolist()
