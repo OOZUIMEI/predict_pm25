@@ -105,12 +105,14 @@ def add_element(a_j, a_i, vecs, use_wind=True):
         vecs[a_i].append(float(0))
     elif a_j in wind:
         if use_wind:
+            l = len(wind) - 1
             i = wind.index(a_j)
-            for j in xrange(len(wind)):
-                if j == i:
-                    vecs[a_i].append(1)
-                else:
-                    vecs[a_i].append(0)
+            vecs[a_i].append(float(i) / l)
+            # for j in xrange(len(wind)):
+            #     if j == i:
+            #         vecs[a_i].append(1)
+            #     else:
+            #         vecs[a_i].append(0)
     else:
         vecs[a_i].append(float(a_j))
 
@@ -120,8 +122,8 @@ def parse_full_vector(url, out_url, m, d, use_wind=True):
     data = utils.load_file(url, False)
     res = []
     res_l = []
-    if use_wind:
-        d = d + len(wind)
+    # if use_wind:
+    #     d = d + len(wind)
     df = np.zeros(d, dtype=np.float32).tolist()
     for r in data:
         # each row record

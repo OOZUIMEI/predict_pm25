@@ -35,6 +35,7 @@ def process_data(dataset, data_len, pred, batch_size, max_sent, is_test=False, p
             decode_vec.append(arr_d)
         else:
             break
+    print(np.shape(decode_vec))
     if not is_test:
         r = np.random.permutation(len(new_data_len))
         new_data, new_data_len, new_pred, decode_vec = np.asarray(new_data, dtype=np.float32), np.asarray(new_data_len, dtype=np.int32), np.asarray(new_pred, dtype=np.int32), np.asarray(decode_vec, dtype=np.float32)
@@ -59,12 +60,12 @@ def process_data(dataset, data_len, pred, batch_size, max_sent, is_test=False, p
 def main(prefix="", url_feature="", url_pred="", url_len="",  url_feature1="", url_pred1="", url_len1="", 
         batch_size=126, max_input_len=30, max_sent_length=24, lr_decayable=False, using_bidirection=False, 
         forward_cell='', backward_cell='', embed_size=None, is_classify=True, loss=None, acc_range=None, 
-        usp=None, input_rnn=None, reload_data=True, pred_sight=1):
+        usp=None, input_rnn=None, reload_data=True, pred_sight=1, decoder=1, decoder_size=4):
     target = 5 if is_classify else 1
     model = Model(max_input_len=max_input_len, max_sent_len=max_sent_length, embed_size=embed_size, learning_rate = 0.001, lr_decayable=lr_decayable, 
                  using_bidirection=using_bidirection, fw_cell=forward_cell, bw_cell=backward_cell, batch_size=batch_size,
                  target=target, is_classify=is_classify, loss=loss, acc_range=acc_range, use_tanh_prediction=usp, input_rnn=input_rnn, 
-                 sight=pred_sight, dvs=4)
+                 sight=pred_sight, dvs=decoder_size, use_decoder=decoder)
     # model.init_data_node()
     with tf.device('/cpu'):
         model.init_ops()
@@ -200,11 +201,13 @@ if __name__ == "__main__":
     parser.add_argument("-ir", "--input_rnn", type=int, default=0)
     parser.add_argument("-rl", "--reload_data", type=int, default=1)
     parser.add_argument("-s", "--pred_sight", type=int, default=1)
+    parser.add_argument("-d", "--decoder", type=int, default=1)
+    parser.add_argument("-ds", "--decoder_size", type=int, default=4)
 
     args = parser.parse_args()
 
     main(args.prefix, args.feature_path, args.pred_path, args.feature_len_path, args.feature_path1, args.pred_path1, args.feature_len_path1,
         args.batch_size, args.input_size, args.sent_size, args.lr_decayable, 
         args.bidirection, args.forward_cell, args.backward_cell, args.embed_size, args.classify, 
-        args.loss, args.acc_range, args.use_tanh_pred, args.input_rnn, args.reload_data, args.pred_sight)
+        args.loss, args.acc_range, args.use_tanh_pred, args.input_rnn, args.reload_data, args.pred_sight, args.decoder, args.decoder_size)
     
