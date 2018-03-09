@@ -12,6 +12,7 @@ fixed = datetime.strptime("2017-06-01 00:00:00", '%Y-%m-%d %H:%M:%S')
 wind = ["E","ENE","ESE","N","NE","NNE","NNW","NW","S","SE","SSE","SSW","SW","W","WNW","WSW","CALM"]
 
 
+# check if date > fixed date
 def get_date_offset(tm):
     d1 = datetime.fromtimestamp(tm)
     delta = d1 - fixed
@@ -65,6 +66,7 @@ def get_vectors(url):
     return arr
 
 
+# concate vector with pressure and weather data
 def concate_vector(url1, url2, url3, url4, sent_length):
     vectors = []
     data1 = utils.load_file(url1, False)
@@ -100,30 +102,35 @@ def concate_vector(url1, url2, url3, url4, sent_length):
     utils.save_file("full_vectors.pkl", vectors)
 
 
-def add_element(a_j, a_i, vecs, use_wind=True):
+# add each element to vector 
+# depend on element type either number or wind type
+def add_element(a_j, a_i, vecs, use_wind=True, one_hot=False):
     if a_j == "null":
         vecs[a_i].append(float(0))
     elif a_j in wind:
         if use_wind:
-            l = len(wind) - 1
             i = wind.index(a_j)
-            vecs[a_i].append(float(i) / l)
-            # for j in xrange(len(wind)):
-            #     if j == i:
-            #         vecs[a_i].append(1)
-            #     else:
-            #         vecs[a_i].append(0)
+            if not one_hot:
+                l = len(wind) - 1
+                vecs[a_i].append(float(i) / l)
+            else:
+                for j in xrange(len(wind)):
+                    if j == i:
+                        vecs[a_i].append(1)
+                    else:
+                        vecs[a_i].append(0)
     else:
         vecs[a_i].append(float(a_j))
 
 
-def parse_full_vector(url, out_url, m, d, use_wind=True):
+# parser completed vector operation
+def parse_full_vector(url, out_url, m, d, use_wind=True, one_hot=False):
     print(url)
     data = utils.load_file(url, False)
     res = []
     res_l = []
-    # if use_wind:
-    #     d = d + len(wind)
+    if one_hot:
+        d = d + len(wind)
     df = np.zeros(d, dtype=np.float32).tolist()
     for r in data:
         # each row record
@@ -145,13 +152,13 @@ def parse_full_vector(url, out_url, m, d, use_wind=True):
                     a_v = a_v.split(",")
                     for a_j in a_v:
                         a_j = a_j.strip()
-                        add_element(a_j, a_i, vecs, use_wind)
+                        add_element(a_j, a_i, vecs, use_wind, one_hot)
             else:
                 fl = False
                 a = e_.split(",")
                 for a_i, a_ in enumerate(a):
                     a_ = a_.strip().replace("[", "").replace("]", "").replace(")", "")
-                    add_element(a_, a_i, vecs, use_wind)
+                    add_element(a_, a_i, vecs, use_wind, one_hot)
             # check first aggregated vector to get length of shift
             if not i:
                 l = len(a)
@@ -211,8 +218,10 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--max", type=int, default=30)
     parser.add_argument("-dim", "--dim", type=int, default=13)
     parser.add_argument("-w", "--use_wind", type=int, default=1)
+    parser.add_argument("-oh", "--one_hot", type=int, default=0)
     args = parser.parse_args()
     if args.task == 1:
+        # parser vector separately
         if args.prefix:
             u = args.prefix + "/" + args.url 
             u1 = args.prefix + "/" + args.url1 
@@ -226,10 +235,11 @@ if __name__ == "__main__":
         # -u normalization.csv -u1 short_feature_vectors -u2 pressures -u3 weathers
         concate_vector(u, u1, u2, u3, args.sent_length, args.doc_length)
     elif args.task == 2:
+        # parse completed vectors
         if args.prefix:
             args.url = args.prefix + "/" + args.url
             args.url1 = args.prefix + "/" + args.url1
-        parse_full_vector(args.url, args.url1, args.max, args.dim, args.use_wind)
+        parse_full_vector(args.url, args.url1, args.max, args.dim, args.use_wind, args.one_hot)
     elif args.task == 3:
         if args.prefix:
             args.url = args.prefix + "/" + args.url

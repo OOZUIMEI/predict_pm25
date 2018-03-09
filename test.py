@@ -33,7 +33,7 @@ def process_data(dataset, data_len, pred, batch_size, max_sent, sight=1):
         if e <= dlength and d_e <= dlength:
             arr = dataset[x : e]
             arr_l = data_len[x : e]
-            arr_d =[x[0][7:] for x in dataset[e : d_e]] 
+            arr_d =[x[0][8:12] for x in dataset[e : d_e]] 
             new_data.append(arr)
             new_data_len.append(arr_l)
             new_pred.append(pred[p_i])

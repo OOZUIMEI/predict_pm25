@@ -28,14 +28,14 @@ def process_data(dataset, data_len, pred, batch_size, max_sent, is_test=False, p
         if e <= dlength and d_e <= dlength:
             arr = dataset[x : e]
             arr_l = data_len[x : e]
-            arr_d =[x[0][7:] for x in dataset[e : d_e]] 
+            arr_d =[x[0][8:12] for x in dataset[e : d_e]] 
             new_data.append(arr)
             new_data_len.append(arr_l)
             new_pred.append(pred[p_i])
             decode_vec.append(arr_d)
         else:
             break
-    print(np.shape(decode_vec))
+    # print(np.shape(decode_vec))
     if not is_test:
         r = np.random.permutation(len(new_data_len))
         new_data, new_data_len, new_pred, decode_vec = np.asarray(new_data, dtype=np.float32), np.asarray(new_data_len, dtype=np.int32), np.asarray(new_pred, dtype=np.int32), np.asarray(decode_vec, dtype=np.float32)

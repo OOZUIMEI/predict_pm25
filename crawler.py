@@ -2,7 +2,7 @@
 # https://stackoverflow.com/questions/39149243/how-do-i-connect-to-a-sql-server-database-with-python/46285105#46285105
 
 import MySQLdb as msql 
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
 import argparse
 import utils
@@ -63,7 +63,7 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--start_time")
     parser.add_argument("-e", "--end_time")
     parser.add_argument("-u1", "--url1")
-    parser.add_argument("-i", "--interval", type=int, default=3600)
+    parser.add_argument("-i", "--interval", type=int, default=0)
 
     args = parser.parse_args()
     if args.task == 1:
@@ -76,11 +76,21 @@ if __name__ == "__main__":
         
         try:
             if args.end_time:
-                conn, db = connect()
-                #2018-01-26 14:20:16
                 end = datetime.strptime(args.end_time, p.fm)
-                crawler(db, start, end, args.url)
-                conn.close()
+                if args.interval:
+                    while start < end:
+                        conn, db = connect()
+                        now = start + timedelta(seconds=args.interval)
+                        if now > end:
+                            now = end
+                        crawler(db, start, now, args.url)
+                        start = now
+                        conn.close()
+                else:
+                    conn, db = connect()
+                    #2018-01-26 14:20:16
+                    crawler(db, start, end, args.url)
+                    conn.close()
             else:
                 while True:
                     now = datetime.fromtimestamp(time.mktime(time.localtime()))
