@@ -67,7 +67,7 @@ def main(prefix="", url_feature="", url_pred="", url_len="",  url_feature1="", u
                  target=target, is_classify=is_classify, loss=loss, acc_range=acc_range, use_tanh_prediction=usp, input_rnn=input_rnn, 
                  sight=pred_sight, dvs=decoder_size, use_decoder=decoder)
     # model.init_data_node()
-    with tf.device('/cpu'):
+    with tf.device('/%s' % p.device):
         model.init_ops()
         print('==> initializing variables')
         init = tf.global_variables_initializer()
@@ -101,7 +101,8 @@ def main(prefix="", url_feature="", url_pred="", url_len="",  url_feature1="", u
     
     model.set_data(train, dev)
     
-    tconfig = tf.ConfigProto(allow_soft_placement=True)
+    gpu_options = tf.GpuOptions(per_process_gpu_memory_fraction=0.25)
+    tconfig = tf.ConfigProto(allow_soft_placement=True, gpu_options=gpu_options)
 
     with tf.Session(config=tconfig) as session:
 
