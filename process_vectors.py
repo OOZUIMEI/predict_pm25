@@ -9,8 +9,6 @@ from datetime import datetime
 file_path = "/home/alex/Documents/datasets/featured_vectors"
 m = 30
 fixed = datetime.strptime("2017-06-01 00:00:00", '%Y-%m-%d %H:%M:%S')
-wind = ["E","ENE","ESE","N","NE","NNE","NNW","NW","S","SE","SSE","SSW","SW","W","WNW","WSW","CALM"]
-
 
 # check if date > fixed date
 def get_date_offset(tm):
@@ -102,77 +100,42 @@ def concate_vector(url1, url2, url3, url4, sent_length):
     utils.save_file("full_vectors.pkl", vectors)
 
 
-# add each element to vector 
-# depend on element type either number or wind type
-def add_element(a_j, a_i, vecs, use_wind=True, one_hot=False):
-    if a_j == "null":
-        vecs[a_i].append(float(0))
-    elif a_j in wind:
-        if use_wind:
-            i = wind.index(a_j)
-            if not one_hot:
-                l = len(wind) - 1
-                vecs[a_i].append(float(i) / l)
-            else:
-                for j in xrange(len(wind)):
-                    if j == i:
-                        vecs[a_i].append(1)
-                    else:
-                        vecs[a_i].append(0)
-    else:
-        vecs[a_i].append(float(a_j))
-
-
 # parser completed vector operation
-def parse_full_vector(url, out_url, m, d, use_wind=True, one_hot=False):
+def parse_full_vector(url, out_url, m, d):
     print(url)
     data = utils.load_file(url, False)
     res = []
     res_l = []
-    if one_hot:
-        d = d + len(wind)
     df = np.zeros(d, dtype=np.float32).tolist()
     for r in data:
         # each row record
         d_ = r.rstrip("\n")
         arr_ = d_.split(",WrappedArray")
-        arr = arr_[1:]
-        vecs = None
-        for i, e in enumerate(arr):
-            if not i:
-                vecs = [[] for l_i in xrange(m)]
-            e_ = e.lstrip("(").rstrip(")")
-            a = None
-            if "[" in e_:
-                a = e_.split("], ")
-                if len(a) == (2 * m):
-                    a = [x for t, x in enumerate(a) if (t % 2) == 0]
-                for a_i, a_ in enumerate(a):
-                    a_v = a_.replace("[", "").replace("]", "").replace(")", "")
-                    a_v = a_v.split(",")
-                    for a_j in a_v:
-                        a_j = a_j.strip()
-                        add_element(a_j, a_i, vecs, use_wind, one_hot)
-            else:
-                fl = False
-                a = e_.split(",")
-                for a_i, a_ in enumerate(a):
-                    a_ = a_.strip().replace("[", "").replace("]", "").replace(")", "")
-                    add_element(a_, a_i, vecs, use_wind, one_hot)
-            # check first aggregated vector to get length of shift
-            if not i:
-                l = len(a)
-                res_l.append(l)
-                re = m - l
-                if re:
-                    for x in xrange(re):
-                        vecs[x + l] = df
-        # s = np.shape(vecs)
-        # if len(s) != 2 or s[1] == 1:
-        #     break
+        cm_features = arr_[-2]
+        cm_features_ = cm_features.lstrip("(").rstrip(")").split("],")
+        oh_features = arr_[-1]
+        oh_features_ = oh_features.lstrip("(").rstrip(")").split("]),")
+        vecs = np.zeros((m, d))
+        for i, re in enumerate(zip(cm_features_, oh_features_)):
+            e, o = re               
+            e_ = e.lstrip("[")
+            o_ = o.lstrip("(")
+            ae = e_.split(",")
+            ae = [float(a_i.replace("[", "").replace("]", "")) for a_i in ae]
+            ao = o_.split(",[")
+            # print(len(ae))
+            # onehot length = 
+            o_l = ao[0]
+            o_d = ao[1].rstrip("]")
+            # print(ao)
+            tmp = np.zeros(int(o_l.replace("(", "")))
+            for e in o_d.split(","):
+                tmp[int(e)] = 1.0
+            tmp = ae + tmp.tolist()     
+            vecs[i] = tmp
+        res_l.append(len(cm_features_))
         res.append(vecs)
     print(np.shape(res))
-    print("len", len(res_l))
     utils.save_file("%s_len" % out_url, res_l)
     utils.save_file("%s" % out_url, res)
 
@@ -217,40 +180,25 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--doc_length", type=int, default=12)
     parser.add_argument("-m", "--max", type=int, default=30)
     parser.add_argument("-dim", "--dim", type=int, default=13)
-    parser.add_argument("-w", "--use_wind", type=int, default=1)
-    parser.add_argument("-oh", "--one_hot", type=int, default=0)
     args = parser.parse_args()
+
+    if args.prefix:
+        args.url = args.prefix + "/" + args.url
+        args.url1 = args.prefix + "/" + args.url1
+
     if args.task == 1:
-        # parser vector separately
-        if args.prefix:
-            u = args.prefix + "/" + args.url 
-            u1 = args.prefix + "/" + args.url1 
-            u2 = args.prefix + "/" + args.url2 
-            u3 = args.prefix + "/" + args.url3
-        else:
-            u = args.url 
-            u1 = args.url1 
-            u2 = args.url2 
-            u3 = args.url3
+        u2 = args.prefix + "/" + args.url2 
+        u3 = args.prefix + "/" + args.url3
         # -u normalization.csv -u1 short_feature_vectors -u2 pressures -u3 weathers
         concate_vector(u, u1, u2, u3, args.sent_length, args.doc_length)
     elif args.task == 2:
         # parse completed vectors
-        if args.prefix:
-            args.url = args.prefix + "/" + args.url
-            args.url1 = args.prefix + "/" + args.url1
-        parse_full_vector(args.url, args.url1, args.max, args.dim, args.use_wind, args.one_hot)
+        parse_full_vector(args.url, args.url1, args.max, args.dim)
     elif args.task == 3:
-        if args.prefix:
-            args.url = args.prefix + "/" + args.url
-            args.url1 = args.prefix + "/" + args.url1
-            args.url2 = args.prefix + "/" + args.url2
+        args.url2 = args.prefix + "/" + args.url2
         merge_vectors(args.url, args.url1, args.url2)
     elif args.task == 4:
-        if args.prefix:
-            args.url = args.prefix + "/" + args.url
-            args.url1 = args.prefix + "/" + args.url1
-            args.url2 = args.prefix + "/" + args.url2
+        args.url2 = args.prefix + "/" + args.url2
         get_labels(args.url, args.url1, args.url2)
     else:
         clear_vector(args.url)
