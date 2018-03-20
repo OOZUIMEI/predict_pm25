@@ -17,34 +17,6 @@ def save_predictions(best_preds, best_lb, prefix=""):
     utils.save_file("test_acc/%s_test_preds.txt" % prefix, tmp, False)
 
 
-def process_data(dataset, data_len, pred, batch_size, max_sent, sight=1):
-    dlength = len(dataset) - 1
-    # total batch
-    dlength_b = dlength // batch_size
-    maximum = dlength_b * batch_size
-    dataset = dataset[:-1]
-    data_len = data_len[:-1]
-    new_data, new_data_len, new_pred = [], [], []
-    decode_vec = []
-    for x in xrange(maximum):
-        e = x + max_sent
-        p_i = e + sight - 1
-        d_e = p_i + 1
-        if e <= dlength and d_e <= dlength:
-            arr = dataset[x : e]
-            arr_l = data_len[x : e]
-            arr_d =[x[0][8:12] for x in dataset[e : d_e]] 
-            new_data.append(arr)
-            new_data_len.append(arr_l)
-            new_pred.append(pred[p_i])
-            decode_vec.append(arr_d)
-        else:
-            break
-    data = (new_data, new_data_len, new_pred, decode_vec)
-    return data
-
-
-
 def main(prefix="", url_feature="", url_pred="", url_len="", url_weight="", batch_size=126, max_input_len=30, max_sent_length=24, 
         embed_size=13, acc_range=10, sight=1, is_classify=0, decoder=1, decoder_size=4):
     # init model
@@ -70,8 +42,12 @@ def main(prefix="", url_feature="", url_pred="", url_len="", url_weight="", batc
             pred = [utils.get_pm25_class(round(float(x.replace("\n", "")))) for x in pred]
         else:
             pred = [round(float(x.replace("\n", ""))) for x in pred]
-        data_len = utils.load_file(url_len)
-        test = process_data(dataset, data_len, pred, batch_size, max_sent_length, sight)
+        if max_input_len > 1:
+            utils.assert_url(url_len)
+            data_len = utils.load_file(url_len)
+        else:
+            data_len = None
+        test = utils.process_data(dataset, data_len, pred, batch_size, max_input_len, max_sent_length, True, sight)
     else:
         test = utils.load_file(url_feature)
         

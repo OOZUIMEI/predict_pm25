@@ -10,53 +10,6 @@ import properties as p
 from model import Model
 
 
-def process_data(dataset, data_len, pred, batch_size, max_sent, is_test=False, pred_sight=1, is_classify=False):
-    dlength = len(dataset) - 1
-    # total batch
-    dlength_b = dlength // batch_size
-    maximum = dlength_b * batch_size
-    dataset = dataset[:-1]
-    data_len = data_len[:-1]
-    new_data = []
-    new_data_len = []
-    new_pred = []
-    decode_vec = []
-    for x in xrange(maximum):
-        e = x + max_sent
-        p_i = e + pred_sight - 1
-        d_e = p_i + 1
-        if e <= dlength and d_e <= dlength:
-            arr = dataset[x : e]
-            arr_l = data_len[x : e]
-            arr_d =[x[0][7:] for x in dataset[e : d_e]] 
-            new_data.append(arr)
-            new_data_len.append(arr_l)
-            new_pred.append(pred[p_i])
-            decode_vec.append(arr_d)
-        else:
-            break
-    # print(np.shape(decode_vec))
-    if not is_test:
-        r = np.random.permutation(len(new_data_len))
-        new_data, new_data_len, new_pred, decode_vec = np.asarray(new_data, dtype=np.float32), np.asarray(new_data_len, dtype=np.int32), np.asarray(new_pred, dtype=np.int32), np.asarray(decode_vec, dtype=np.float32)
-        new_data, new_data_len, new_pred, decode_vec = new_data[r], new_data_len[r], new_pred[r], decode_vec[r]
-        train_len = int(dlength_b * 0.8) * batch_size
-        train_data = new_data[:train_len]
-        train_data_len = new_data_len[:train_len]
-        train_pred = new_pred[:train_len]
-        train_dec = decode_vec[:train_len]
-        valid_data = new_data[train_len:]
-        valid_data_len = new_data_len[train_len:]
-        valid_pred = new_pred[train_len:]
-        valid_dec = decode_vec[train_len:]
-        train = (train_data, train_data_len, train_pred, train_dec)
-        dev = (valid_data, valid_data_len, valid_pred, valid_dec)
-    else:
-        train = None
-        dev = (new_data, new_data_len, new_pred)
-    return train, dev
-
-
 def main(prefix="", url_feature="", url_pred="", url_len="",  url_feature1="", url_pred1="", url_len1="", 
         batch_size=126, max_input_len=30, max_sent_length=24, lr_decayable=False, using_bidirection=False, 
         forward_cell='', backward_cell='', embed_size=None, is_classify=True, loss=None, acc_range=None, 
@@ -74,22 +27,26 @@ def main(prefix="", url_feature="", url_pred="", url_len="",  url_feature1="", u
         saver = tf.train.Saver()
     
     if reload_data:
+        print("Loading dataset")
         utils.assert_url(url_feature)
         utils.assert_url(url_pred)
-        utils.assert_url(url_len)
-        if url_feature1:
-            utils.assert_url(url_feature1)
-            utils.assert_url(url_pred1)
-            utils.assert_url(url_len1)
-        print("Loading dataset")
+        if max_input_len > 1:
+            utils.assert_url(url_len)
+            data_len = utils.load_file(url_len)
+        else:
+            data_len = None
+        # if url_feature1:
+        #     utils.assert_url(url_feature1)
+        #     utils.assert_url(url_pred1)
+        #     if max_input_len > 1:
+        #         utils.assert_url(url_len1)
         dataset = utils.load_file(url_feature)
-        data_len = utils.load_file(url_len)
         pred = utils.load_file(url_pred, False)
         if is_classify:
             pred = [utils.get_pm25_class(round(float(x.replace("\n", "")))) for x in pred]
         else:
             pred = [round(float(x.replace("\n", ""))) for x in pred]
-        train, dev = process_data(dataset, data_len, pred, batch_size, max_sent_length, False, pred_sight)
+        train, dev = utils.process_data(dataset, data_len, pred, batch_size, max_input_len, max_sent_length, False, pred_sight)
         # utils.save_file(p.train_url % ("_" + prefix + "_" + str(max_sent_length)), train)
         # utils.save_file(p.dev_url % ("_" + prefix + "_" +str(max_sent_length)), dev)
     else:
@@ -97,11 +54,12 @@ def main(prefix="", url_feature="", url_pred="", url_len="",  url_feature1="", u
         utils.assert_url(p.dev_url)
         train = utils.load_file(p.train_url)
         dev = utils.load_file(p.dev_url)
-        # config.strong_supervision = True
-    
     model.set_data(train, dev)
     
-    gpu_options = tf.GpuOptions(per_process_gpu_memory_fraction=0.25)
+    gpu_options = None
+    if p.device == "gpu":
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.25)
+       
     tconfig = tf.ConfigProto(allow_soft_placement=True, gpu_options=gpu_options)
 
     with tf.Session(config=tconfig) as session:

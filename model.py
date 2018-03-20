@@ -69,11 +69,13 @@ class Model():
     def add_placeholders(self):
         """add data placeholder to graph """
         
-        self.input_placeholder = tf.placeholder(tf.float32, shape=(self.batch_size, self.max_sent_len, self.max_input_len, self.embed_size))  
-        self.input_len_placeholder = tf.placeholder(tf.int32, shape=(self.batch_size * self.max_sent_len,))
+        if self.max_input_len > 1:
+            self.input_placeholder = tf.placeholder(tf.float32, shape=(self.batch_size, self.max_sent_len, self.max_input_len, self.embed_size))  
+            self.input_len_placeholder = tf.placeholder(tf.int32, shape=(self.batch_size * self.max_sent_len,))
+        else:
+            self.input_placeholder = tf.placeholder(tf.float32, shape=(self.batch_size, self.max_sent_len, self.embed_size))    
 
         self.decode_placeholder = tf.placeholder(tf.float32, shape=(self.batch_size, self.decode_length, self.decode_vector_size))  
-
         self.pred_placeholder = tf.placeholder(
             tf.int32, shape=(self.batch_size,))
         # else:
@@ -92,7 +94,10 @@ class Model():
             #     # reduce over shift
             #     word_reps = tf.reduce_mean(word_reps, axis=1)
             #     word_reps = tf.reshape(word_reps, [self.batch_size, self.max_sent_len, self.embed_size])        
-            word_reps = tf.reduce_mean(self.input_placeholder, axis=2)
+            if self.max_input_len > 1:
+                word_reps = tf.reduce_mean(self.input_placeholder, axis=2)
+            else:
+                word_reps = self.input_placeholder
 
         with tf.variable_scope("sentence", initializer=tf.contrib.layers.xavier_initializer()):
             # decode with attention 
@@ -261,13 +266,16 @@ class Model():
         total_steps = dt_length // self.batch_size
         total_loss = []
         accuracy = 0
-
+        r = np.random.permutation(dt_length)
         ct, ct_l, pr, dec = data
-        ct, ct_l, pr, dec = np.asarray(ct, dtype=np.float32), np.asarray(ct_l, dtype=np.int32), np.asarray(pr, dtype=np.int32), np.asarray(dec, dtype=np.float32)
+        ct, pr, dec = np.asarray(ct, dtype=np.float32), np.asarray(pr, dtype=np.int32), np.asarray(dec, dtype=np.float32)
         if shuffle:
             # shuffle data
-            r = np.random.permutation(dt_length)
-            ct, ct_l, pr, dec = ct[r], ct_l[r], pr[r], dec[r]
+            ct, pr, dec = ct[r], pr[r], dec[r]
+            if ct_l:
+                ct_l = ct_l[r]
+        elif ct_l:
+            ct_l = np.asarray(ct_l, dtype=np.int32)
         preds = []
         for step in range(total_steps):
             index = range(step * self.batch_size,
@@ -278,9 +286,9 @@ class Model():
                     self.dropout_placeholder: dp,
                     self.decode_placeholder: dec[index],
                     self.iteration: num_epoch}
-            if self.input_rnn:
-                l = np.reshape(ct_l[index], [self.batch_size * self.max_sent_len])
-                feed[self.input_len_placeholder] = l
+            # if self.input_rnn:
+            #     l = np.reshape(ct_l[index], [self.batch_size * self.max_sent_len])
+            #     feed[self.input_len_placeholder] = l
             
             loss, pred, summary, _ = session.run(
                 [self.calculate_loss, self.pred, self.merged, train_op], feed_dict=feed)

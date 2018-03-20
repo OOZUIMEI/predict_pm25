@@ -3,6 +3,7 @@ import numpy as np
 import pickle
 import utils
 import time
+import re
 from datetime import datetime
 
 
@@ -100,43 +101,69 @@ def concate_vector(url1, url2, url3, url4, sent_length):
     utils.save_file("full_vectors.pkl", vectors)
 
 
+# generate onehot vector from string indices and length of vector
+def to_one_hot(st, length):
+    oh_c = st.split(",")
+    oh_v = np.zeros(length)
+    for o_v in oh_c:
+        oh_v[int(o_v)] = 1.0
+    return oh_v
+
+
 # parser completed vector operation
 def parse_full_vector(url, out_url, m, d):
-    print(url)
     data = utils.load_file(url, False)
     res = []
     res_l = []
     df = np.zeros(d, dtype=np.float32).tolist()
+    pattern = re.compile('(\d{4}-\d\d-\d\d\s\d\d:\d\d:\d\d),\((\d{3}),\[((\d+,*)+)\],\[(1.0,?)+\]\),\[(([\dE\-\.],?)+)\],([01])')
     for r in data:
         # each row record
         d_ = r.rstrip("\n")
-        arr_ = d_.split(",WrappedArray")
-        cm_features = arr_[-2]
-        cm_features_ = cm_features.lstrip("(").rstrip(")").split("],")
-        oh_features = arr_[-1]
-        oh_features_ = oh_features.lstrip("(").rstrip(")").split("]),")
-        vecs = np.zeros((m, d))
-        for i, re in enumerate(zip(cm_features_, oh_features_)):
-            e, o = re               
-            e_ = e.lstrip("[")
-            o_ = o.lstrip("(")
-            ae = e_.split(",")
-            ae = [float(a_i.replace("[", "").replace("]", "")) for a_i in ae]
-            ao = o_.split(",[")
-            # print(len(ae))
-            # onehot length = 
-            o_l = ao[0]
-            o_d = ao[1].rstrip("]")
-            # print(ao)
-            tmp = np.zeros(int(o_l.replace("(", "")))
-            for e in o_d.split(","):
-                tmp[int(e)] = 1.0
-            tmp = ae + tmp.tolist()     
-            vecs[i] = tmp
-        res_l.append(len(cm_features_))
+        if m > 1:
+            arr_ = d_.split(",WrappedArray")
+            cm_features = arr_[-2]
+            cm_features_ = cm_features.lstrip("(").rstrip(")").split("],")
+            oh_features = arr_[-1]
+            oh_features_ = oh_features.lstrip("(").rstrip(")").split("]),")
+            vecs = np.zeros((m, d))
+            for i, row_v in enumerate(zip(cm_features_, oh_features_)):
+                e, o = row_v               
+                e_ = e.lstrip("[")
+                o_ = o.lstrip("(")
+                ae = e_.split(",")
+                ae = [float(a_i.replace("[", "").replace("]", "")) for a_i in ae]
+                ao = o_.split(",[")
+                # print(len(ae))
+                # onehot length = 
+                o_l = ao[0]
+                o_d = ao[1].rstrip("]")
+                # print(ao)
+                tmp = np.zeros(int(o_l.replace("(", "")))
+                tmp = to_one_hot(o_d, int(o_l.replace("(", "")))
+                tmp = ae + tmp.tolist()     
+                vecs[i] = tmp
+            res_l.append(len(cm_features_))
+        else:
+            mgrp = pattern.search(d_)
+            if m:
+                # init onehot vector features
+                oh_l = int(mgrp.group(2))
+                oh_v = to_one_hot(mgrp.group(3), oh_l)
+                # is holiday or not
+                holi = float(mgrp.group(8))
+                np.append(oh_v, holi)
+                # parse common features
+                fe = mgrp.group(6)
+                fe_v = [float(f_v) for f_v in fe.split(",")]
+                vecs = fe_v + oh_v.tolist()
+            else:
+                vecs = np.zeros(d)
+                vecs = vecs.tolist()
         res.append(vecs)
     print(np.shape(res))
-    utils.save_file("%s_len" % out_url, res_l)
+    if res_l:
+        utils.save_file("%s_len" % out_url, res_l)
     utils.save_file("%s" % out_url, res)
 
 
