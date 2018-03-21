@@ -252,8 +252,7 @@ class Model():
                     self.iteration: num_epoch}
             if self.is_weighted:
                 pred_classes = np.array([utils.get_pm25_class(pm) for pm in pred_labels])
-                pred_classes = pred_classes[pred_labels]
-                feed[self.weight_labels] = pred_classes
+                feed[self.weight_labels] = [pr.class_weights[pc] for pc in pred_classes]
             # if self.input_rnn:
             #     l = np.reshape(ct_l[index], [self.batch_size * self.max_sent_len])
             #     feed[self.input_len_placeholder] = l
