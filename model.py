@@ -177,15 +177,14 @@ class Model():
     def add_loss_op(self, output):
         """Calculate loss"""
         if self.loss == 'softmax':
-            loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=output, labels=self.pred_placeholder)
+            loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=output, labels=self.pred_placeholder, weights=self.weight_labels)
         elif self.loss == 'mse':
             pred = tf.reshape(self.pred_placeholder, [self.batch_size, 1])
-            loss = tf.losses.mean_squared_error(predictions=output, labels=pred)
+            loss = tf.losses.mean_squared_error(predictions=output, labels=pred, weights=self.weight_labels)
         elif self.loss == 'mae': 
             pred = tf.reshape(self.pred_placeholder, [self.batch_size, 1])
-            loss = tf.losses.absolute_difference(labels=pred, predictions=output)
+            loss = tf.losses.absolute_difference(labels=pred, predictions=output, weights=self.weight_labels)
         
-        loss = tf.multiply(loss, self.weight_labels)
         loss = tf.reduce_mean(loss)
         # add l2 regularization for all variables except biases
         # for v in tf.trainable_variables():
