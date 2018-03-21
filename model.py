@@ -20,7 +20,7 @@ class Model():
     
     def __init__(self, max_sent_len=24, max_input_len=30, embed_size=12, hidden_size=128, hidden2_size=64, relu_size=64, learning_rate = 0.001, batch_size=54, 
                 lr_decayable=True, using_bidirection=False, fw_cell='basic', bw_cell='gru', is_classify=True, target=5, loss='softmax', 
-                acc_range=10, use_tanh_prediction=True, input_rnn=True, sight=1, dvs=4, use_decoder=True):
+                acc_range=10, use_tanh_prediction=True, input_rnn=True, sight=1, dvs=4, use_decoder=True, is_weighted=0):
         self.max_sent_len = max_sent_len
         self.max_input_len = max_input_len
         self.embed_size = embed_size
@@ -47,6 +47,7 @@ class Model():
         self.decode_length = sight
         self.decode_vector_size = dvs
         self.use_decoder = use_decoder
+        self.is_weighted = is_weighted
 
     def set_data(self, train, valid):
         self.train = train
@@ -76,8 +77,11 @@ class Model():
             self.input_placeholder = tf.placeholder(tf.float32, shape=(self.batch_size, self.max_sent_len, self.embed_size))    
 
         self.decode_placeholder = tf.placeholder(tf.float32, shape=(self.batch_size, self.decode_length, self.decode_vector_size))  
-        self.weight_labels = tf.placeholder(tf.float32, shape(self.batch_size,))
         self.pred_placeholder = tf.placeholder(tf.int32, shape=(self.batch_size,))
+        if self.is_weighted:
+            self.weight_labels = tf.placeholder(tf.float32, shape(self.batch_size,))
+        else:
+            self.weight_labels = None
         # else:
         #     self.pred_placeholder = tf.placeholder(
         #         tf.int32, shape=(self.batch_size,1))
@@ -241,14 +245,15 @@ class Model():
             index = range(step * self.batch_size,
                           (step + 1) * self.batch_size)
             pred_labels = pr[index]
-            pred_classes = np.array([utils.get_pm25_class(pm) for pm in pred_labels])
-            pred_classes = pred_classes[pred_labels]
             feed = {self.input_placeholder: ct[index],
                     self.pred_placeholder: pred_labels,
                     self.dropout_placeholder: dp,
                     self.decode_placeholder: dec[index],
-                    self.iteration: num_epoch,
-                    self.weight_labels: pred_classes}
+                    self.iteration: num_epoch}
+            if self.is_weighted:
+                pred_classes = np.array([utils.get_pm25_class(pm) for pm in pred_labels])
+                pred_classes = pred_classes[pred_labels]
+                feed[self.weight_labels] = pred_classes
             # if self.input_rnn:
             #     l = np.reshape(ct_l[index], [self.batch_size * self.max_sent_len])
             #     feed[self.input_len_placeholder] = l
