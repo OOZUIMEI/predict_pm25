@@ -76,8 +76,8 @@ class Model():
             self.input_placeholder = tf.placeholder(tf.float32, shape=(self.batch_size, self.max_sent_len, self.embed_size))    
 
         self.decode_placeholder = tf.placeholder(tf.float32, shape=(self.batch_size, self.decode_length, self.decode_vector_size))  
-        self.pred_placeholder = tf.placeholder(
-            tf.int32, shape=(self.batch_size,))
+        self.weight_labels = tf.placeholder(tf.float32, shape(self.batch_size,))
+        self.pred_placeholder = tf.placeholder(tf.int32, shape=(self.batch_size,))
         # else:
         #     self.pred_placeholder = tf.placeholder(
         #         tf.int32, shape=(self.batch_size,1))
@@ -88,12 +88,6 @@ class Model():
     def inference(self):
         """Performs inference on the DMN model"""
         with tf.variable_scope("word_shift", initializer=tf.contrib.layers.xavier_initializer()):
-            # if self.input_rnn:
-            #     print('==> get input representation rnn')
-            #     word_reps = self.get_shift_representation()
-            #     # reduce over shift
-            #     word_reps = tf.reduce_mean(word_reps, axis=1)
-            #     word_reps = tf.reshape(word_reps, [self.batch_size, self.max_sent_len, self.embed_size])        
             if self.max_input_len > 1:
                 word_reps = tf.reduce_mean(self.input_placeholder, axis=2)
             else:
@@ -147,41 +141,6 @@ class Model():
                                     name="fn")
         return output
 
-    # rnn over each 1min
-    # def get_shift_representation(self):
-        
-    #     inputs = tf.reshape(self.input_placeholder, [self.batch_size * self.max_sent_len, self.max_input_len, self.embed_size])
-    #     # input_len = tf.reshape(self.input_len_placeholder, [self.batch_size * self.max_sent_len])
-    #     input_len = self.input_len_placeholder
-    #     if self.fw_cell == 'basic':
-    #         fw_cell = BasicLSTMCell(self.embed_size)
-    #     else:
-    #         fw_cell = GRUCell(self.embed_size)
-    #     if not self.using_bidirection:
-    #         # outputs with [batch_size, max_time, cell_bw.output_size]
-    #         outputs, _ = tf.nn.dynamic_rnn(
-    #             fw_cell,
-    #             inputs,
-    #             dtype=np.float32,
-    #             sequence_length=input_len,
-    #         )
-    #     else:
-    #         if self.bw_cell == 'basic':
-    #             back_cell = BasicLSTMCell(self.embed_size)
-    #         else:
-    #             back_cell = GRUCell(self.embed_size)
-    #         outputs, _  = tf.nn.bidirectional_dynamic_rnn(
-    #             fw_cell,
-    #             back_cell,
-    #             inputs, 
-    #             dtype=np.float32,
-    #             sequence_length=input_len,
-    #         )
-            
-    #         outputs = tf.concat(outputs, 2)
-
-    #     return outputs
-
     # rnn through each 30', 1h 
     def get_input_representation(self, inputs, fw_cell="basic", length=None, attention=None):
         if fw_cell == 'basic':
@@ -226,11 +185,12 @@ class Model():
             pred = tf.reshape(self.pred_placeholder, [self.batch_size, 1])
             loss = tf.losses.absolute_difference(labels=pred, predictions=output)
         
+        loss = tf.multiply(loss, self.weight_labels)
         loss = tf.reduce_mean(loss)
         # add l2 regularization for all variables except biases
-        for v in tf.trainable_variables():
-            if not 'bias' in v.name.lower():
-                loss += self.l2 * tf.nn.l2_loss(v)
+        # for v in tf.trainable_variables():
+        #     if not 'bias' in v.name.lower():
+        #         loss += self.l2 * tf.nn.l2_loss(v)
 
         tf.summary.scalar('loss', loss)
 
@@ -277,15 +237,19 @@ class Model():
         elif ct_l:
             ct_l = np.asarray(ct_l, dtype=np.int32)
         preds = []
+        pred_classes = None
         for step in range(total_steps):
             index = range(step * self.batch_size,
                           (step + 1) * self.batch_size)
             pred_labels = pr[index]
+            pred_classes = np.array([utils.get_pm25_class(pm) for pm in pred_labels])
+            pred_classes = pred_classes[pred_labels]
             feed = {self.input_placeholder: ct[index],
                     self.pred_placeholder: pred_labels,
                     self.dropout_placeholder: dp,
                     self.decode_placeholder: dec[index],
-                    self.iteration: num_epoch}
+                    self.iteration: num_epoch,
+                    self.weight_labels: pred_classes}
             # if self.input_rnn:
             #     l = np.reshape(ct_l[index], [self.batch_size * self.max_sent_len])
             #     feed[self.input_len_placeholder] = l
@@ -311,6 +275,6 @@ class Model():
         #     sys.stdout.write('\r')
         avg_acc = 0.
         if total_steps:
-            print(accuracy)
+            # print(accuracy)
             avg_acc = accuracy * 1.0 / len(preds)
         return np.mean(total_loss), avg_acc, preds, pr.tolist()

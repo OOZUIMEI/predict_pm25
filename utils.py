@@ -133,13 +133,14 @@ def get_pm25_class(index):
 
 # pre-process data to batch
 def process_data(dataset, data_len, pred, batch_size, max_input_len, max_sent, is_test=False, pred_sight=1, is_classify=False):
-    dlength = len(dataset) - 1
+    len_dataset = len(dataset)
+    dlength = len_dataset - 1
     # total batch
     dlength_b = dlength // batch_size
     maximum = dlength_b * batch_size
-    dataset = dataset[:-1]
-    if data_len:
-        data_len = data_len[:-1]
+    # dataset = dataset[:-1]
+    # if data_len:
+    #     data_len = data_len[:-1]
     new_data = []
     new_data_len = []
     new_pred = []
@@ -148,7 +149,7 @@ def process_data(dataset, data_len, pred, batch_size, max_input_len, max_sent, i
         e = x + max_sent
         p_i = e + pred_sight - 1
         d_e = p_i + 1
-        if e <= dlength and d_e <= dlength:
+        if e <= dlength and d_e <= len_dataset:
             arr = dataset[x : e]
             # if input len is  like a sentence            
             if data_len:

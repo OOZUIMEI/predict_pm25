@@ -35,7 +35,6 @@ def main(prefix="", url_feature="", url_pred="", url_len="", url_weight="", batc
     utils.assert_url(url_feature)
     if url_pred:
         utils.assert_url(url_pred)
-        utils.assert_url(url_len)
         dataset = utils.load_file(url_feature)
         pred = utils.load_file(url_pred, False)
         if is_classify:
@@ -47,7 +46,7 @@ def main(prefix="", url_feature="", url_pred="", url_len="", url_weight="", batc
             data_len = utils.load_file(url_len)
         else:
             data_len = None
-        test = utils.process_data(dataset, data_len, pred, batch_size, max_input_len, max_sent_length, True, sight)
+        _, test = utils.process_data(dataset, data_len, pred, batch_size, max_input_len, max_sent_length, True, sight)
     else:
         test = utils.load_file(url_feature)
         
