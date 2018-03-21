@@ -1,9 +1,0 @@
-total_iteration=2000
-early_stopping = 100
-device="gpu"
-train_url = "vectors/train%s.pkl"
-dev_url = "vectors/dev%s.pkl"
-fm = "%Y-%m-%d %H:%M:%S"
-train_preds="accuracies/%spreds.txt"
-test_preds="test_acc/%s_test_preds.txt"
-class_weights=[0.9275844788087056, 0.07198596792668957, 0.000429553264604811, 0.0, 0.0, 0.0]
