@@ -136,7 +136,7 @@ def process_data(dataset, data_len, pred, batch_size, max_input_len, max_sent, i
     len_dataset = len(dataset)
     dlength = len_dataset - 1
     # total batch
-    dlength_b = dlength // batch_size
+    dlength_b = len_dataset // batch_size
     maximum = dlength_b * batch_size
     # dataset = dataset[:-1]
     # if data_len:

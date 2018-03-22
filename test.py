@@ -6,7 +6,7 @@ import sys
 import time
 import argparse
 import properties as p
-
+from evaluate import evaluate
 from model import Model
 
 
@@ -58,11 +58,13 @@ def main(prefix="", url_feature="", url_pred="", url_len="", url_weight="", batc
         # saver = tf.train.import_meta_graph(url_weight + ".meta")
         saver.restore(session, url_weight)
         print('==> running model')
-        valid_loss, valid_accuracy, preds, lb = model.run_epoch(session, test,  shuffle=False)
-        print('Validation loss: {}'.format(valid_loss))
-        print('Validation accuracy: {}'.format(valid_accuracy))
-        tmp = 'Test validation accuracy: %.4f' % valid_accuracy
+        _, _, preds, lb = model.run_epoch(session, test,  shuffle=False)
+        preds = [x if x <= 50 else (x + 10) for x in preds]
+        # print('Validation loss: {}'.format(valid_loss))
+        # print('Validation accuracy: {}'.format(valid_accuracy))
+        # tmp = 'Test validation accuracy: %.4f' % valid_accuracy
         # utils.save_file("test_acc/%s_test_acc.txt" % prefix, tmp, False)
+        evaluate(preds, lb, acc_range, is_classify)
         utils.save_predictions(preds, lb,  p.test_preds % prefix)
 
 

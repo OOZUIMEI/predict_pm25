@@ -58,7 +58,7 @@ def main(prefix="", url_feature="", url_pred="", url_len="",  url_feature1="", u
     
     gpu_options = None
     if p.device == "gpu":
-        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.25)
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=p.gpu_fraction)
        
     tconfig = tf.ConfigProto(allow_soft_placement=True, gpu_options=gpu_options)
 
@@ -77,9 +77,9 @@ def main(prefix="", url_feature="", url_pred="", url_len="",  url_feature1="", u
         best_val_accuracy = 0.0
         best_overall_val_loss = float('inf')
 
-        # if restore:
-        #     print('==> restoring weights')
-        #     saver.restore(session, 'weights/%sdaegu.weights' % prefix)
+        if url_pred1:
+            print('==> restoring weights')
+            saver.restore(session, '%s' % url_pred1)
         
         print('==> starting training')
         train_losses, train_accuracies = [], []
@@ -123,14 +123,14 @@ def main(prefix="", url_feature="", url_pred="", url_len="",  url_feature1="", u
         utils.save_file("accuracies/%saccuracy.txt" % prefix, tmp, False)
         utils.save_file("logs/%slosses.pkl" % prefix, {"train_loss": train_losses, "train_acc": train_accuracies, "valid_loss": val_losses, "valid_acc" : val_acces})
         # utils.save_predictions(best_preds, best_lb, p.train_preds % prefix) 
-        if url_feature1:
-            dataset_t = utils.load_file(url_feature1)
-            data_len_t = utils.load_file(url_len1)
-            pred_t = utils.load_file(url_pred1)
-            _, test = process_data(dataset_t, data_len_t, pred_t, batch_size, max_sent_length)
-            valid_loss, valid_accuracy, preds, lb = model.run_epoch(session, test)
-            print("Test", valid_loss, valid_accuracy)
-            utils.save_predictions(preds, lb, p.train_preds % (prefix + "_test_"))
+        # if url_feature1:
+        #     dataset_t = utils.load_file(url_feature1)
+        #     data_len_t = utils.load_file(url_len1)
+        #     pred_t = utils.load_file(url_pred1)
+        #     _, test = process_data(dataset_t, data_len_t, pred_t, batch_size, max_sent_length)
+        #     valid_loss, valid_accuracy, preds, lb = model.run_epoch(session, test)
+        #     print("Test", valid_loss, valid_accuracy)
+        #     utils.save_predictions(preds, lb, p.train_preds % (prefix + "_test_"))
 
 
 if __name__ == "__main__":

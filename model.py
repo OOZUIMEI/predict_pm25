@@ -11,7 +11,7 @@ import tensorflow as tf
 from tensorflow.contrib.rnn import BasicLSTMCell, GRUCell
 from attention_cell import AttentionCell
 
-import properties as pr
+import properties as prp
 import utils
 
 
@@ -79,9 +79,9 @@ class Model():
         self.decode_placeholder = tf.placeholder(tf.float32, shape=(self.batch_size, self.decode_length, self.decode_vector_size))  
         self.pred_placeholder = tf.placeholder(tf.int32, shape=(self.batch_size,))
         if self.is_weighted:
-            self.weight_labels = tf.placeholder(tf.float32, shape(self.batch_size,))
+            self.weight_labels = tf.placeholder(tf.float32, shape=(self.batch_size,))
         else:
-            self.weight_labels = None
+            self.weight_labels = 1
         # else:
         #     self.pred_placeholder = tf.placeholder(
         #         tf.int32, shape=(self.batch_size,1))
@@ -252,7 +252,7 @@ class Model():
                     self.iteration: num_epoch}
             if self.is_weighted:
                 pred_classes = np.array([utils.get_pm25_class(pm) for pm in pred_labels])
-                feed[self.weight_labels] = [pr.class_weights[pc] for pc in pred_classes]
+                feed[self.weight_labels] = np.reshape([prp.class_weights[pc] for pc in pred_classes], (self.batch_size, 1))
             # if self.input_rnn:
             #     l = np.reshape(ct_l[index], [self.batch_size * self.max_sent_len])
             #     feed[self.input_len_placeholder] = l
