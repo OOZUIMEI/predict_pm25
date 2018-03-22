@@ -191,9 +191,9 @@ class Model():
         
         loss = tf.reduce_mean(loss)
         # add l2 regularization for all variables except biases
-        # for v in tf.trainable_variables():
-        #     if not 'bias' in v.name.lower():
-        #         loss += self.l2 * tf.nn.l2_loss(v)
+        for v in tf.trainable_variables():
+             if not 'bias' in v.name.lower():
+                 loss += self.l2 * tf.nn.l2_loss(v)
 
         tf.summary.scalar('loss', loss)
 
