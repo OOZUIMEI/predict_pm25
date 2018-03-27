@@ -132,7 +132,8 @@ def get_pm25_class(index):
 
 
 # pre-process data to batch
-def process_data(dataset, data_len, pred, batch_size, max_input_len, max_sent, is_test=False, pred_sight=1, is_classify=False):
+def process_data(dataset, data_len, pred, batch_size, max_input_len, max_sent, 
+                is_test=False, pred_sight=1, is_classify=False, context_meaning=1, fr_ele = 7):
     len_dataset = len(dataset)
     dlength = len_dataset - 1
     # total batch
@@ -155,9 +156,11 @@ def process_data(dataset, data_len, pred, batch_size, max_input_len, max_sent, i
             if data_len:
                 arr_l = data_len[x : e]
                 new_data_len.append(arr_l)
-                arr_d =[y[0][7:] for y in dataset[e : d_e]] 
+                arr_d =[y[0]fr_ele:] for y in dataset[e : d_e]] 
             else:
-                arr_d =[y[7:] for y in dataset[e : d_e]] 
+                arr_d =[y[fr_ele:] for y in dataset[e : d_e]] 
+                if context_meaning:
+                    arr = [en_c[fr_ele:] for en_c in arr]
             # append vector to matrix
             new_data.append(arr)
             new_pred.append(pred[p_i])

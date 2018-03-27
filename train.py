@@ -13,7 +13,8 @@ from model import Model
 def main(prefix="", url_feature="", url_pred="", url_len="",  url_feature1="", url_pred1="", url_len1="", 
         batch_size=126, max_input_len=30, max_sent_length=24, lr_decayable=False, using_bidirection=False, 
         forward_cell='', backward_cell='', embed_size=None, is_classify=True, loss=None, acc_range=None, 
-        usp=None, input_rnn=None, reload_data=True, pred_sight=1, decoder=1, decoder_size=4, is_weighted=0):
+        usp=None, input_rnn=None, reload_data=True, pred_sight=1, decoder=1, decoder_size=4, is_weighted=0, 
+        context_info=1):
     target = 5 if is_classify else 1
     model = Model(max_input_len=max_input_len, max_sent_len=max_sent_length, embed_size=embed_size, learning_rate = 0.001, lr_decayable=lr_decayable, 
                  using_bidirection=using_bidirection, fw_cell=forward_cell, bw_cell=backward_cell, batch_size=batch_size,
@@ -162,11 +163,13 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--decoder", type=int, default=1)
     parser.add_argument("-ds", "--decoder_size", type=int, default=4)
     parser.add_argument("-w", "--weighted", help="add weighted ratio to loss value", type=int, default=0)
+    parser.add_argument("-ci", "--context_info", type=int, default=1)
 
     args = parser.parse_args()
 
     main(args.prefix, args.feature_path, args.pred_path, args.feature_len_path, args.feature_path1, args.pred_path1, args.feature_len_path1,
         args.batch_size, args.input_size, args.sent_size, args.lr_decayable, 
         args.bidirection, args.forward_cell, args.backward_cell, args.embed_size, args.classify, 
-        args.loss, args.acc_range, args.use_tanh_pred, args.input_rnn, args.reload_data, args.pred_sight, args.decoder, args.decoder_size, args.weighted)
+        args.loss, args.acc_range, args.use_tanh_pred, args.input_rnn, args.reload_data, args.pred_sight, args.decoder, args.decoder_size, 
+        args.weighted, args.context_info)
     

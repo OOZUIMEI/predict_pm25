@@ -4,7 +4,7 @@ from math import sqrt
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 
-def evaluate(preds, labs, rg, is_classify=False):
+def evaluate(pred, labs, rg, is_classify=False):
     l = len(pred)
     if is_classify:
         acc = utils.calculate_accuracy(pred, labs, rg, True)
