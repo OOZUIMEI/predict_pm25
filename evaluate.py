@@ -43,6 +43,5 @@ if __name__ == "__main__":
             x_ = x_.split(",")
             if x_:
                 labs.append(int(x_[-1]))
-                pred.append(int(x_[0]))    
+                pred.append(int(x_[0]))
     evaluate(preds, labs, args.range, args.classify)
-    
