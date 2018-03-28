@@ -114,14 +114,16 @@ class Model():
             with tf.variable_scope("decoder", initializer=tf.contrib.layers.xavier_initializer()):
                 attention = tf.reshape(tf.tile(attention, [1, self.decode_length]), [self.batch_size, self.decode_length, self.hidden_size])
                 decode_input = tf.concat([attention, self.decode_placeholder], axis=2)
+                use_mtp = False
                 if self.rnn_layer > 1:
                     dcs = self.decode_vector_size + self.hidden_size
+                    use_mtp = True
                 else:
                     dcs = self.embed_size
-                _, fn_state = self.get_input_representation(decode_input, dcs, "basic", self.decode_length)
+                _, fn_state = self.get_input_representation(decode_input, dcs, "basic", self.decode_length, use_mtp)
                 # _, fn_state = self.get_input_representation(self.decode_placeholder, "att", self.decode_length, attention=attention)
                 if self.rnn_layer > 1:
-                    input_hidden = fn_state[1][1]
+                    input_hidden = tf.reduce_mean(fn_state[1], axis=0)
                 else:
                     input_hidden = fn_state[1]
         else:
@@ -154,14 +156,15 @@ class Model():
         return output
 
     # rnn through each 30', 1h 
-    def get_input_representation(self, inputs, esz, fw_cell="basic", length=None, attention=None):
+    def get_input_representation(self, inputs, esz, fw_cell="basic", length=None, attention=None, use_mtp=False):
         if fw_cell == 'basic':
             fw_cell = BasicLSTMCell(esz)
         # elif fw_cell == 'att':
         #     fw_cell = AttentionCell(esz, max_val=pr.pm25_max, min_val=0.0, attention=attention)
         else:
             fw_cell = GRUCell(esz)
-        fw_cell = MultiRNNCell([fw_cell] * self.rnn_layer)
+        if use_mtp:
+            fw_cell = MultiRNNCell([fw_cell] * self.rnn_layer)
         if not self.using_bidirection:
             if not length:
                 length = self.max_sent_len
