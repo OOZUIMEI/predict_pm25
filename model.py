@@ -8,7 +8,7 @@ import numpy as np
 
 import tensorflow as tf
 
-from tensorflow.contrib.rnn import BasicLSTMCell, GRUCell
+from tensorflow.contrib.rnn import BasicLSTMCell, GRUCell, MultiRNNCell
 from attention_cell import AttentionCell
 
 import properties as prp
@@ -20,7 +20,7 @@ class Model():
     
     def __init__(self, max_sent_len=24, max_input_len=30, embed_size=12, hidden_size=128, hidden2_size=64, relu_size=64, learning_rate = 0.001, batch_size=54, 
                 lr_decayable=True, using_bidirection=False, fw_cell='basic', bw_cell='gru', is_classify=True, target=5, loss='softmax', 
-                acc_range=10, use_tanh_prediction=True, input_rnn=True, sight=1, dvs=4, use_decoder=True, is_weighted=0):
+                acc_range=10, use_tanh_prediction=True, input_rnn=True, sight=1, dvs=4, use_decoder=True, is_weighted=0, rnn_layer=2):
         self.max_sent_len = max_sent_len
         self.max_input_len = max_input_len
         self.embed_size = embed_size
@@ -30,6 +30,7 @@ class Model():
         self.using_bidirection = using_bidirection
         self.fw_cell = fw_cell
         self.bw_cell = bw_cell
+        self.rnn_layer = rnn_layer
         self.hidden_size = hidden_size
         self.hidden2_size = hidden2_size
         self.relu_size = relu_size
@@ -153,6 +154,7 @@ class Model():
             fw_cell = AttentionCell(self.embed_size, max_val=pr.pm25_max, min_val=0.0, attention=attention)
         else:
             fw_cell = GRUCell(self.embed_size)
+        fw_cell = MultiRNNCell([fw_cell] * self.rnn_layer)
         if not self.using_bidirection:
             if not length:
                 length = self.max_sent_len

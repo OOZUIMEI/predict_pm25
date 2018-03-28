@@ -3,6 +3,7 @@ import os.path as path
 import os
 import codecs
 import numpy as np
+import math
 
 
 def save_predictions(best_preds, best_lb, path):
@@ -114,6 +115,39 @@ def calculate_accuracy(pred, pred_labels, rng, is_classify):
     return accuracy
 
 
+def Linear(AQIhigh, AQIlow, Conchigh, Conclow, Concentration) {
+    Conc = float(Concentration);
+    a = ((Conc - Conclow) / (Conchigh - Conclow)) * (AQIhigh - AQIlow) + AQIlow;
+    linear = math.round(a);
+    return linear;
+}
+
+
+# convert pm25 micro value to aqi value
+def AQIPM25(Concentration) {
+    Conc = float(Concentration);
+    c = (math.floor(10 * Conc)) / 10;
+    if (c >= 0 && c < 12.1) {
+        AQI = Linear(50, 0, 12, 0, c);
+    } else if (c >= 12.1 && c < 35.5) {
+        AQI = Linear(100, 51, 35.4, 12.1, c);
+    } else if (c >= 35.5 && c < 55.5) {
+        AQI = Linear(150, 101, 55.4, 35.5, c);
+    } else if (c >= 55.5 && c < 150.5) {
+        AQI = Linear(200, 151, 150.4, 55.5, c);
+    } else if (c >= 150.5 && c < 250.5) {
+        AQI = Linear(300, 201, 250.4, 150.5, c);
+    } else if (c >= 250.5 && c < 350.5) {
+        AQI = Linear(400, 301, 350.4, 250.5, c);
+    } else if (c >= 350.5 && c < 500.5) {
+        AQI = Linear(500, 401, 500.4, 350.5, c);
+    } else {
+        AQI = -1;
+    }
+    return AQI;
+}
+
+
 def get_pm25_class(index):
     cl = 0
     if index <= 50:
@@ -146,6 +180,8 @@ def process_data(dataset, data_len, pred, batch_size, max_input_len, max_sent,
     new_data_len = []
     new_pred = []
     decode_vec = []
+    if context_meaning:
+        zeros = np.zeros(fr_ele).tolist()
     for x in xrange(maximum):
         e = x + max_sent
         p_i = e + pred_sight - 1
@@ -156,11 +192,11 @@ def process_data(dataset, data_len, pred, batch_size, max_input_len, max_sent,
             if data_len:
                 arr_l = data_len[x : e]
                 new_data_len.append(arr_l)
-                arr_d =[y[0]fr_ele:] for y in dataset[e : d_e]] 
+                arr_d =[y[0][fr_ele:] for y in dataset[e : d_e]]
             else:
-                arr_d =[y[fr_ele:] for y in dataset[e : d_e]] 
+                arr_d =[y[fr_ele:] for y in dataset[e : d_e]]
                 if context_meaning:
-                    arr = [en_c[fr_ele:] for en_c in arr]
+                    arr = [zeros + en_c[fr_ele:] for en_c in arr]
             # append vector to matrix
             new_data.append(arr)
             new_pred.append(pred[p_i])

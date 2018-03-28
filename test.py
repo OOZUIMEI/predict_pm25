@@ -17,21 +17,21 @@ def save_predictions(best_preds, best_lb, prefix=""):
     utils.save_file("test_acc/%s_test_preds.txt" % prefix, tmp, False)
 
 
-def main(prefix="", url_feature="", url_pred="", url_len="", url_weight="", batch_size=126, max_input_len=30, max_sent_length=24, 
-        embed_size=13, acc_range=10, sight=1, is_classify=0, decoder=1, decoder_size=4, loss='mae'):
+def main(prefix="", url_feature="", url_pred="", url_len="", url_weight="", batch_size=126, max_input_len=30, max_sent_length=24,
+        embed_size=13, acc_range=10, sight=1, is_classify=0, decoder=1, decoder_size=4, loss='mae', context_meaning=1):
     # init model
-    model = Model(max_input_len=max_input_len, max_sent_len=max_sent_length, embed_size=embed_size, 
+    model = Model(max_input_len=max_input_len, max_sent_len=max_sent_length, embed_size=embed_size,
                  using_bidirection=False, fw_cell="basic", bw_cell="basic", batch_size=batch_size,
-                 is_classify=is_classify, use_tanh_prediction=True, target=5 if is_classify else 1, 
-                 loss=loss, acc_range=acc_range, input_rnn=False, sight=sight, 
+                 is_classify=is_classify, use_tanh_prediction=True, target=5 if is_classify else 1,
+                 loss=loss, acc_range=acc_range, input_rnn=False, sight=sight,
                  use_decoder=decoder, dvs=decoder_size)
-    
+
     # model.init_data_node()
     tf.reset_default_graph()
     with tf.device('/%s' % p.device):
         model.init_ops()
         saver = tf.train.Saver()
-    
+
     utils.assert_url(url_feature)
     if url_pred:
         utils.assert_url(url_pred)
@@ -46,12 +46,12 @@ def main(prefix="", url_feature="", url_pred="", url_len="", url_weight="", batc
             data_len = utils.load_file(url_len)
         else:
             data_len = None
-        _, test = utils.process_data(dataset, data_len, pred, batch_size, max_input_len, max_sent_length, True, sight)
+        _, test = utils.process_data(dataset, data_len, pred, batch_size, max_input_len, max_sent_length, True, sight, context_meaning=context_meaning)
     else:
         test = utils.load_file(url_feature)
-        
+
     tconfig = tf.ConfigProto(allow_soft_placement=True)
-    
+
     with tf.Session(config=tconfig) as session:
         init = tf.global_variables_initializer()
         session.run(init)
@@ -59,7 +59,7 @@ def main(prefix="", url_feature="", url_pred="", url_len="", url_weight="", batc
         saver.restore(session, url_weight)
         print('==> running model')
         _, _, preds, lb = model.run_epoch(session, test,  shuffle=False)
-        preds = [x if x <= 50 else (x + 10) for x in preds]
+        preds = [x if x <= 45 else (x + 10) for x in preds]
         lb = lb[0: len(preds)]
         # print('Validation loss: {}'.format(valid_loss))
         # print('Validation accuracy: {}'.format(valid_accuracy))
@@ -88,9 +88,11 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--decoder", type=int, default=1)
     parser.add_argument("-ds", "--decoder_size", type=int, default=4)
     parser.add_argument("-l", "--loss", default='mae')
+    parser.add_argument("-ci", "--context_info", type=int, default=1)
 
     args = parser.parse_args()
 
-    main(args.prefix, args.feature_path, args.pred_path, args.feature_len_path, args.w_url, args.batch_size, 
-        args.input_size, args.sent_size, args.embed_size, args.acc_range, args.sight, args.classify, args.decoder, args.decoder_size, args.loss)
+    main(args.prefix, args.feature_path, args.pred_path, args.feature_len_path, args.w_url, args.batch_size,
+        args.input_size, args.sent_size, args.embed_size, args.acc_range, args.sight, args.classify, args.decoder, args.decoder_size, args.loss, args.context_info)
+
     
