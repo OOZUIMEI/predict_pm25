@@ -4,6 +4,8 @@ import os
 import codecs
 import numpy as np
 import math
+from datetime import datetime
+import time
 
 
 def save_predictions(best_preds, best_lb, path):
@@ -40,13 +42,13 @@ def save_file_utf8(name, obj):
         file.write(u'%s' % obj)
 
 
-def array_to_str(obj):
+def array_to_str(obj, delimiter="\n"):
     tmp = ""
     l = len(obj) - 1
     for i, x in enumerate(obj):
-        tmp += str(x) + ""
+        tmp += str(x)
         if i < l:
-            tmp += "\n"
+            tmp += delimiter
     return tmp
 
 
@@ -118,13 +120,36 @@ def calculate_accuracy(pred, pred_labels, rng, is_classify):
 def Linear(AQIhigh, AQIlow, Conchigh, Conclow, Concentration):
     Conc = float(Concentration)
     a = ((Conc - Conclow) / (Conchigh - Conclow)) * (AQIhigh - AQIlow) + AQIlow
-    linear = math.round(a)
+    linear = round(a)
     return linear
+
+
+# convert pm10 micro value to aqi value
+def AQIPM10(Concentration):
+    Conc = float(Concentration)
+    c = math.floor(Conc)
+    if (c >= 0 and c < 55):
+        AQI = Linear(50, 0, 54, 0, c)
+    elif(c >= 55 and c < 155):
+        AQI = Linear(100, 51, 154, 55, c)
+    elif(c >= 155 and c < 255):
+        AQI = Linear(150, 101, 254, 155, c)
+    elif(c >= 255 and c < 355):
+        AQI = Linear(200, 151, 354, 255, c)
+    elif(c >= 355 and c < 425):
+        AQI = Linear(300, 201, 424, 355, c)
+    elif(c >= 425 and c < 505):
+        AQI = Linear(400, 301, 504, 425, c)
+    elif(c >= 505 and c < 605):
+        AQI = Linear(500, 401, 604, 505, c)
+    else:
+        AQI = 0
+    return AQI
 
 
 # convert pm25 micro value to aqi value
 def AQIPM25(Concentration):
-    Conc = float(Concentration);
+    Conc = float(Concentration)
     c = (math.floor(10 * Conc)) / 10;
     if (c >= 0 and c < 12.1):
         AQI = Linear(50, 0, 12, 0, c)
@@ -141,7 +166,7 @@ def AQIPM25(Concentration):
     elif (c >= 350.5 and c < 500.5):
         AQI = Linear(500, 401, 500.4, 350.5, c)
     else:
-        AQI = -1
+        AQI = 0
     return AQI
 
 
@@ -226,3 +251,11 @@ def process_data(dataset, data_len, pred, batch_size, max_input_len, max_sent,
         train = None
         dev = (new_data, new_data_len, new_pred, decode_vec)
     return train, dev
+
+
+def now_timestamp():
+    return time.mktime(time.localtime())
+
+
+def get_datetime_now():
+    return datetime.fromtimestamp(now_timestamp())
