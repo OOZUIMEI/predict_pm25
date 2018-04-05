@@ -37,7 +37,7 @@ def mine_all_area(html):
                 for i, v in enumerate(td):
                     txt = v.get_text()
                     txt = "".join(txt.replace("\n", "").split(" "))
-                    if i and "-" not in txt:
+                    if i > 0 and i < 7 and "-" not in txt:
                         txt = txt.encode('ascii', 'ignore')
                         if txt:
                             values.append(float(txt))
