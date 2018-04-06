@@ -123,7 +123,7 @@ class Model():
                 _, fn_state = self.get_input_representation(decode_input, dcs, "basic", self.decode_length, use_mtp)
                 # _, fn_state = self.get_input_representation(self.decode_placeholder, "att", self.decode_length, attention=attention)
                 if self.rnn_layer > 1:
-                    input_hidden = tf.reduce_mean(fn_state[1], axis=0)
+                    input_hidden = fn_state[1]
                 else:
                     input_hidden = fn_state[1]
         else:

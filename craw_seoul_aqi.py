@@ -158,6 +158,10 @@ if __name__ == "__main__":
                         data = mine_all_area(html)
                         for x in data:
                             output += start.strftime(pr.fm) + "," + utils.array_to_str(x, ",") + "\n"
+                            if (counter - last_save) == save_interval:
+                                last_save = counter
+                                write_log(filename, output)
+                                output = ""
                     else:
                         data = mine_data(html)
                         if data:
