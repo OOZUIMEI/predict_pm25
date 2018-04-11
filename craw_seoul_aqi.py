@@ -59,19 +59,6 @@ def format10(no):
         return str(no)
 
 
-# change datetime str to filename format
-def clear_datetime(dt):
-    tmp = ""
-    for x in dt:
-        if x == "-" or x == ":":
-            tmp += "."
-        elif x == " ":
-            tmp += "_"
-        else:
-            tmp += x
-    return tmp
-
-
 # craw aqi data from source 
 def craw_data(year, month, date, hour):
     data = {
@@ -124,7 +111,7 @@ if __name__ == "__main__":
             for x in values:
                 output += timestamp + "," + utils.array_to_str(x, ",") + "\n"
     else:
-        filename = "craw_seoul_aqi_%s_%s.txt" % (clear_datetime(args.start), clear_datetime(args.end))
+        filename = "craw_seoul_aqi_%s_%s.txt" % (utils.clear_datetime(args.start), utils.clear_datetime(args.end))
         start = datetime.strptime(args.start, pr.fm)
         if args.end:
             end = datetime.strptime(args.end, pr.fm)

@@ -260,3 +260,24 @@ def now_timestamp():
 
 def get_datetime_now():
     return datetime.fromtimestamp(now_timestamp())
+
+
+# format hour, day < 10 to 10 format
+def format10(no):
+    if no < 10:
+        return "0" + str(no)
+    else:
+        return str(no)
+
+
+# change datetime str to filename format
+def clear_datetime(dt):
+    tmp = ""
+    for x in dt:
+        if x == "-" or x == ":":
+            tmp += "."
+        elif x == " ":
+            tmp += "_"
+        else:
+            tmp += x
+    return tmp
