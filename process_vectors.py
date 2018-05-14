@@ -102,21 +102,27 @@ def concate_vector(url1, url2, url3, url4, sent_length):
 
 
 # generate onehot vector from string indices and length of vector
-def to_one_hot(st, length):
+def to_one_hot(st, length, na):
     oh_c = st.split(",")
     oh_v = np.zeros(length)
     for o_v in oh_c:
-        oh_v[int(o_v)] = 1.0
+        idx = int(o_v)
+        if not na or (idx not in na):
+            oh_v[idx] = 1.0
     return oh_v
 
 
 # parser completed vector operation
-def parse_full_vector(url, out_url, m, d):
+def parse_full_vector(url, out_url, m, d, not_available=""):
+    if not_available:
+        na = [int(x) for x in not_available.split(",")]
+    else:
+        na = None
     data = utils.load_file(url, False)
     res = []
     res_l = []
     df = np.zeros(d, dtype=np.float32).tolist()
-    pattern = re.compile('(\d{4}-\d\d-\d\d\s\d\d:\d\d:\d\d),\((\d{3}),\[((\d+,*)+)\],\[(1.0,?)+\]\),\[(([\dE\-\.],?)+)\],([01])')
+    pattern = re.compile('(\d{4}-\d\d-\d\d\s\d\d:\d\d:\d\d),\((\d+),\[((\d+,*)+)\],\[(1.0,?)+\]\),\[(([\dE\-\.],?)+)\],([01])')
     for r in data:
         # each row record
         d_ = r.rstrip("\n")
@@ -140,16 +146,17 @@ def parse_full_vector(url, out_url, m, d):
                 o_d = ao[1].rstrip("]")
                 # print(ao)
                 tmp = np.zeros(int(o_l.replace("(", "")))
-                tmp = to_one_hot(o_d, int(o_l.replace("(", "")))
+                tmp = to_one_hot(o_d, int(o_l.replace("(", "")), na)
                 tmp = ae + tmp.tolist()     
                 vecs[i] = tmp
             res_l.append(len(cm_features_))
         else:
+            # print(d_)
             mgrp = pattern.search(d_)
             if m:
                 # init onehot vector features
                 oh_l = int(mgrp.group(2))
-                oh_v = to_one_hot(mgrp.group(3), oh_l)
+                oh_v = to_one_hot(mgrp.group(3), oh_l, na)
                 # is holiday or not
                 holi = float(mgrp.group(8))
                 np.append(oh_v, holi)
@@ -205,8 +212,9 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--task", type=int, default=0)
     parser.add_argument("-s", "--sent_length", type=int, default=30)
     parser.add_argument("-d", "--doc_length", type=int, default=12)
-    parser.add_argument("-m", "--max", type=int, default=30)
+    parser.add_argument("-m", "--max", type=int, default=1)
     parser.add_argument("-dim", "--dim", type=int, default=13)
+    parser.add_argument("-o", "--not_available", type=str, default="41,73,112,129,146")
     args = parser.parse_args()
 
     if args.prefix:
@@ -220,7 +228,7 @@ if __name__ == "__main__":
         concate_vector(u, u1, u2, u3, args.sent_length, args.doc_length)
     elif args.task == 2:
         # parse completed vectors
-        parse_full_vector(args.url, args.url1, args.max, args.dim)
+        parse_full_vector(args.url, args.url1, args.max, args.dim, args.not_available)
     elif args.task == 3:
         args.url2 = args.prefix + "/" + args.url2
         merge_vectors(args.url, args.url1, args.url2)

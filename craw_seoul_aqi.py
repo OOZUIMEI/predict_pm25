@@ -43,8 +43,10 @@ def mine_all_area(html):
                             values.append(float(txt))
                         else:
                             values.append(all_values[0][i])
-                    elif i == 0:                
-                        values.append(ku)
+                    elif i == 0:        
+                        txt = txt.rstrip("\n")   
+                        index = pr.districts.index(txt)
+                        values.append(index)
                 values.append(utils.AQIPM10(values[1]))
                 values.append(utils.AQIPM25(values[2]))
                 all_values.append(values)
@@ -81,7 +83,37 @@ def craw_data(year, month, date, hour):
     r = requests.post("http://cleanair.seoul.go.kr/air_city.htm?method=measure&citySection=CITY", data)
     html = Soup(r.text, "html5lib")
     return html
-    
+
+
+# perform craw in loop or by files
+def craw_data_controller(output, counter, last_save, save_interval, tmp, hour, timestamp):
+    year = tmp.year
+    month = format10(tmp.month)
+    date = format10(tmp.day)
+    counter += 1
+    try:
+        html = craw_data(year, month, date, hour)
+        # data = mine_data(html)
+        # if  args.get_all:
+        data = mine_all_area(html)
+        for x in data:
+            output += timestamp + "," + utils.array_to_str(x, ",") + "\n"
+            if (counter - last_save) == save_interval:
+                last_save = counter
+                write_log(filename, output)
+                output = ""
+        # else:
+        #     data = mine_data(html)
+        #     if data:
+        #         output += start.strftime(pr.fm) + "," + utils.array_to_str(data, ",") + "\n"
+        #     if (counter - last_save) == save_interval:
+        #         last_save = counter
+        #         write_log(filename, output)
+        #         output = ""
+    except Exception as e:
+        print(e)
+    return output, counter, last_save
+
 
 # write data crawled to file
 def write_log(filename, output):
@@ -94,12 +126,14 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("-t", "--test", default=1, type=int)
     parser.add_argument("-i", "--interval", default=5, type=int)
+    parser.add_argument("-f", "--file", default="", type=str)
     parser.add_argument("-si", "--save_interval", default=48, type=int)
     parser.add_argument("-s", "--start", default="2008-01-01 01:00:00", type=str)
     parser.add_argument("-e", "--end", type=str)
     parser.add_argument("-a", "--get_all", type=int, default=0)
     
     args = parser.parse_args()
+    save_interval = args.save_interval
     if args.test:
         with open("test_seoul_aqi.html") as file:
             html = Soup(file.read(), "html5lib")
@@ -110,6 +144,24 @@ if __name__ == "__main__":
             output = ""
             for x in values:
                 output += timestamp + "," + utils.array_to_str(x, ",") + "\n"
+    elif args.file:
+        filename = "craw_seoul_aqi_missing.txt"
+        output = ""
+        counter = 0
+        last_save = 0
+        with open(args.file) as file:
+            data = file.readlines()
+            for d in data:
+                d = d.rstrip("\n")
+                tmp = datetime.strptime(d, pr.fm)
+                timestamp = tmp.strftime(pr.fm)
+                if tmp.hour == 0:
+                    tmp = tmp - timedelta(hours=1)
+                    hour = "24"
+                else:
+                    hour = format10(tmp.hour)
+                output, counter, last_save = craw_data_controller(output, counter, last_save, save_interval, tmp, hour, timestamp)    
+            write_log(filename, output)     
     else:
         filename = "craw_seoul_aqi_%s_%s.txt" % (utils.clear_datetime(args.start), utils.clear_datetime(args.end))
         start = datetime.strptime(args.start, pr.fm)
@@ -121,7 +173,6 @@ if __name__ == "__main__":
         # output = "timestamp,PM10_VAL,PM2.5_VAL,O3(ppm),NO2(ppm),CO(ppm),SO2(ppm),PM10_AQI,PM2.5_AQI\n"
         output = ""
         length = (end - start).total_seconds() / 3600.0
-        save_interval = args.save_interval
         counter = 0
         last_save = 0
         while start <= end:
@@ -134,31 +185,7 @@ if __name__ == "__main__":
                     hour = "24"
                 else:
                     hour = format10(tmp.hour)
-                year = tmp.year
-                month = format10(tmp.month)
-                date = format10(tmp.day)
-                try:
-                    counter += 1
-                    html = craw_data(year, month, date, hour)
-                    # data = mine_data(html)
-                    if  args.get_all:
-                        data = mine_all_area(html)
-                        for x in data:
-                            output += start.strftime(pr.fm) + "," + utils.array_to_str(x, ",") + "\n"
-                            if (counter - last_save) == save_interval:
-                                last_save = counter
-                                write_log(filename, output)
-                                output = ""
-                    else:
-                        data = mine_data(html)
-                        if data:
-                            output += start.strftime(pr.fm) + "," + utils.array_to_str(data, ",") + "\n"
-                        if (counter - last_save) == save_interval:
-                            last_save = counter
-                            write_log(filename, output)
-                            output = ""
-                except Exception as e:
-                    print(start.strftime(pr.fm), e)
+                output, counter, last_save = craw_data_controller(output, counter, last_save, save_interval, tmp, hour, start.strftime(pr.fm))
                 start = start + timedelta(hours=1)
                 start_point = now   
                 utils.update_progress(counter * 1.0 / length)

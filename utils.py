@@ -203,7 +203,7 @@ def process_data(dataset, data_len, pred, batch_size, max_input_len, max_sent,
     new_data_len = []
     new_pred = []
     decode_vec = []
-    if context_meaning:
+    if not context_meaning:
         zeros = np.zeros(fr_ele).tolist()
     for x in xrange(maximum):
         e = x + max_sent
@@ -218,7 +218,7 @@ def process_data(dataset, data_len, pred, batch_size, max_input_len, max_sent,
                 arr_d =[y[0][fr_ele:] for y in dataset[e : d_e]]
             else:
                 arr_d =[y[fr_ele:] for y in dataset[e : d_e]]
-                if context_meaning:
+                if not context_meaning:
                     arr = [zeros + en_c[fr_ele:] for en_c in arr]
             # append vector to matrix
             new_data.append(arr)
@@ -230,6 +230,9 @@ def process_data(dataset, data_len, pred, batch_size, max_input_len, max_sent,
     if not is_test:
         new_data, new_pred, decode_vec = np.asarray(new_data, dtype=np.float32), np.asarray(new_pred, dtype=np.int32), np.asarray(decode_vec, dtype=np.float32)
         train_len = int(dlength_b * 0.8) * batch_size
+        # permutation to balance distribution
+        r = np.random.permutation(dlength_b)
+        new_data, new_pred, decode_vec = new_data[r], new_pred[r], decode_vec[r]
         # training set = 80% of dataset
         train_data = new_data[:train_len]
         train_pred = new_pred[:train_len]
@@ -268,6 +271,17 @@ def format10(no):
         return "0" + str(no)
     else:
         return str(no)
+
+
+def boost_pm25(d1):
+    # if d1 > 40:
+    #     d1 += 10
+    # el
+    # if d1 > 90:
+    #     d1 += 10
+    if d1 > 180:
+        d1 += 20
+    return d1
 
 
 # change datetime str to filename format

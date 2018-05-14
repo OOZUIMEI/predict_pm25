@@ -11,6 +11,7 @@ def evaluate(pred, labs, rg, is_classify=False):
         acc = float(acc) / l * 100
         print("classified accuracy:%.2f" % acc)
     else:
+        pred = [utils.boost_pm25(x) for x in pred]
         pred_ = [utils.get_pm25_class(x) for x in pred]
         labs_ = [utils.get_pm25_class(x) for x in labs]
         # precision_score(labs_, pred_, average='weighted')

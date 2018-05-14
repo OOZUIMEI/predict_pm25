@@ -54,7 +54,8 @@ def get_city_url(key):
     keys = {
         "beijing": "https://www.worldweatheronline.com/beijing-weather-history/beijing/cn.aspx",
         "seoul": "https://www.worldweatheronline.com/seoul-weather-history/kr.aspx",
-        "daegu": "https://www.worldweatheronline.com/daegu-weather-history/kr.aspx"
+        "daegu": "https://www.worldweatheronline.com/daegu-weather-history/kr.aspx",
+        "shenyang": "https://www.worldweatheronline.com/shenyang-weather-history/liaoning/cn.aspx"
     }
     return keys[key]
 

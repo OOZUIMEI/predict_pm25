@@ -1,3 +1,8 @@
+"""
+index of N/A in one_hot feature 0,41,73,112,129,146
+39 in case of only seoul & not integrate china
+"""
+
 import utils
 import tensorflow as tf
 import numpy as np
@@ -47,7 +52,7 @@ def main(prefix="", url_feature="", url_pred="", url_len="",  url_feature1="", u
             pred = [utils.get_pm25_class(round(float(x.replace("\n", "")))) for x in pred]
         else:
             pred = [round(float(x.replace("\n", ""))) for x in pred]
-        train, dev = utils.process_data(dataset, data_len, pred, batch_size, max_input_len, max_sent_length, False, pred_sight)
+        train, dev = utils.process_data(dataset, data_len, pred, batch_size, max_input_len, max_sent_length, False, pred_sight, context_info)
         # utils.save_file(p.train_url % ("_" + prefix + "_" + str(max_sent_length)), train)
         # utils.save_file(p.dev_url % ("_" + prefix + "_" +str(max_sent_length)), dev)
     else:
@@ -95,13 +100,13 @@ def main(prefix="", url_feature="", url_pred="", url_len="",  url_feature1="", u
             train_losses.append(train_loss)
             train_accuracies.append(train_accuracy)
             print('Training loss: {}'.format(train_loss))
-            print('Training accuracy: {}'.format(train_accuracy))
+            # print('Training accuracy: {}'.format(train_accuracy))
        
             valid_loss, valid_accuracy, preds, lb = model.run_epoch(session, model.valid)
             val_losses.append(valid_loss)
             val_acces.append(valid_accuracy)
             print('Validation loss: {}'.format(valid_loss))
-            print('Validation accuracy: {}'.format(valid_accuracy))
+            # print('Validation accuracy: {}'.format(valid_accuracy))
 
             if valid_loss < best_val_loss:
                 best_val_loss = valid_loss
@@ -119,9 +124,9 @@ def main(prefix="", url_feature="", url_pred="", url_len="",  url_feature1="", u
             if (epoch - best_val_epoch) > p.early_stopping:
                 break
             print('Total time: {}'.format(time.time() - start))
-        tmp = 'Best validation accuracy: %.4f' % best_val_accuracy
-        print(tmp)
-        utils.save_file("accuracies/%saccuracy.txt" % prefix, tmp, False)
+        # tmp = 'Best validation accuracy: %.4f' % best_val_accuracy
+        # print(tmp)
+        # utils.save_file("accuracies/%saccuracy.txt" % prefix, tmp, False)
         utils.save_file("logs/%slosses.pkl" % prefix, {"train_loss": train_losses, "train_acc": train_accuracies, "valid_loss": val_losses, "valid_acc" : val_acces})
         # utils.save_predictions(best_preds, best_lb, p.train_preds % prefix) 
         # if url_feature1:
@@ -149,14 +154,14 @@ if __name__ == "__main__":
     parser.add_argument("-bw", "--backward_cell", default='basic')
     parser.add_argument("-bd", "--bidirection", type=int)
     parser.add_argument("-dc", "--lr_decayable", type=int, default=1)
-    parser.add_argument("-bs", "--batch_size", type=int, default=54)
+    parser.add_argument("-bs", "--batch_size", type=int, default=64)
     parser.add_argument("-c", "--classify", type=int, default=0)
-    parser.add_argument("-l", "--loss", default='softmax')
+    parser.add_argument("-l", "--loss", default='mae')
     parser.add_argument("-r", "--acc_range", type=int, default=10)
     parser.add_argument("-usp", "--use_tanh_pred", type=int, default=1)
     parser.add_argument("-e", "--embed_size", type=int, default=12)
-    parser.add_argument("-il", "--input_size", type=int, default=30)
-    parser.add_argument("-sl", "--sent_size", type=int, default=12)
+    parser.add_argument("-il", "--input_size", type=int, default=1)
+    parser.add_argument("-sl", "--sent_size", type=int, default=24)
     parser.add_argument("-ir", "--input_rnn", type=int, default=0)
     parser.add_argument("-rl", "--reload_data", type=int, default=1)
     parser.add_argument("-s", "--pred_sight", type=int, default=1)
