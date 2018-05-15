@@ -261,6 +261,10 @@ def now_timestamp():
     return time.mktime(time.localtime())
 
 
+def now_milliseconds():
+    return int(time.time() * 1000)
+
+
 def get_datetime_now():
     return datetime.fromtimestamp(now_timestamp())
 

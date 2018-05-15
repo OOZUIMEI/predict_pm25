@@ -138,15 +138,15 @@ if __name__ == "__main__":
             end = datetime.strptime(args.end, pr.fm)
         else:
             end = utils.get_datetime_now()
-        start_point = utils.get_datetime_now()
+        start_point = utils.now_milliseconds()
         # output = "timestamp,PM10_VAL,PM2.5_VAL,O3(ppm),NO2(ppm),CO(ppm),SO2(ppm),PM10_AQI,PM2.5_AQI\n"
         output = ""
         length = (end - start).total_seconds() / 86400
         counter = 0
         last_save = 0
         while start <= end:
-            now = utils.get_datetime_now()
-            if (now - start_point).total_seconds() >= args.interval:
+            now = utils.now_milliseconds()
+            if (now - start_point) >= args.interval:
                 tmp = start
                 output, counter, last_save = craw_data_controller(output, counter, last_save, save_interval, tmp)
                 start = start + timedelta(days=1)
