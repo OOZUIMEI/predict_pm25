@@ -95,7 +95,7 @@ def craw_data_controller(output, counter, last_save, save_interval, tmp):
             html = craw_data(timestamp, dis)
             values = mine_data(html)
             for x in values:
-                output += timestamp + " " + x[0] + ":00" + utils.array_to_str(x[1:], ",") + "\n"
+                output += timestamp + " " + x[0] + ":00," + str(dis) + "," + utils.array_to_str(x[1:], ",") + "\n"
                 if (counter - last_save) == save_interval:
                     last_save = counter
                     write_log(filename, output)
