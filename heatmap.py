@@ -64,7 +64,12 @@ def clear_interpolate_bound(grid, m):
 
 # fill map with normalized pm2.5 value of 25 district
 def fill_map(data, m, is_interpolate=True, is_clear_out=True):
-    grid = np.zeros(np.shape(m))
+    data_s = np.shape(data)
+    m_s = np.shape(m)
+    if len(data_s) is 1:
+        grid = np.zeros(m_s)
+    else:
+        grid = np.zeros(tuple(list(m_s) + [data_s[-1]]))
     dis = -1
     for i, row in enumerate(m):
         for j, col in enumerate(row):          
@@ -96,6 +101,7 @@ def build_map():
             corr = part.split(",")
             m[int(corr[1])][int(corr[0])] = k + 1
     return m
+
 
 
 if __name__ == "__main__":

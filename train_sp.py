@@ -11,11 +11,24 @@ import sys
 import time
 import argparse
 import properties as p
+import heatmap
 
 from baseline_cnnlstm import BaselineModel
 
 
+def convert_element_to_grid(self, context):
+    res = []
+    for b in context:
+        res_t = []
+        for t in b:
+            p = heatmap.fill_map(t, self.map, False) 
+            res_t.append(p)
+        res.append(res_t)
+    return np.asarray(res, dtype=np.float)
+
+
 def process_data(dataset, batch_size, encoder_length, decoder_length, fr_ele=6):
+    ma = heatmap.build_map()
     len_dataset = len(dataset)
     dlength = len_dataset - 1
     # total batch
@@ -25,9 +38,17 @@ def process_data(dataset, batch_size, encoder_length, decoder_length, fr_ele=6):
     new_data = []
     new_pred = []
     decode_vec = []
+    # transpose to length * 
     dat = np.asarray(dataset)
     # convert district data to map
-    
+    dat_map = []
+    # from data with length *  elements * 25 to length * elements * grid_size * grid_size
+    for t in dat:
+        g = heatmap.fill_map(t, ma, False)
+        dat_map.append(g)
+
+    dat = np.asarray(dat_map)
+    # prepare for batch
     for x in xrange(maximum):
         # encoding starting
         e = x + encoder_length
@@ -36,15 +57,17 @@ def process_data(dataset, batch_size, encoder_length, decoder_length, fr_ele=6):
         if e <= dlength and d_e <= len_dataset:
             e_arr = dat[x : e]
             # extract predict value & decoding context vector
-            d_arr = dat[e:d_e,:,fr_ele:]
+            # d_arr = dat[e:d_e,:,fr_ele:]
+            d_arr = dat[e:d_e,:,:,fr_ele:]
             # append vector to matrix
-            pred = dat[e:d_e,:,0]
+            # pred = dat[e:d_e,:,0]
+            pred = dat[e:d_e,:,:,0]
             new_data.append(e_arr)
             new_pred.append(pred)
             decode_vec.append(d_arr)
         else:
             break
-    new_data, new_pred, decode_vec = np.asarray(new_data, dtype=np.float32), np.asarray(new_pred, dtype=np.int32), np.asarray(decode_vec, dtype=np.float32)
+    new_data, new_pred, decode_vec = np.asarray(new_data), np.asarray(new_pred), np.asarray(decode_vec2)
     train_len = int(dlength_b * 0.8) * batch_size
     # permutation to balance distribution
     r = np.random.permutation(dlength_b)

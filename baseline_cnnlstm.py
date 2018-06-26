@@ -51,8 +51,8 @@ class BaselineModel():
     
     # preserve memory for tensors
     def add_placeholders(self):
-        self.encoder_inputs = tf.placeholder(tf.float32, shape=(self.batch_size, self.encoder_length, self.encode_vector_size, self.grid_size, self.grid_size))
-        self.decoder_inputs = tf.placeholder(tf.float32, shape=(self.batch_size, self.decoder_length, self.decode_vector_size, self.grid_size, self.grid_size))
+        self.encoder_inputs = tf.placeholder(tf.float32, shape=(self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.encode_vector_size))
+        self.decoder_inputs = tf.placeholder(tf.float32, shape=(self.batch_size, self.decoder_length, self.grid_size, self.grid_size, self.decode_vector_size))
         self.pred_placeholder = tf.placeholder(tf.float32, shape=(self.batch_size, self.decoder_length, self.grid_size, self.grid_size))
         self.dropout_placeholder = tf.placeholder(tf.float32)
 
@@ -71,7 +71,8 @@ class BaselineModel():
 
         with tf.variable_scope("encoder", initializer=initializer):
             # add one cnn layer here
-            cnn_inputs = tf.reshape(self.encoder_inputs, [-1])
+            cnn_inputs = tf.transpose(self.encoder_inputs, [0,1,4,2,3])
+            cnn_inputs = tf.reshape(cnn_inputs, [-1])
             cnn_inputs = tf.reshape(cnn_inputs, [self.batch_size * self.encoder_length, self.encode_vector_size, self.grid_size, self.grid_size])
             cnn_inputs = tf.expand_dims(cnn_inputs, 4)
             cnn = tf.layers.conv3d(
@@ -90,7 +91,9 @@ class BaselineModel():
       
         with tf.variable_scope("decoder", initializer=initializer, reuse=tf.AUTO_REUSE):
             # add one cnn layer before decoding using lstm
-            cnn_inputs = tf.reshape(self.decoder_inputs, [-1])
+            cnn_inputs = tf.transpose(self.decoder_inputs, [0,1,4,2,3])
+            cnn_inputs = tf.reshape(cnn_inputs, [-1])
+            # cnn_inputs = tf.reshape(self.decoder_inputs, [-1])
             cnn_inputs = tf.reshape(cnn_inputs, [self.batch_size * self.decoder_length, self.decode_vector_size, self.grid_size, self.grid_size])
             cnn_inputs = tf.expand_dims(cnn_inputs, 4)
             cnn = tf.layers.conv3d(
@@ -186,9 +189,9 @@ class BaselineModel():
             dec_t = dec[index]
 
             # convert 1-d data to map
-            pred_t = self.convert_preds_to_grid(pred_t)
-            ct_t = self.convert_context_to_grid(ct_t)
-            dec_t = self.convert_context_to_grid(dec_t)
+            # pred_t = self.convert_preds_to_grid(pred_t)
+            # ct_t = self.convert_context_to_grid(ct_t)
+            # dec_t = self.convert_context_to_grid(dec_t)
 
             feed = {
                 self.encoder_inputs: ct_t,
