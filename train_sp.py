@@ -30,43 +30,35 @@ def convert_element_to_grid(self, context):
 # pre-process data for training 
 # convert 1-d data to grid-data
 def process_data(dataset, batch_size, encoder_length, decoder_length):
-    ma = heatmap.build_map()
-    len_dataset = len(dataset)
-    sequence_length = encoder_length + decoder_length
-    ava_len = len_dataset - sequence_length
-    dlength_b = ava_len // batch_size
-    maximum = dlength_b * batch_size
-    end = maximum + sequence_length
-    dat = np.asarray(dataset[:end])
-    # convert district data to map
-    dat_map = []
-    # from data with length *  elements * 25 to length * elements * grid_size * grid_size
-    for t in dat:
-        g = heatmap.fill_map(t, ma, False)
-        dat_map.append(g)
-    dat = np.asarray(dat_map, dtype=np.float32)
+    # ma = heatmap.build_map()
+    maximum = (len(dataset) - encoder_length - decoder_length) // batch_size * batch_size
+    end = maximum + encoder_length + decoder_length
     # random from 0 -> maximum_index to separate valid & train set
     train_length = int((maximum * 0.8) // batch_size * batch_size)
     r = np.random.permutation(maximum)
     indices = np.asarray(range(maximum), dtype=np.int32)[r]
     train = indices[:train_length]
     valid = indices[train_length:]
-    return dat, train, valid
+    return train, valid, end
 
 
 
 def main(url_feature="", batch_size=126, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=30):
     model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
-    print("Loading dataset")
-    utils.assert_url(url_feature)
-    dataset = utils.load_file(url_feature)
-    data_grid, train, valid = process_data(dataset, batch_size, encoder_length, decoder_length)
-    model.set_data(data_grid, train, valid)
     with tf.device('/%s' % p.device):
         model.init_ops()
         print('==> initializing variables')
         init = tf.global_variables_initializer()
         saver = tf.train.Saver()
+    print("==> Loading dataset")
+    utils.assert_url(url_feature)
+    dataset = utils.load_file(url_feature)
+    if not dataset:
+        raise ValueError("Not supported data")
+    dataset = np.asarray(dataset, dtype=np.float32)
+    train, valid, end = process_data(dataset, batch_size, encoder_length, decoder_length)
+    model.set_data(dataset[:end], train, valid)
+    
     gpu_options = None
     if p.device == "gpu":
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=p.gpu_fraction)

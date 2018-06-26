@@ -63,7 +63,7 @@ def clear_interpolate_bound(grid, m):
 
 
 # fill map with normalized pm2.5 value of 25 district
-def fill_map(data, m, is_interpolate=True, is_clear_out=True):
+def fill_map(data, m, is_interpolate=False, is_clear_out=True):
     data_s = np.shape(data)
     m_s = np.shape(m)
     if len(data_s) is 1:
