@@ -1,4 +1,10 @@
 # _*_ coding: utf-8 _*_
+"""
+https://gist.github.com/cpelley/6351152
+http://scitools.org.uk/iris/docs/latest/examples/Meteorology/wind_speed.html
+Colormap: 
+https://matplotlib.org/2.0.2/examples/color/colormaps_reference.html
+"""
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import scipy.interpolate as inter
@@ -56,28 +62,35 @@ def clear_interpolate_bound(grid, m):
                 grid[i][j] = 0
 
 
-def visualize(data, m):
-    _, ax = plt.subplots(figsize=(10, 10))
-    # mapping coordination to data
-    dis = -1
+# fill map with normalized pm2.5 value of 25 district
+def fill_map(data, m, is_interpolate=True, is_clear_out=True):
     grid = np.zeros(np.shape(m))
+    dis = -1
     for i, row in enumerate(m):
         for j, col in enumerate(row):          
             dis = col - 1
             if dis >= 0:
                 grid[i][j] = data[dis]
+    if is_interpolate:
+        grid = interpolate(grid)
+        if is_clear_out:
+            clear_interpolate_bound(grid, m)
+    return grid
 
-    
-    grid_ = interpolate(grid)
-    # clear_interpolate_bound(grid_, m)
-    ax.imshow(grid_, interpolation="bilinear", cmap="viridis")
-    ax.set_title("test interpolation")
+
+# visualize grid_map as heat map
+def visualize(data, m):
+    _, ax = plt.subplots(figsize=(10, 10))
+    # mapping coordination to data
+    grid_ = fill_map(data, m)
+    ax.imshow(grid_, interpolation="bilinear", cmap="Oranges")
+    ax.set_title("Seoul Air Pollution")
     plt.show()
 
 
 # preload map points to matrix map
 def build_map():
-    m = np.zeros((grid_size, grid_size), dtype=np.int32)
+    m = np.zeros((pr.grid_size, pr.grid_size), dtype=np.int32)
     for k, value in enumerate(dis.points_draw20):
         for part in value:
             corr = part.split(",")
@@ -85,11 +98,12 @@ def build_map():
     return m
 
 
-grid_size = pr.grid_size
-map_ = build_map()
-h1 = [19,25,24,16,19,15,12,35,14,26,12,33,11,17,16,16,16,21,14,25,26,22,15,0,18,17]
-h2 = [67,78,74,69,54,63,61,45,73,67,53,57,65,73,89,115,64,66,98,52,63,88,49,71,43,35]
-# "종로구","중구","용산구","성동구","광진구","동대문구","중랑구","성북구","강북구","도봉구","노원구","은평구","서대문구","마포구","양천구","강서구","구로구","금천구","영등포구","동작구","관악구","서초구","강남구","송파구","강동구"
-# seoulmap = mpimg.imread(pr.seoul_map)
-# ax.imshow(seoulmap, cmap=plt.cm.gray)
-visualize(h1, map_)
+if __name__ == "__main__":
+    map_ = build_map()
+    h1 = [19,25,24,16,19,15,12,35,14,26,12,33,11,17,16,16,16,21,14,25,26,22,15,0,18,17]
+    h2 = np.asarray([67,78,74,69,54,63,61,45,73,67,53,57,65,73,89,115,64,66,98,52,63,88,49,71,43,35])
+
+    # "종로구","중구","용산구","성동구","광진구","동대문구","중랑구","성북구","강북구","도봉구","노원구","은평구","서대문구","마포구","양천구","강서구","구로구","금천구","영등포구","동작구","관악구","서초구","강남구","송파구","강동구"
+    # seoulmap = mpimg.imread(pr.seoul_map)
+    # ax.imshow(seoulmap, cmap=plt.cm.gray)
+    visualize(h2, map_)

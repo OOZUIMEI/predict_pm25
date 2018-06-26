@@ -125,12 +125,12 @@ def write_log(filename, output):
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("-t", "--test", default=1, type=int)
-    parser.add_argument("-i", "--interval", default=5, type=int)
+    parser.add_argument("-i", "--interval", default=5, type=int, help="secondly interval")
     parser.add_argument("-f", "--file", default="", type=str)
-    parser.add_argument("-si", "--save_interval", default=48, type=int)
+    parser.add_argument("-si", "--save_interval", default=48, type=int, help="secondly saving interval")
     parser.add_argument("-s", "--start", default="2008-01-01 01:00:00", type=str)
     parser.add_argument("-e", "--end", type=str)
-    parser.add_argument("-a", "--get_all", type=int, default=0)
+    parser.add_argument("-a", "--get_all", type=int, default=1)
     
     args = parser.parse_args()
     save_interval = args.save_interval
@@ -163,12 +163,13 @@ if __name__ == "__main__":
                 output, counter, last_save = craw_data_controller(output, counter, last_save, save_interval, tmp, hour, timestamp)    
             write_log(filename, output)     
     else:
-        filename = "craw_seoul_aqi_%s_%s.txt" % (utils.clear_datetime(args.start), utils.clear_datetime(args.end))
         start = datetime.strptime(args.start, pr.fm)
         if args.end:
             end = datetime.strptime(args.end, pr.fm)
         else:
             end = utils.get_datetime_now()
+            args.end = datetime.strftime(end, pr.fm)
+        filename = "craw_seoul_aqi_%s_%s.txt" % (utils.clear_datetime(args.start), utils.clear_datetime(args.end))
         start_point = utils.get_datetime_now()
         # output = "timestamp,PM10_VAL,PM2.5_VAL,O3(ppm),NO2(ppm),CO(ppm),SO2(ppm),PM10_AQI,PM2.5_AQI\n"
         output = ""

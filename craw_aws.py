@@ -132,12 +132,13 @@ if __name__ == "__main__":
             write_log("test_aws_.txt", output)
         # download("2018", "05", "01", 1158)
     else:
-        filename = "craw_aws_%s_%s.txt" % (utils.clear_datetime(args.start), utils.clear_datetime(args.end))
         start = datetime.strptime(args.start, pr.fm)
         if args.end:
             end = datetime.strptime(args.end, pr.fm)
         else:
             end = utils.get_datetime_now()
+            args.end = datetime.strftime(end, pr.fm)
+        filename = "craw_aws_%s_%s.txt" % (utils.clear_datetime(args.start), utils.clear_datetime(args.end))
         start_point = utils.now_milliseconds()
         # output = "timestamp,PM10_VAL,PM2.5_VAL,O3(ppm),NO2(ppm),CO(ppm),SO2(ppm),PM10_AQI,PM2.5_AQI\n"
         output = ""
