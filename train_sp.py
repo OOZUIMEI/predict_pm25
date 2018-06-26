@@ -75,28 +75,23 @@ def main(url_feature="", batch_size=126, encoder_length=24, embed_size=None, los
         session.run(init)
 
         best_val_epoch = 0
-        prev_epoch_loss = float('inf')
         best_val_loss = float('inf')
-        best_val_accuracy = 0.0
         best_overall_val_loss = float('inf')
 
         print('==> starting training')
-        train_losses, train_accuracies = [], []
+        train_losses = []
         val_losses, val_acces, best_preds, best_lb = [], [], [], []
         for epoch in xrange(p.total_iteration):
             print('Epoch {}'.format(epoch))
             start = time.time()
 
-            train_loss, train_accuracy, _, _ = model.run_epoch(
+            train_loss = model.run_epoch(
                 session, train, epoch, train_writer,
                 train_op=model.train_op, train=True)
             train_losses.append(train_loss)
-            train_accuracies.append(train_accuracy)
             print('Training loss: {}'.format(train_loss))
        
-            valid_loss, valid_accuracy, preds, lb = model.run_epoch(session, valid)
-            val_losses.append(valid_loss)
-            val_acces.append(valid_accuracy)
+            valid_loss = model.run_epoch(session, valid)
             print('Validation loss: {}'.format(valid_loss))
 
             if valid_loss < best_val_loss:
@@ -108,8 +103,6 @@ def main(url_feature="", batch_size=126, encoder_length=24, embed_size=None, los
                     saver.save(session, 'weights/%sdaegu.weights' % prefix)
                     best_preds = preds
                     best_lb = lb
-                    if best_val_accuracy < valid_accuracy:
-                        best_val_accuracy = valid_accuracy
 
             if (epoch - best_val_epoch) > p.early_stopping:
                 break

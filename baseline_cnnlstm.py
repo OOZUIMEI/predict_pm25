@@ -150,11 +150,10 @@ class BaselineModel():
         # print("data_size: ", dt_length)
         total_steps = dt_length // self.batch_size
         total_loss = []
-        accuracy = 0
         r = np.random.permutation(dt_length)
         ct = np.asarray(data, dtype=np.float32)
         ct = ct[r]
-        preds = []
+
         for step in range(total_steps):
             index = range(step * self.batch_size,
                           (step + 1) * self.batch_size)
@@ -168,10 +167,6 @@ class BaselineModel():
             dect_d = dect_f[:,:,:,:,self.df_ele:]
             pred_t = dect_f[:,:,:,:,0]
             #only load from index to index + encoder_length + decoder_length
-            # convert 1-d data to map
-            # pred_t = self.convert_preds_to_grid(pred_t)
-            # ct_t = self.convert_context_to_grid(ct_t)
-            # dec_t = self.convert_context_to_grid(dec_t)
 
             feed = {
                 self.encoder_inputs: ct_d,
@@ -185,15 +180,7 @@ class BaselineModel():
                 train_writer.add_summary(
                     summary, num_epoch * total_steps + step)
             
-            pred = [int(round(x)) if x > 0 else 0 for x in pred]
-            preds += pred
-            acc = utils.calculate_accuracy(pred, pred_labels, self.range, self.is_classify)
-            accuracy += acc
             total_loss.append(loss)
 
-        avg_acc = 0.
-        if total_steps:
-            # print(accuracy)
-            avg_acc = accuracy * 1.0 / len(preds)
-        return np.mean(total_loss), avg_acc, preds, pr.tolist()
+        return np.mean(total_loss)
         
