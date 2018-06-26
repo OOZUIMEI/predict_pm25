@@ -47,6 +47,7 @@ class BaselineModel():
        self.output = self.inference()
        self.loss_op = self.add_loss(self.output)
        self.train_op = model_utils.add_training_op(self.loss_op, self.learning_rate)
+       self.merged = tf.summary.merge_all()
     
     # preserve memory for tensors
     def add_placeholders(self):
@@ -196,7 +197,7 @@ class BaselineModel():
             }
             
             loss, pred, summary, _ = session.run(
-                [self.calculate_loss, self.pred, self.merged, train_op], feed_dict=feed)
+                [self.loss_op, self.pred, self.merged, train_op], feed_dict=feed)
             if train_writer is not None:
                 train_writer.add_summary(
                     summary, num_epoch * total_steps + step)
