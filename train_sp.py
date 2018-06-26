@@ -27,80 +27,46 @@ def convert_element_to_grid(self, context):
     return np.asarray(res, dtype=np.float)
 
 
-def process_data(dataset, batch_size, encoder_length, decoder_length, fr_ele=6):
+# pre-process data for training 
+# convert 1-d data to grid-data
+def process_data(dataset, batch_size, encoder_length, decoder_length):
     ma = heatmap.build_map()
     len_dataset = len(dataset)
-    dlength = len_dataset - 1
-    # total batch
-    dlength_b = len_dataset // batch_size
+    sequence_length = encoder_length + decoder_length
+    ava_len = len_dataset - sequence_length
+    dlength_b = ava_len // batch_size
     maximum = dlength_b * batch_size
-    # dataset = dataset[:-1]
-    new_data = []
-    new_pred = []
-    decode_vec = []
-    # transpose to length * 
-    dat = np.asarray(dataset)
+    end = maximum + sequence_length
+    dat = np.asarray(dataset[:end])
     # convert district data to map
     dat_map = []
     # from data with length *  elements * 25 to length * elements * grid_size * grid_size
     for t in dat:
         g = heatmap.fill_map(t, ma, False)
         dat_map.append(g)
-
-    dat = np.asarray(dat_map)
-    # prepare for batch
-    for x in xrange(maximum):
-        # encoding starting
-        e = x + encoder_length
-        # decoding starting index
-        d_e = e + decoder_length
-        if e <= dlength and d_e <= len_dataset:
-            e_arr = dat[x : e]
-            # extract predict value & decoding context vector
-            # d_arr = dat[e:d_e,:,fr_ele:]
-            d_arr = dat[e:d_e,:,:,fr_ele:]
-            # append vector to matrix
-            # pred = dat[e:d_e,:,0]
-            pred = dat[e:d_e,:,:,0]
-            new_data.append(e_arr)
-            new_pred.append(pred)
-            decode_vec.append(d_arr)
-        else:
-            break
-    new_data, new_pred, decode_vec = np.asarray(new_data), np.asarray(new_pred), np.asarray(decode_vec2)
-    train_len = int(dlength_b * 0.8) * batch_size
-    # permutation to balance distribution
-    r = np.random.permutation(dlength_b)
-    new_data, new_pred, decode_vec = new_data[r], new_pred[r], decode_vec[r]
-    # training set = 80% of dataset
-    train_data = new_data[:train_len]
-    train_pred = new_pred[:train_len]
-    train_dec = decode_vec[:train_len]
-    # generate validate set 20% of dataset
-    valid_data = new_data[train_len:]
-    valid_pred = new_pred[train_len:]
-    valid_dec = decode_vec[train_len:]        
-
-    train = (train_data, train_pred, train_dec)
-    dev = (valid_data, valid_pred, valid_dec)
-    return train, dev
+    dat = np.asarray(dat_map, dtype=np.float32)
+    # random from 0 -> maximum_index to separate valid & train set
+    train_length = int((maximum * 0.8) // batch_size * batch_size)
+    r = np.random.permutation(maximum)
+    indices = np.asarray(range(maximum), dtype=np.int32)[r]
+    train = indices[:train_length]
+    valid = indices[train_length:]
+    return dat, train, valid
 
 
 
-def main(url_feature="", batch_size=126, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4):
-    model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size)
+def main(url_feature="", batch_size=126, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=30):
+    model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
+    print("Loading dataset")
+    utils.assert_url(url_feature)
+    dataset = utils.load_file(url_feature)
+    data_grid, train, valid = process_data(dataset, batch_size, encoder_length, decoder_length)
+    model.set_data(data_grid, train, valid)
     with tf.device('/%s' % p.device):
         model.init_ops()
         print('==> initializing variables')
         init = tf.global_variables_initializer()
         saver = tf.train.Saver()
-
-    print("Loading dataset")
-    utils.assert_url(url_feature)
-    dataset = utils.load_file(url_feature)
-    train, dev = process_data(dataset, batch_size, encoder_length, decoder_length)
-    model.set_data(train, dev)
-    
     gpu_options = None
     if p.device == "gpu":
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=p.gpu_fraction)
@@ -130,13 +96,13 @@ def main(url_feature="", batch_size=126, encoder_length=24, embed_size=None, los
             start = time.time()
 
             train_loss, train_accuracy, _, _ = model.run_epoch(
-                session, model.train, epoch, train_writer,
-                train_op=model.train, train=True)
+                session, train, epoch, train_writer,
+                train_op=model.train_op, train=True)
             train_losses.append(train_loss)
             train_accuracies.append(train_accuracy)
             print('Training loss: {}'.format(train_loss))
        
-            valid_loss, valid_accuracy, preds, lb = model.run_epoch(session, model.valid)
+            valid_loss, valid_accuracy, preds, lb = model.run_epoch(session, valid)
             val_losses.append(valid_loss)
             val_acces.append(valid_accuracy)
             print('Validation loss: {}'.format(valid_loss))
@@ -169,6 +135,7 @@ if __name__ == "__main__":
     parser.add_argument("-el", "--encoder_length", type=int, default=24)
     parser.add_argument("-dl", "--decoder_length", type=int, default=24)
     parser.add_argument("-ds", "--decoder_size", type=int, default=6)
+    parser.add_argument("-g", "--grid_size", type=int, default=30)
 
     args = parser.parse_args()
 

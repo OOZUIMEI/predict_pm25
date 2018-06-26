@@ -94,9 +94,15 @@ def visualize(data, m):
 
 
 # preload map points to matrix map
-def build_map():
-    m = np.zeros((pr.grid_size, pr.grid_size), dtype=np.int32)
-    for k, value in enumerate(dis.points_draw20):
+def build_map(grid_size=30):
+    if grid_size is 60:
+        grid = dis.points_draw20
+    elif grid_size is 30:
+        grid = dis.points_30
+    else:
+        raise ValueError("Not support grid size: %i" % grid_size)
+    m = np.zeros((grid_size, grid_size), dtype=np.int32)
+    for k, value in enumerate(grid):
         for part in value:
             corr = part.split(",")
             m[int(corr[1])][int(corr[0])] = k + 1
