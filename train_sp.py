@@ -9,6 +9,7 @@ import numpy as np
 import os
 import sys
 import time
+from datetime import datetime
 import argparse
 import properties as p
 import heatmap
@@ -43,7 +44,7 @@ def process_data(dataset, batch_size, encoder_length, decoder_length):
 
 
 
-def main(url_feature="", batch_size=126, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=30):
+def main(url_feature="", batch_size=126, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=30, weight_prefix="sp"):
     model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
     with tf.device('/%s' % p.device):
         model.init_ops()
@@ -100,13 +101,17 @@ def main(url_feature="", batch_size=126, encoder_length=24, embed_size=None, los
                 if best_val_loss < best_overall_val_loss:
                     print('Saving weights')
                     best_overall_val_loss = best_val_loss
-                    saver.save(session, 'weights/%sdaegu.weights' % prefix)
+                    saver.save(session, 'weights/%s.weights' % weight_prefix)
                     best_preds = preds
                     best_lb = lb
 
             if (epoch - best_val_epoch) > p.early_stopping:
                 break
             print('Total time: {}'.format(time.time() - start))
+        tm = utils.clear_datetime(datetime.strftime(utils.get_datetime_now(), "%Y-%m-%d %H:%M:%S"))
+        l_fl = "train_loss_%s" % tm
+        utils.save_file(tm, train_losses)
+            
 
 
 if __name__ == "__main__":
@@ -114,6 +119,7 @@ if __name__ == "__main__":
     # python train.py -pr "vectors/labels" -f "vectors/full_data" -fl "vectors/full_data_len" -p "train_basic_64b_tanh_12h_" -fw "basic" -dc 1 -l mae -r 10 -usp 1 -e 13 -bs 126 -sl 24 -ir 0 
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--feature", help="prefix to save weighted files")
+    parser.add_argument("-p", "--weight_prefix", type=str, default="")
     parser.add_argument("-bs", "--batch_size", type=int, default=64)
     parser.add_argument("-l", "--loss", default='mae')
     parser.add_argument("-e", "--embed_size", type=int, default=12)
