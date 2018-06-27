@@ -141,7 +141,7 @@ class BaselineModel():
             res.append(res_t)
         return np.asarray(res, dtype=np.float32)
 
-    def run_epoch(self, session, data, num_epoch=0, train_writer=None, train_op=None, verbose=2, train=False, shuffle=True):
+    def run_epoch(self, session, data, num_epoch=0, train_writer=None, train_op=None, verbose=True, train=False, shuffle=True):
         dp = self.dropout
         if train_op is None:
             train_op = tf.no_op()
@@ -181,6 +181,13 @@ class BaselineModel():
                     summary, num_epoch * total_steps + step)
             
             total_loss.append(loss)
+            if verbose and step % verbose == 0:
+                sys.stdout.write('\r{} / {} : loss = {}'.format(
+                    step, total_steps, np.mean(total_loss)))
+                sys.stdout.flush()
+            
+        if verbose:
+            sys.stdout.write("\r")
 
         return np.mean(total_loss)
         
