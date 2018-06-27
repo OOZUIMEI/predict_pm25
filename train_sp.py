@@ -44,7 +44,7 @@ def process_data(dataset, batch_size, encoder_length, decoder_length):
 
 
 
-def main(url_feature="", batch_size=126, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=30, weight_prefix="sp"):
+def main(url_feature="", batch_size=126, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, weight_prefix="sp"):
     model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
     with tf.device('/%s' % p.device):
         model.init_ops()
@@ -67,7 +67,7 @@ def main(url_feature="", batch_size=126, encoder_length=24, embed_size=None, los
     tconfig = tf.ConfigProto(allow_soft_placement=True, gpu_options=gpu_options)
 
     with tf.Session(config=tconfig) as session:
-
+        
         sum_dir = 'summaries/' + time.strftime("%Y-%m-%d %H %M")
         if not utils.check_file(sum_dir):
             os.makedirs(sum_dir)
@@ -126,7 +126,7 @@ if __name__ == "__main__":
     parser.add_argument("-el", "--encoder_length", type=int, default=24)
     parser.add_argument("-dl", "--decoder_length", type=int, default=24)
     parser.add_argument("-ds", "--decoder_size", type=int, default=6)
-    parser.add_argument("-g", "--grid_size", type=int, default=30)
+    parser.add_argument("-g", "--grid_size", type=int, default=25)
 
     args = parser.parse_args()
 

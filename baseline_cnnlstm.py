@@ -17,7 +17,7 @@ import heatmap
 class BaselineModel():
 
     
-    def __init__(self, encoder_length=24, decoder_length=24, grid_size=60, rnn_hidden_units=128, 
+    def __init__(self, encoder_length=24, decoder_length=24, grid_size=25, rnn_hidden_units=128, 
                 encode_vector_size=12, decode_vector_size=6, learning_rate=0.01, batch_size=64, loss="mae", df_ele=6):
         self.encoder_length = encoder_length
         self.decoder_length = decoder_length
@@ -66,7 +66,7 @@ class BaselineModel():
         initializer=tf.contrib.layers.xavier_initializer()
         ecs = self.grid_square * self.encode_vector_size
         dcs = self.grid_square * self.decode_vector_size
-        grd_cnn = 13 * 13
+        grd_cnn = 12 * 12
         e_params = {
             "fw_cell_size" : self.rnn_hidden_units,
             "fw_cell": "basic",
@@ -102,7 +102,7 @@ class BaselineModel():
             inputs=cnn_inputs,
             strides=(1,2,2),
             filters=1,
-            kernel_size=(vector_size,6,6),
+            kernel_size=(vector_size,3,3),
             padding="valid"
         )
         #output should have shape: bs * length, 28, 28, 1
@@ -159,6 +159,7 @@ class BaselineModel():
                           (step + 1) * self.batch_size)
             # just the starting points of encoding batch_size,
             ct_t = ct[index]
+            t1 = time.time()
             # switch batchsize, => batchsize * encoding_length
             ct_t = np.asarray([range(int(x), int(x) + self.encoder_length) for x in ct_t])
             ct_d = self.map_to_grid(self.datasets[ct_t])
@@ -166,6 +167,8 @@ class BaselineModel():
             dect_f = self.map_to_grid(self.datasets[dec_t])
             dect_d = dect_f[:,:,:,:,self.df_ele:]
             pred_t = dect_f[:,:,:,:,0]
+            t2 = time.time()
+            print("loading time: %.2f" % (t2 - t1))
             #only load from index to index + encoder_length + decoder_length
 
             feed = {
