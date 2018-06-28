@@ -70,7 +70,7 @@ class BaselineModel():
             embedding = tf.Variable(self.datasets, name="embedding")
             enc = tf.nn.embedding_lookup(embedding, self.encoder_inputs)
             dec_f = tf.nn.embedding_lookup(embedding, self.decoder_inputs)
-            print(dec_f.get_shape())
+            # print(dec_f.get_shape())
             dec = dec_f[:,:,:,:,self.df_ele:]
             self.pred_placeholder = dec_f[:,:,:,:,0]
             self.pred_placeholder = dec_f[:,:,:,:,0]

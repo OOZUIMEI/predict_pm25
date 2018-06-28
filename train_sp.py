@@ -64,6 +64,7 @@ def main(url_feature="", batch_size=126, encoder_length=24, embed_size=None, los
     gpu_options = None
     if p.device == "gpu":
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=p.gpu_fraction, allow_growth=True)
+        os.environ["CUDA_VISIBLE_DEVICES"]=p.gpu_devices
        
     tconfig = tf.ConfigProto(allow_soft_placement=True, gpu_options=gpu_options)
 
