@@ -4,6 +4,7 @@ from __future__ import division
 import sys
 import time
 import numpy as np
+import math
 import tensorflow as tf
 from tensorflow.contrib.rnn import BasicLSTMCell, LayerNormBasicLSTMCell
 
@@ -34,7 +35,7 @@ class BaselineModel():
         self.loss = loss
         self.dropout = 0.9
         self.df_ele = df_ele
-        self.dtype = dtype
+        self.dtype = dtype        
         self.map = heatmap.build_map()
     
     def set_training(self, training):
@@ -54,11 +55,12 @@ class BaselineModel():
     
     # preserve memory for tensors
     def add_placeholders(self):
-        if not self.dtype is "grid":
+        if self.dtype != "grid":
             self.encoder_inputs = tf.placeholder(tf.float32, shape=(self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.encode_vector_size))
             self.decoder_inputs = tf.placeholder(tf.float32, shape=(self.batch_size, self.decoder_length, self.grid_size, self.grid_size, self.decode_vector_size))
-            self.pred_placeholder = tf.placeholder(tf.float32, shape=(self.batch_size, self.decoder_length, self.grid_size, self.grid_size))
+            self.pred_placeholder = tf.placeholder(tf.float32, shape=(self.batch_size, self.decoder_length, self.grid_size, self. grid_size))
         else:
+            self.embedding = tf.Variable([], validate_shape=False, dtype=tf.float32, trainable=False)
             self.encoder_inputs = tf.placeholder(tf.int32, shape=(self.batch_size, self.encoder_length))
             self.decoder_inputs = tf.placeholder(tf.int32, shape=(self.batch_size, self.decoder_length))
         self.dropout_placeholder = tf.placeholder(tf.float32)
@@ -66,10 +68,10 @@ class BaselineModel():
     def inference(self):
         # embedding = tf.Variable(self.datasets, name="Embedding")
         # check if dtype is grid then just look up index from the datasets 
-        if self.dtype is "grid":
-            embedding = tf.Variable(self.datasets, name="embedding")
-            enc = tf.nn.embedding_lookup(embedding, self.encoder_inputs)
-            dec_f = tf.nn.embedding_lookup(embedding, self.decoder_inputs)
+        if self.dtype == "grid":
+            # embedding = tf.Variable(self.datasets, name="embedding")
+            enc = tf.nn.embedding_lookup(self.embedding, self.encoder_inputs)
+            dec_f = tf.nn.embedding_lookup(self.embedding, self.decoder_inputs)
             # print(dec_f.get_shape())
             dec = dec_f[:,:,:,:,self.df_ele:]
             self.pred_placeholder = dec_f[:,:,:,:,0]
@@ -163,7 +165,7 @@ class BaselineModel():
             dp = 1
         dt_length = len(data)
         # print("data_size: ", dt_length)
-        total_steps = dt_length // self.batch_size
+        total_steps = int(math.ceil(dt_length / self.batch_size))
         total_loss = []
         r = np.random.permutation(dt_length)
         ct = np.asarray(data, dtype=np.float32)
@@ -177,7 +179,7 @@ class BaselineModel():
             # switch batchsize, => batchsize * encoding_length
             ct_t = np.asarray([range(int(x), int(x) + self.encoder_length) for x in ct_t])
             dec_t = ct_t + self.decoder_length
-            if not self.dtype is "grid":
+            if self.dtype != "grid":
                 ct_d = self.map_to_grid(self.datasets[ct_t])
                 dect_f = self.map_to_grid(self.datasets[dec_t])
                 dect_d = dect_f[:,:,:,:,self.df_ele:]
@@ -190,11 +192,12 @@ class BaselineModel():
                 }
             else:
                 feed = {
+                    self.embedding: self.datasets,
                     self.encoder_inputs : ct_t,
-                    self.decoder_inputs: dec_t
+                    self.decoder_inputs: dec_t,
                 }
-            loss, pred, summary, _ = session.run(
-                [self.loss_op, self.output, self.merged, train_op], feed_dict=feed)
+            _, loss, summary,_, _, _= session.run(
+                [self.embedding, self.loss_op, train_op, self.output, self.merged], feed_dict=feed)
             if train_writer is not None:
                 train_writer.add_summary(
                     summary, num_epoch * total_steps + step)

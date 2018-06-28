@@ -4,6 +4,7 @@ import pickle
 import utils
 import time
 import re
+import math
 from datetime import datetime
 import heatmap
 
@@ -54,15 +55,28 @@ def parse_vector(url, out_url, dim):
     return res
 
 
-def convert_data_to_grid(url, out_url):
+def convert_data_to_grid(url, out_url, part=1):
     ma = heatmap.build_map()
     data = utils.load_file(url)
+    lt = len(data)
     res = []
-    for t in data:
+    if part != 1:
+        bound = int(math.ceil(float(lt) / part))
+    for i, t in enumerate(data):
+        if i and (i % bound) == 0:
+            out_url_name = out_url + "_" + str(i / bound)
+            utils.save_file(out_url_name, res)        
+            print(len(res))
+            res = []
         g = heatmap.fill_map(t, ma)
         res.append(g)
-    utils.save_file(out_url, res)
+        utils.update_progress(float(i)/lt)
 
+    if part == 1:
+        out_url_name = out_url
+    else:
+        out_url_name = out_url + "_" + str(part)
+    utils.save_file(out_url_name, res)
 
 
 
@@ -72,10 +86,11 @@ if __name__ == "__main__":
     parser.add_argument("-u", "--url")
     parser.add_argument("-u1", "--url1")
     parser.add_argument("-dim", "--dim", type=int, default=12)
+    parser.add_argument("-s", "--part", type=int, default=12)
     args = parser.parse_args()
 
     # parse_vector(args.url, args.url1, args.dim)
-    convert_data_to_grid(args.url, args.url1)
+    convert_data_to_grid(args.url, args.url1, args.part)
         
 
 
