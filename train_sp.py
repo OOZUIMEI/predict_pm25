@@ -106,7 +106,7 @@ def main(url_feature="", batch_size=126, encoder_length=24, embed_size=None, los
                 break
             print('Total time: {}'.format(time.time() - start))
         tm = utils.clear_datetime(datetime.strftime(utils.get_datetime_now(), "%Y-%m-%d %H:%M:%S"))
-        l_fl = "train_loss_%s" % tm
+        l_fl = "train_loss_%s_%s" % (weight_prefix, tm)
         utils.save_file(tm, train_losses)
             
 
