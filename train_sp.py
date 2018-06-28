@@ -62,7 +62,7 @@ def main(url_feature="", batch_size=126, encoder_length=24, embed_size=None, los
     
     gpu_options = None
     if p.device == "gpu":
-        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=p.gpu_fraction)
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=p.gpu_fraction, allow_growth=True)
        
     tconfig = tf.ConfigProto(allow_soft_placement=True, gpu_options=gpu_options)
 
@@ -81,7 +81,6 @@ def main(url_feature="", batch_size=126, encoder_length=24, embed_size=None, los
 
         print('==> starting training')
         train_losses = []
-        val_losses, val_acces, best_preds, best_lb = [], [], [], []
         for epoch in xrange(p.total_iteration):
             print('Epoch {}'.format(epoch))
             start = time.time()
@@ -102,8 +101,6 @@ def main(url_feature="", batch_size=126, encoder_length=24, embed_size=None, los
                     print('Saving weights')
                     best_overall_val_loss = best_val_loss
                     saver.save(session, 'weights/%s.weights' % weight_prefix)
-                    best_preds = preds
-                    best_lb = lb
 
             if (epoch - best_val_epoch) > p.early_stopping:
                 break
