@@ -30,9 +30,9 @@ def convert_element_to_grid(self, context):
 
 # pre-process data for training 
 # convert 1-d data to grid-data
-def process_data(dataset, batch_size, encoder_length, decoder_length):
+def process_data(dtlength, batch_size, encoder_length, decoder_length):
     # ma = heatmap.build_map()
-    maximum = (len(dataset) - encoder_length - decoder_length) // batch_size * batch_size
+    maximum = (dtlength - encoder_length - decoder_length) // batch_size * batch_size
     end = maximum + encoder_length + decoder_length
     # random from 0 -> maximum_index to separate valid & train set
     train_length = int((maximum * 0.8) // batch_size * batch_size)
@@ -44,22 +44,23 @@ def process_data(dataset, batch_size, encoder_length, decoder_length):
 
 
 
-def main(url_feature="", batch_size=126, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, weight_prefix="sp"):
-    model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
-    with tf.device('/%s' % p.device):
-        model.init_ops()
-        print('==> initializing variables')
-        init = tf.global_variables_initializer()
-        saver = tf.train.Saver()
+def main(url_feature="", batch_size=126, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, weight_prefix="sp", dtype=""):
+    model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, dtype="grid", grid_size=grid_size)
     print("==> Loading dataset")
     utils.assert_url(url_feature)
     dataset = utils.load_file(url_feature)
     if not dataset:
         raise ValueError("Not supported data")
     dataset = np.asarray(dataset, dtype=np.float32)
-    train, valid, end = process_data(dataset, batch_size, encoder_length, decoder_length)
+    train, valid, end = process_data(len(dataset), batch_size, encoder_length, decoder_length)
     model.set_data(dataset[:end], train, valid)
     
+    print('==> initializing models')
+    with tf.device('/%s' % p.device):
+        model.init_ops()
+        init = tf.global_variables_initializer()
+        saver = tf.train.Saver()
+
     gpu_options = None
     if p.device == "gpu":
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=p.gpu_fraction, allow_growth=True)
@@ -124,8 +125,9 @@ if __name__ == "__main__":
     parser.add_argument("-dl", "--decoder_length", type=int, default=24)
     parser.add_argument("-ds", "--decoder_size", type=int, default=6)
     parser.add_argument("-g", "--grid_size", type=int, default=25)
+    parser.add_argument("-dt", "--dtype", default='grid')
 
     args = parser.parse_args()
 
-    main(args.feature, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size)
+    main(args.feature, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, dtype=args.dtype)
     
