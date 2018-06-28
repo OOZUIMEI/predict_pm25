@@ -4,7 +4,6 @@ from __future__ import division
 import sys
 import time
 import numpy as np
-import math
 import tensorflow as tf
 from tensorflow.contrib.rnn import BasicLSTMCell, LayerNormBasicLSTMCell
 
@@ -165,7 +164,7 @@ class BaselineModel():
             dp = 1
         dt_length = len(data)
         # print("data_size: ", dt_length)
-        total_steps = int(math.ceil(dt_length / self.batch_size))
+        total_steps = dt_length // self.batch_size
         total_loss = []
         r = np.random.permutation(dt_length)
         ct = np.asarray(data, dtype=np.float32)
@@ -196,8 +195,8 @@ class BaselineModel():
                     self.encoder_inputs : ct_t,
                     self.decoder_inputs: dec_t,
                 }
-            _, loss, summary,_, _, _= session.run(
-                [self.embedding, self.loss_op, train_op, self.output, self.merged], feed_dict=feed)
+            loss, summary,_, _= session.run(
+                [self.loss_op, self.merged, train_op, self.output], feed_dict=feed)
             if train_writer is not None:
                 train_writer.add_summary(
                     summary, num_epoch * total_steps + step)
