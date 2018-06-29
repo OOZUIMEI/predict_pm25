@@ -30,60 +30,32 @@ def convert_element_to_grid(self, context):
 
 # pre-process data for training 
 # convert 1-d data to grid-data
-def process_data(dtlength, batch_size, encoder_length, decoder_length):
+def process_data(dtlength, batch_size, encoder_length, decoder_length, is_test):
     # ma = heatmap.build_map()
     # maximum = (dtlength - encoder_length - decoder_length) // batch_size * batch_size
     maximum = dtlength - encoder_length - decoder_length
     end = maximum + encoder_length + decoder_length
     # random from 0 -> maximum_index to separate valid & train set
-    train_length = int((maximum * 0.8) // batch_size * batch_size)
-    r = np.random.permutation(maximum)
-    indices = np.asarray(range(maximum), dtype=np.int32)[r]
-    train = indices[:train_length]
-    valid = indices[train_length:]
+    indices = np.asarray(range(maximum), dtype=np.int32)
+    if not is_test:
+        train_length = int((maximum * 0.8) // batch_size * batch_size)
+        r = np.random.permutation(maximum)
+        indices = indices[r]
+        train = indices[:train_length]
+        valid = indices[train_length:]
+    else:
+        train, valid = indices, None
     return train, valid, end
 
 
-
-def main(url_feature="", batch_size=126, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, weight_prefix="sp", dtype="", is_folder=None):
-    model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, dtype=dtype, grid_size=grid_size)
-    print('==> initializing models')
-    with tf.device('/%s' % p.device):
-        model.init_ops()
-        init = tf.global_variables_initializer()
-        saver = tf.train.Saver()
-    utils.assert_url(url_feature)
-    folders = None
-    if is_folder:
-        folders = os.listdir(url_feature)
-    else:
-        folders = [url_feature]
-
-    gpu_options = None
-    if p.device == "gpu":
-        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=p.gpu_fraction)
-        os.environ["CUDA_VISIBLE_DEVICES"]=p.gpu_devices
-    
-    tconfig = tf.ConfigProto(allow_soft_placement=True, gpu_options=gpu_options)
-    sum_dir = 'summaries/' + time.strftime("%Y-%m-%d %H %M")
-    if not utils.check_file(sum_dir):
-        os.makedirs(sum_dir)
-
-    with tf.Session(config=tconfig) as session:
-        train_writer = tf.summary.FileWriter(sum_dir, session.graph)
-        session.run(init)
-        for x in folders:
-            print("==> Loading dataset")
-            if not is_folder:
-                path = url_feature
-            else:
-                path = os.path.join(url_feature, x)
-            dataset = utils.load_file(path)
-            if not dataset:
-                continue
-            dataset = np.asarray(dataset, dtype=np.float32)
-            lt = len(dataset)
-            train, valid, _ = process_data(lt, batch_size, encoder_length, decoder_length)
+def execute(path, url_weight, model, batch_size, encoder_length, decoder_length, is_test):
+    print("==> Loading dataset")
+    dataset = utils.load_file(path)
+    if dataset:
+        dataset = np.asarray(dataset, dtype=np.float32)
+        lt = len(dataset)
+        train, valid, _ = process_data(lt, batch_size, encoder_length, decoder_length, is_test)
+        if not is_test:
             model.set_data(dataset, train, valid)
 
             best_val_epoch = 0
@@ -101,7 +73,7 @@ def main(url_feature="", batch_size=126, encoder_length=24, embed_size=None, los
                     train_op=model.train_op, train=True)
                 train_losses.append(train_loss)
                 print('Training loss: {}'.format(train_loss))
-        
+
                 valid_loss = model.run_epoch(session, valid)
                 print('Validation loss: {}'.format(valid_loss))
 
@@ -111,15 +83,52 @@ def main(url_feature="", batch_size=126, encoder_length=24, embed_size=None, los
                     if best_val_loss < best_overall_val_loss:
                         print('Saving weights')
                         best_overall_val_loss = best_val_loss
-                        saver.save(session, 'weights/%s.weights' % weight_prefix)
+                        saver.save(session, 'weights/%s.weights' % url_weight)
 
                 if (epoch - best_val_epoch) > p.early_stopping:
                     break
                 print('Total time: {}'.format(time.time() - start))
             tm = utils.clear_datetime(datetime.strftime(utils.get_datetime_now(), "%Y-%m-%d %H:%M:%S"))
-            l_fl = "train_loss_%s_%s" % (weight_prefix, tm)
-            utils.save_file(tm, train_losses)
+            l_fl = "train_loss/train_loss_%s_%s" % (url_weight, tm)
+            utils.save_file(l_fl, train_losses)
+        else:
+            model.set_data(dataset, train, valid)
+            saver.restore(session, url_weight)
+            print('==> running model')
+            loss = model.run_epoch(session, model.train, shuffle=False)
+            print('Test mae loss: %.4f' % loss)
 
+
+def main(url_feature="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, dtype="", is_folder=None, is_test=False):
+    model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, dtype=dtype, grid_size=grid_size)
+    print('==> initializing models')
+    with tf.device('/%s' % p.device):
+        model.init_ops()
+        init = tf.global_variables_initializer()
+        saver = tf.train.Saver()
+    utils.assert_url(url_feature)
+
+    gpu_options = None
+    if p.device == "gpu":
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=p.gpu_fraction)
+        os.environ["CUDA_VISIBLE_DEVICES"]=p.gpu_devices
+    
+    tconfig = tf.ConfigProto(allow_soft_placement=True, gpu_options=gpu_options)
+    sum_dir = 'summaries/' + time.strftime("%Y-%m-%d %H %M")
+    if not utils.check_file(sum_dir):
+        os.makedirs(sum_dir)
+
+    with tf.Session(config=tconfig) as session:
+        train_writer = tf.summary.FileWriter(sum_dir, session.graph)
+        session.run(init)
+        folders = None
+        if is_folder:
+            folders = os.listdir(url_feature)
+            for x in folders:
+                execute(os.path.join(url_feature, x), url_weight, model, batch_size, encoder_length, decoder_length, is_test)
+        else:
+            execute(url_feature, url_weight, model, batch_size, encoder_length, decoder_length, is_test)
+        
 
 if __name__ == "__main__":
     # 10110 -> 10080 -> 126 batch 
@@ -127,7 +136,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-u", "--feature", help="prefix to save weighted files")
     parser.add_argument("-f", "--folder", default=0, type=int)
-    parser.add_argument("-p", "--weight_prefix", type=str, default="")
+    parser.add_argument("-p", "--url_weight", type=str, default="")
     parser.add_argument("-bs", "--batch_size", type=int, default=64)
     parser.add_argument("-l", "--loss", default='mae')
     parser.add_argument("-e", "--embed_size", type=int, default=12)
@@ -136,8 +145,9 @@ if __name__ == "__main__":
     parser.add_argument("-ds", "--decoder_size", type=int, default=6)
     parser.add_argument("-g", "--grid_size", type=int, default=25)
     parser.add_argument("-dt", "--dtype", default='grid')
+    parser.add_argument("-t", "--is_test", default=0, help="is testing", type=int)
 
     args = parser.parse_args()
 
-    main(args.feature, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, dtype=args.dtype, is_folder=args.folder)
+    main(args.feature, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, dtype=args.dtype, is_folder=args.folder, args.is_test)
     

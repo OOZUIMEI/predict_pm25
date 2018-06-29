@@ -62,6 +62,8 @@ def convert_data_to_grid(url, out_url, part=1):
     res = []
     if part != 1:
         bound = int(math.ceil(float(lt) / part))
+    else:
+        bound = lt
     for i, t in enumerate(data):
         if i and (i % bound) == 0:
             out_url_name = out_url + "_" + str(i / bound)
