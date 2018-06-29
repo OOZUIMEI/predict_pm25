@@ -48,7 +48,7 @@ def process_data(dtlength, batch_size, encoder_length, decoder_length, is_test):
     return train, valid, end
 
 
-def execute(path, url_weight, model, batch_size, encoder_length, decoder_length, is_test):
+def execute(path, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test):
     print("==> Loading dataset")
     dataset = utils.load_file(path)
     if dataset:
@@ -125,9 +125,9 @@ def main(url_feature="", url_weight="sp", batch_size=128, encoder_length=24, emb
         if is_folder:
             folders = os.listdir(url_feature)
             for x in folders:
-                execute(os.path.join(url_feature, x), url_weight, model, batch_size, encoder_length, decoder_length, is_test)
+                execute(os.path.join(url_feature, x), url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test)
         else:
-            execute(url_feature, url_weight, model, batch_size, encoder_length, decoder_length, is_test)
+            execute(url_feature, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test)
         
 
 if __name__ == "__main__":
@@ -149,5 +149,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    main(args.feature, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, dtype=args.dtype, is_folder=args.folder, args.is_test)
+    main(args.feature, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, dtype=args.dtype, is_folder=args.folder, is_test=args.is_test)
     
