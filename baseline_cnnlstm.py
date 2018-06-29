@@ -19,7 +19,7 @@ class BaselineModel():
     
     def __init__(self, encoder_length=24, decoder_length=24, grid_size=25, rnn_hidden_units=128, 
                 encode_vector_size=12, decode_vector_size=6, learning_rate=0.01, batch_size=64, loss="mae", 
-                df_ele=6, dtype="grid"):
+                df_ele=6, dtype="grid", use_cnn=False):
         self.encoder_length = encoder_length
         self.decoder_length = decoder_length
         self.sequence_length = encoder_length + decoder_length
@@ -36,6 +36,7 @@ class BaselineModel():
         self.df_ele = df_ele
         self.dtype = dtype        
         self.map = heatmap.build_map()
+        self.use_cnn = True
     
     def set_training(self, training):
         self.is_training = training
@@ -82,7 +83,12 @@ class BaselineModel():
         initializer=tf.contrib.layers.xavier_initializer()
         ecs = self.grid_square * self.encode_vector_size
         dcs = self.grid_square * self.decode_vector_size
-        grd_cnn = 12 * 12
+        
+        if self.use_cnn:
+            grd_cnn = 12 * 12
+        else:
+            grd_cnn = self.grid_square
+
         e_params = {
             "fw_cell_size" : self.rnn_hidden_units,
             "fw_cell": "basic",
@@ -91,15 +97,22 @@ class BaselineModel():
             "type": 0
         }
         with tf.variable_scope("encoder", initializer=initializer):
-            # add one cnn layer here
-            cnn = self.get_cnn_rep(enc, self.encoder_length, self.encode_vector_size)
+            if self.use_cnn:
+                # add one cnn layer here
+                cnn = self.get_cnn_rep(enc, self.encoder_length, self.encode_vector_size)
+            else:
+                cnn = enc
             enc_data = tf.unstack(tf.reshape(cnn, [self.batch_size, self.encoder_length, grd_cnn]), axis=1)
             # then push through lstm
             _, enc_output = rnn_utils.execute_sequence(enc_data, e_params)
         
         with tf.variable_scope("decoder", initializer=initializer, reuse=tf.AUTO_REUSE):
+            if self.use_cnn:
+                # add one cnn layer here
+                cnn = self.get_cnn_rep(dec, self.decoder_length, self.decode_vector_size)
+            else:
+                cnn = dec
             # add one cnn layer before decoding using lstm
-            cnn = self.get_cnn_rep(dec, self.decoder_length, self.decode_vector_size)
             dec_data = tf.reshape(cnn, [self.batch_size, self.decoder_length, grd_cnn])
             #finally push -> decoder
             outputs = rnn_utils.execute_decoder(dec_data, enc_output, self.decoder_length, e_params)

@@ -48,7 +48,7 @@ def process_data(dtlength, batch_size, encoder_length, decoder_length, is_test):
     return train, valid, end
 
 
-def execute(path, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test):
+def execute(path, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None):
     print("==> Loading dataset")
     dataset = utils.load_file(path)
     if dataset:
@@ -99,8 +99,9 @@ def execute(path, url_weight, model, session, saver, batch_size, encoder_length,
             print('Test mae loss: %.4f' % loss)
 
 
-def main(url_feature="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, dtype="", is_folder=None, is_test=False):
-    model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, dtype=dtype, grid_size=grid_size)
+def main(url_feature="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, dtype="grid", 
+        is_folder=False, is_test=False, use_cnn=True):
+    model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, dtype=dtype, grid_size=grid_size, use_cnn=use_cnn)
     print('==> initializing models')
     with tf.device('/%s' % p.device):
         model.init_ops()
@@ -125,7 +126,7 @@ def main(url_feature="", url_weight="sp", batch_size=128, encoder_length=24, emb
         if is_folder:
             folders = os.listdir(url_feature)
             for x in folders:
-                execute(os.path.join(url_feature, x), url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test)
+                execute(os.path.join(url_feature, x), url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
         else:
             execute(url_feature, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test)
         
@@ -136,7 +137,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-u", "--feature", help="prefix to save weighted files")
     parser.add_argument("-f", "--folder", default=0, type=int)
-    parser.add_argument("-p", "--url_weight", type=str, default="")
+    parser.add_argument("-w", "--url_weight", type=str, default="")
     parser.add_argument("-bs", "--batch_size", type=int, default=64)
     parser.add_argument("-l", "--loss", default='mae')
     parser.add_argument("-e", "--embed_size", type=int, default=12)
@@ -146,8 +147,10 @@ if __name__ == "__main__":
     parser.add_argument("-g", "--grid_size", type=int, default=25)
     parser.add_argument("-dt", "--dtype", default='grid')
     parser.add_argument("-t", "--is_test", default=0, help="is testing", type=int)
+    parser.add_argument("-cnn", "--use_cnn", default=1, help="using cnn or not", type=int)
 
     args = parser.parse_args()
 
-    main(args.feature, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, dtype=args.dtype, is_folder=args.folder, is_test=args.is_test)
+    main(args.feature, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
+        dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn))
     
