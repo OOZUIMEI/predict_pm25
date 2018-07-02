@@ -37,6 +37,7 @@ class BaselineModel():
         self.dtype = dtype        
         self.map = heatmap.build_map()
         self.use_cnn = True
+        self.districts = 25
     
     def set_training(self, training):
         self.is_training = training
@@ -55,65 +56,69 @@ class BaselineModel():
     
     # preserve memory for tensors
     def add_placeholders(self):
-        if self.dtype != "grid":
-            self.encoder_inputs = tf.placeholder(tf.float32, shape=(self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.encode_vector_size))
-            self.decoder_inputs = tf.placeholder(tf.float32, shape=(self.batch_size, self.decoder_length, self.grid_size, self.grid_size, self.decode_vector_size))
+        self.embedding = tf.Variable([], validate_shape=False, dtype=tf.float32, trainable=False)
+        self.encoder_inputs = tf.placeholder(tf.int32, shape=(self.batch_size, self.encoder_length))
+        self.decoder_inputs = tf.placeholder(tf.int32, shape=(self.batch_size, self.decoder_length))
+        if self.dtype == "grid":
             self.pred_placeholder = tf.placeholder(tf.float32, shape=(self.batch_size, self.decoder_length, self.grid_size, self. grid_size))
-        else:
-            self.embedding = tf.Variable([], validate_shape=False, dtype=tf.float32, trainable=False)
-            self.encoder_inputs = tf.placeholder(tf.int32, shape=(self.batch_size, self.encoder_length))
-            self.decoder_inputs = tf.placeholder(tf.int32, shape=(self.batch_size, self.decoder_length))
+        
         self.dropout_placeholder = tf.placeholder(tf.float32)
 
     def inference(self):
         # embedding = tf.Variable(self.datasets, name="Embedding")
         # check if dtype is grid then just look up index from the datasets 
+        enc = tf.nn.embedding_lookup(self.embedding, self.encoder_inputs)
+        dec_f = tf.nn.embedding_lookup(self.embedding, self.decoder_inputs)
         if self.dtype == "grid":
             # embedding = tf.Variable(self.datasets, name="embedding")
-            enc = tf.nn.embedding_lookup(self.embedding, self.encoder_inputs)
-            dec_f = tf.nn.embedding_lookup(self.embedding, self.decoder_inputs)
-            # print(dec_f.get_shape())
             dec = dec_f[:,:,:,:,self.df_ele:]
             self.pred_placeholder = dec_f[:,:,:,:,0]
-            self.pred_placeholder = dec_f[:,:,:,:,0]
         else:
-            dec = self.decoder_inputs
-            enc = self.encoder_inputs
+            dec = dec_f[:,:,:,self.df_ele:]
+            self.pred_placeholder = dec_f[:,:,:,0]
 
-        initializer=tf.contrib.layers.xavier_initializer()
-        ecs = self.grid_square * self.encode_vector_size
-        dcs = self.grid_square * self.decode_vector_size
+        initializer = tf.contrib.layers.xavier_initializer()
         
-        if self.use_cnn:
-            grd_cnn = 12 * 12
-        else:
-            grd_cnn = self.grid_square
-
         e_params = {
             "fw_cell_size" : self.rnn_hidden_units,
             "fw_cell": "basic",
-            "de_output_size": self.grid_square,
             "batch_size" : self.batch_size,
             "type": 0
         }
-        with tf.variable_scope("encoder", initializer=initializer):
+
+        if self.dtype == "grid":
             if self.use_cnn:
-                # add one cnn layer here
-                cnn = self.get_cnn_rep(enc, self.encoder_length, self.encode_vector_size)
+                grd_cnn = 12 * 12
             else:
-                cnn = enc
-            enc_data = tf.unstack(tf.reshape(cnn, [self.batch_size, self.encoder_length, grd_cnn]), axis=1)
+                grd_cnn = self.grid_square
+            e_params["de_output_size"] = self.grid_square
+        else:
+            e_params["de_output_size"] = self.districts
+        
+        with tf.variable_scope("encoder", initializer=initializer):
+            if self.dtype == "grid":
+                if self.use_cnn:
+                    # add one cnn layer here
+                    cnn = self.get_cnn_rep(enc, self.encoder_length, self.encode_vector_size)
+                else:
+                    cnn = enc
+                enc_data = tf.unstack(tf.reshape(cnn, [self.batch_size, self.encoder_length, grd_cnn]), axis=1)
+            else:
+                enc = tf.reshape(tf.reshape(enc, [-1]), [self.batch_size, self.encoder_length, self.districts * self.encode_vector_size])
+                enc_data = tf.unstack(enc, axis=1)
             # then push through lstm
             _, enc_output = rnn_utils.execute_sequence(enc_data, e_params)
         
         with tf.variable_scope("decoder", initializer=initializer, reuse=tf.AUTO_REUSE):
-            if self.use_cnn:
-                # add one cnn layer here
-                cnn = self.get_cnn_rep(dec, self.decoder_length, self.decode_vector_size)
+            if self.dtype == "grid":
+                if self.use_cnn:
+                    # add one cnn layer before decoding using lstm
+                    cnn = self.get_cnn_rep(dec, self.decoder_length, self.decode_vector_size)
+                else:
+                    cnn = dec
+                dec_data = tf.reshape(cnn, [self.batch_size, self.decoder_length, grd_cnn])
             else:
-                cnn = dec
-            # add one cnn layer before decoding using lstm
-            dec_data = tf.reshape(cnn, [self.batch_size, self.decoder_length, grd_cnn])
+                dec_data = tf.reshape(tf.reshape(dec, [-1]), [self.batch_size, self.decoder_length, self.districts * self.decode_vector_size])
             #finally push -> decoder
             outputs = rnn_utils.execute_decoder(dec_data, enc_output, self.decoder_length, e_params)
             outputs = tf.stack(outputs, axis=1)
@@ -141,9 +146,13 @@ class BaselineModel():
     # add loss function
     # output will be loss scalar    
     def add_loss(self, output):
-        matrix_size = [self.batch_size, self.decoder_length * self.grid_square]
-        y = tf.reshape(tf.reshape(output, [-1]), matrix_size)
-        pred = tf.reshape(self.pred_placeholder, matrix_size)
+        if self.dtype == "grid":
+            matrix_size = [self.batch_size, self.decoder_length * self.grid_square]
+            y = tf.reshape(tf.reshape(output, [-1]), matrix_size)
+            pred = tf.reshape(self.pred_placeholder, matrix_size)
+        else:
+            y = output
+            pred = self.pred_placeholder
         if self.loss is 'mse':
             loss_op = tf.losses.mean_squared_error
         else: 
@@ -182,7 +191,7 @@ class BaselineModel():
         r = np.random.permutation(dt_length)
         ct = np.asarray(data, dtype=np.float32)
         ct = ct[r]
-
+        print(np.shape(self.datasets))
         for step in range(total_steps):
             index = range(step * self.batch_size,
                           (step + 1) * self.batch_size)
@@ -191,23 +200,23 @@ class BaselineModel():
             # switch batchsize, => batchsize * encoding_length
             ct_t = np.asarray([range(int(x), int(x) + self.encoder_length) for x in ct_t])
             dec_t = ct_t + self.decoder_length
-            if self.dtype != "grid":
-                ct_d = self.map_to_grid(self.datasets[ct_t])
-                dect_f = self.map_to_grid(self.datasets[dec_t])
-                dect_d = dect_f[:,:,:,:,self.df_ele:]
-                pred_t = dect_f[:,:,:,:,0]
-            #only load from index to index + encoder_length + decoder_length
-                feed = {
-                    self.encoder_inputs: ct_d,
-                    self.pred_placeholder: pred_t,
-                    self.decoder_inputs: dect_d
-                }
-            else:
-                feed = {
-                    self.embedding: self.datasets,
-                    self.encoder_inputs : ct_t,
-                    self.decoder_inputs: dec_t,
-                }
+            # if self.dtype != "grid":
+            #     ct_d = self.map_to_grid(self.datasets[ct_t])
+            #     dect_f = self.map_to_grid(self.datasets[dec_t])
+            #     dect_d = dect_f[:,:,:,:,self.df_ele:]
+            #     pred_t = dect_f[:,:,:,:,0]
+            # #only load from index to index + encoder_length + decoder_length
+            #     feed = {
+            #         self.encoder_inputs: ct_d,
+            #         self.pred_placeholder: pred_t,
+            #         self.decoder_inputs: dect_d
+            #     }
+            # else:
+            feed = {
+                self.embedding: self.datasets,
+                self.encoder_inputs : ct_t,
+                self.decoder_inputs: dec_t,
+            }
             loss, summary,_, _= session.run(
                 [self.loss_op, self.merged, train_op, self.output], feed_dict=feed)
             if train_writer is not None:

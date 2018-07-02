@@ -125,7 +125,8 @@ def main(url_feature="", url_weight="sp", batch_size=128, encoder_length=24, emb
         folders = None
         if is_folder:
             folders = os.listdir(url_feature)
-            for x in folders:
+            for i, x in enumerate(folders):
+                print("==> Training set (%i, %s)" % (i + 1, x))
                 execute(os.path.join(url_feature, x), url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
         else:
             execute(url_feature, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test)
