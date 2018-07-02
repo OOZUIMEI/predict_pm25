@@ -38,6 +38,7 @@ class BaselineModel():
         self.map = heatmap.build_map()
         self.use_cnn = True
         self.districts = 25
+        self.rnn_layers = 2
     
     def set_training(self, training):
         self.is_training = training
@@ -84,7 +85,7 @@ class BaselineModel():
             "fw_cell": "basic",
             "batch_size" : self.batch_size,
             "type": 0,
-            "rnn_layer": 2
+            "rnn_layer": self.rnn_layers
         }
 
         if self.dtype == "grid":
@@ -92,9 +93,14 @@ class BaselineModel():
                 grd_cnn = 12 * 12
             else:
                 grd_cnn = self.grid_square
+            # size of output prediction matrix (24 * 24)
             e_params["de_output_size"] = self.grid_square
+            if self.rnn_layers > 1:
+                e_params["fw_cell_size"] = grd_cnn
         else:
             e_params["de_output_size"] = self.districts
+            if self.rnn_layers > 1:
+                e_params["fw_cell_size"] = self.districts
         
         with tf.variable_scope("encoder", initializer=initializer):
             if self.dtype == "grid":
@@ -110,6 +116,8 @@ class BaselineModel():
             # then push through lstm
             
             _, enc_output = rnn_utils.execute_sequence(enc_data, e_params)
+            if self.rnn_layers > 1:
+                enc_output = enc_output[-1]
         
         with tf.variable_scope("decoder", initializer=initializer, reuse=tf.AUTO_REUSE):
             if self.dtype == "grid":

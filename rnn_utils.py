@@ -24,6 +24,7 @@ def get_cell(cell_type, size):
 # rnn through each 30', 1h 
 def execute_sequence(inputs, params):
     # 1 is bidireciton
+    # note: state_size of MultiRNNCell must be equal to size input_size
     fw_cell = get_cell(params["fw_cell"], params["fw_cell_size"])
     if "rnn_layer" in params and params["rnn_layer"] > 1:
         fw_cell = MultiRNNCell([fw_cell] * params["rnn_layer"])
