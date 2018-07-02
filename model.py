@@ -92,43 +92,39 @@ class Model():
 
     def inference(self):
         """Performs inference on the DMN model"""
-        with tf.variable_scope("word_shift", initializer=tf.contrib.layers.xavier_initializer()):
+        initializer = tf.contrib.layers.xavier_initializer()
+        with tf.variable_scope("word_shift", initializer=initializer):
             if self.max_input_len > 1:
                 word_reps = tf.reduce_mean(self.input_placeholder, axis=2)
             else:
                 word_reps = self.input_placeholder
 
-        with tf.variable_scope("sentence", initializer=tf.contrib.layers.xavier_initializer()):
+        with tf.variable_scope("sentence", initializer=initializer):
             # decode with attention 
-            sent_reps, fn_state = self.get_input_representation(word_reps, self.embed_size, self.fw_cell)
+            sent_reps, _  = self.get_input_representation(word_reps, self.embed_size, self.fw_cell, self.max_sent_len)
             sent_reps = tf.reduce_mean(sent_reps, axis=0)
-        
         if self.use_decoder:
             # add attention layer
-            with tf.variable_scope("attention", initializer=tf.contrib.layers.xavier_initializer()):
+            with tf.variable_scope("attention", initializer=initializer):
                 attention = tf.layers.dense(sent_reps, 
                                             self.hidden_size, 
                                             activation=tf.nn.tanh,
                                             name="attention")
-            
-            with tf.variable_scope("decoder", initializer=tf.contrib.layers.xavier_initializer()):
+            # decoding step
+            with tf.variable_scope("decoder", initializer=initializer):
                 attention = tf.reshape(tf.tile(attention, [1, self.decode_length]), [self.batch_size, self.decode_length, self.hidden_size])
                 decode_input = tf.concat([attention, self.decode_placeholder], axis=2)
-                use_mtp = False
+                self.decode_vector_size = self.decode_vector_size + self.hidden_size
+                _, fn_state = self.get_input_representation(decode_input, self.decode_vector_size, "basic", self.decode_length)
                 if self.rnn_layer > 1:
-                    dcs = self.decode_vector_size + self.hidden_size
-                    use_mtp = True
+                    input_hidden = fn_state[1][1]
                 else:
-                    dcs = self.embed_size
-                _, fn_state = self.get_input_representation(decode_input, dcs, "basic", self.decode_length, use_mtp)
-                # _, fn_state = self.get_input_representation(self.decode_placeholder, "att", self.decode_length, attention=attention)
-                # if self.rnn_layer > 1:
-                #     input_hidden = fn_state[1]
-                # else:
-                input_hidden = fn_state[1]
+                    input_hidden = fn_state[1]
         else:
             input_hidden = sent_reps
-        with tf.variable_scope("hidden", initializer=tf.contrib.layers.xavier_initializer()):
+
+        # hidden prediction layer    
+        with tf.variable_scope("hidden", initializer=initializer):
             if self.is_classify:
                 output = tf.layers.dense(input_hidden,
                                     self.hidden_size,
@@ -155,38 +151,26 @@ class Model():
                                     name="fn")
         return output
 
-    # rnn through each 30', 1h 
-    def get_input_representation(self, inputs, esz, fw_cell="basic", length=None, attention=None, use_mtp=False):
+    # get rnn sequence output
+    def get_input_representation(self, inputs, esz, fw_cell="basic", length=None):
+        # if self.rnn_layer > 1:
+        #     esz = esz + self.hidden_size
+
         if fw_cell == 'basic':
             fw_cell = BasicLSTMCell(esz)
-        # elif fw_cell == 'att':
-        #     fw_cell = AttentionCell(esz, max_val=pr.pm25_max, min_val=0.0, attention=attention)
         else:
             fw_cell = GRUCell(esz)
-        if use_mtp:
+
+        if self.rnn_layer > 1:
             fw_cell = MultiRNNCell([fw_cell] * self.rnn_layer)
-        if not self.using_bidirection:
-            if not length:
-                length = self.max_sent_len
-            inputs = tf.unstack(inputs, length, 1)
-            # outputs is array of max_time of [batch_size, cell_bw.output_size]
-            outputs, fn_state = tf.nn.static_rnn(
-                fw_cell,
-                inputs,
-                dtype=np.float32
-            )
-        else:
-            if self.bw_cell == 'basic':
-                back_cell = BasicLSTMCell(esz)
-            else:
-                back_cell = GRUCell(esz)
-            outputs, fn_state  = tf.nn.static_bidirectional_rnn(
-                fw_cell,
-                back_cell,
-                inputs, 
-                dtype=np.float32
-            )
-            outputs = tf.concat(outputs, 2)
+        
+        inputs = tf.unstack(inputs, length, 1)
+        # outputs is array of max_time of [batch_size, cell_bw.output_size]
+        outputs, fn_state = tf.nn.static_rnn(
+            fw_cell,
+            inputs,
+            dtype=np.float32
+        )
         return outputs, fn_state
 
     def add_loss_op(self, output):

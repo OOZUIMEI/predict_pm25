@@ -5,7 +5,7 @@ import sys
 import time
 import numpy as np
 import tensorflow as tf
-from tensorflow.contrib.rnn import BasicLSTMCell, LayerNormBasicLSTMCell
+from tensorflow.contrib.rnn import BasicLSTMCell, LayerNormBasicLSTMCell, MultiRNNCell
 
 import properties as prp
 import utils
@@ -25,8 +25,14 @@ def get_cell(cell_type, size):
 def execute_sequence(inputs, params):
     # 1 is bidireciton
     fw_cell = get_cell(params["fw_cell"], params["fw_cell_size"])
+    if "rnn_layer" in params and params["rnn_layer"] > 1:
+        fw_cell = MultiRNNCell([fw_cell] * params["rnn_layer"])
     if params["type"] == 1:
         bw_cell = get_cell(params["bw_cell"], params["bw_cell_size"])
+        
+        if "rnn_layer" in params and params["rnn_layer"] > 1:
+            bw_cell = MultiRNNCell([bw_cell] * params["rnn_layer"])
+        
         outputs, fn_state  = tf.nn.static_bidirectional_rnn(
             fw_cell,
             bw_cell,

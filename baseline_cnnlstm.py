@@ -83,7 +83,8 @@ class BaselineModel():
             "fw_cell_size" : self.rnn_hidden_units,
             "fw_cell": "basic",
             "batch_size" : self.batch_size,
-            "type": 0
+            "type": 0,
+            "rnn_layer": 2
         }
 
         if self.dtype == "grid":
@@ -107,6 +108,7 @@ class BaselineModel():
                 enc = tf.reshape(tf.reshape(enc, [-1]), [self.batch_size, self.encoder_length, self.districts * self.encode_vector_size])
                 enc_data = tf.unstack(enc, axis=1)
             # then push through lstm
+            
             _, enc_output = rnn_utils.execute_sequence(enc_data, e_params)
         
         with tf.variable_scope("decoder", initializer=initializer, reuse=tf.AUTO_REUSE):
@@ -191,7 +193,6 @@ class BaselineModel():
         r = np.random.permutation(dt_length)
         ct = np.asarray(data, dtype=np.float32)
         ct = ct[r]
-        print(np.shape(self.datasets))
         for step in range(total_steps):
             index = range(step * self.batch_size,
                           (step + 1) * self.batch_size)
