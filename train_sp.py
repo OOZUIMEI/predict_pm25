@@ -9,6 +9,7 @@ import numpy as np
 import os
 import sys
 import time
+import re
 from datetime import datetime
 import argparse
 import properties as p
@@ -98,8 +99,11 @@ def execute(path, url_weight, model, session, saver, batch_size, encoder_length,
             loss, preds = model.run_epoch(session, model.train, shuffle=False)
             l_str = 'Test mae loss: %.4f' % loss
             print(l_str)
-            utils.save_file("test_sp/%s_loss.txt" % url_weight, l_str, use_pickle=False)
-            utils.save_file("test_sp/%s" % url_weight, preds)
+            pt = re.compile("weights/([A-Za-z0-9_.]*).weights")
+            name = pt.match(url_weight)
+            name_s = name.group(1)
+            utils.save_file("test_sp/%s_loss.txt" % name_s, l_str, use_pickle=False)
+            utils.save_file("test_sp/%s" % name_s, preds)
 
 
 def main(url_feature="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, dtype="grid", 
