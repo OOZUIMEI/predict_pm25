@@ -68,7 +68,7 @@ def execute(path, url_weight, model, session, saver, batch_size, encoder_length,
                 print('Epoch {}'.format(epoch))
                 start = time.time()
 
-                train_loss = model.run_epoch(
+                train_loss, _ = model.run_epoch(
                     session, train, epoch, train_writer,
                     train_op=model.train_op, train=True)
                 train_losses.append(train_loss)
@@ -95,8 +95,11 @@ def execute(path, url_weight, model, session, saver, batch_size, encoder_length,
             model.set_data(dataset, train, valid)
             saver.restore(session, url_weight)
             print('==> running model')
-            loss = model.run_epoch(session, model.train, shuffle=False)
-            print('Test mae loss: %.4f' % loss)
+            loss, preds = model.run_epoch(session, model.train, shuffle=False)
+            l_str = 'Test mae loss: %.4f' % loss
+            print(l_str)
+            utils.save_file("test_sp/%s_loss.txt" % url_weight, l_str, use_pickle=False)
+            utils.save_file("test_sp/%s" % url_weight, preds)
 
 
 def main(url_feature="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, dtype="grid", 

@@ -198,9 +198,11 @@ class BaselineModel():
         # print("data_size: ", dt_length)
         total_steps = dt_length // self.batch_size
         total_loss = []
-        r = np.random.permutation(dt_length)
         ct = np.asarray(data, dtype=np.float32)
-        ct = ct[r]
+        if shuffle:
+            r = np.random.permutation(dt_length)
+            ct = ct[r]
+        preds = []
         for step in range(total_steps):
             index = range(step * self.batch_size,
                           (step + 1) * self.batch_size)
@@ -209,25 +211,14 @@ class BaselineModel():
             # switch batchsize, => batchsize * encoding_length
             ct_t = np.asarray([range(int(x), int(x) + self.encoder_length) for x in ct_t])
             dec_t = ct_t + self.decoder_length
-            # if self.dtype != "grid":
-            #     ct_d = self.map_to_grid(self.datasets[ct_t])
-            #     dect_f = self.map_to_grid(self.datasets[dec_t])
-            #     dect_d = dect_f[:,:,:,:,self.df_ele:]
-            #     pred_t = dect_f[:,:,:,:,0]
-            # #only load from index to index + encoder_length + decoder_length
-            #     feed = {
-            #         self.encoder_inputs: ct_d,
-            #         self.pred_placeholder: pred_t,
-            #         self.decoder_inputs: dect_d
-            #     }
-            # else:
+
             feed = {
                 self.embedding: self.datasets,
                 self.encoder_inputs : ct_t,
                 self.decoder_inputs: dec_t,
             }
-            loss, summary,_, _= session.run(
-                [self.loss_op, self.merged, train_op, self.output], feed_dict=feed)
+            loss, summary, pred, _= session.run(
+                [self.loss_op, self.merged, self.output, train_op], feed_dict=feed)
             if train_writer is not None:
                 train_writer.add_summary(
                     summary, num_epoch * total_steps + step)
@@ -237,9 +228,11 @@ class BaselineModel():
                 sys.stdout.write('\r{} / {} : loss = {}'.format(
                     step, total_steps, np.mean(total_loss)))
                 sys.stdout.flush()
-            
+
+            preds.append(pred)
+
         if verbose:
             sys.stdout.write("\r")
 
-        return np.mean(total_loss)
+        return np.mean(total_loss), preds
         
