@@ -92,7 +92,7 @@ class BaselineModel():
             if self.use_cnn:
                 grd_cnn = 12 * 12
             else:
-                grd_cnn = self.grid_square
+                grd_cnn = self.grid_square * self.encode_vector_size
             # size of output prediction matrix (24 * 24)
             e_params["de_output_size"] = self.grid_square
             if self.rnn_layers > 1:
@@ -126,6 +126,7 @@ class BaselineModel():
                     cnn = self.get_cnn_rep(dec, self.decoder_length, self.decode_vector_size)
                 else:
                     cnn = dec
+                    grd_cnn = self.grid_square * self.decode_vector_size
                 dec_data = tf.reshape(cnn, [self.batch_size, self.decoder_length, grd_cnn])
             else:
                 dec_data = tf.reshape(tf.reshape(dec, [-1]), [self.batch_size, self.decoder_length, self.districts * self.decode_vector_size])
