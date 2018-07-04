@@ -64,7 +64,7 @@ def execute_decoder(inputs, init_state, sequence_length, params):
         pm2_5 = tf.layers.dense(dec_out, 
                         params["de_output_size"],
                         name="decoder_output",
-                        activation=tf.nn.tanh)
+                        activation=tf.nn.sigmoid)
         outputs.append(pm2_5)
     return outputs
 

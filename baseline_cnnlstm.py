@@ -19,7 +19,7 @@ class BaselineModel():
     
     def __init__(self, encoder_length=24, decoder_length=24, grid_size=25, rnn_hidden_units=128, 
                 encode_vector_size=12, decode_vector_size=6, learning_rate=0.01, batch_size=64, loss="mae", 
-                df_ele=6, dtype="grid", use_cnn=False):
+                df_ele=6, rnn_layers=1, dtype="grid", use_cnn=False):
         self.encoder_length = encoder_length
         self.decoder_length = decoder_length
         self.sequence_length = encoder_length + decoder_length
@@ -36,9 +36,9 @@ class BaselineModel():
         self.df_ele = df_ele
         self.dtype = dtype        
         self.map = heatmap.build_map()
-        self.use_cnn = True
+        self.use_cnn = use_cnn
         self.districts = 25
-        self.rnn_layers = 2
+        self.rnn_layers = rnn_layers
     
     def set_training(self, training):
         self.is_training = training

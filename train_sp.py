@@ -106,9 +106,10 @@ def execute(path, url_weight, model, session, saver, batch_size, encoder_length,
             utils.save_file("test_sp/%s" % name_s, preds)
 
 
-def main(url_feature="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, dtype="grid", 
-        is_folder=False, is_test=False, use_cnn=True):
-    model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, dtype=dtype, grid_size=grid_size, use_cnn=use_cnn)
+def main(url_feature="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, rnn_layers=1,
+        dtype="grid", is_folder=False, is_test=False, use_cnn=True):
+    model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, rnn_layers=rnn_layers,
+                        dtype=dtype, grid_size=grid_size, use_cnn=use_cnn)
     print('==> initializing models')
     with tf.device('/%s' % p.device):
         model.init_ops()
@@ -156,9 +157,10 @@ if __name__ == "__main__":
     parser.add_argument("-dt", "--dtype", default='grid')
     parser.add_argument("-t", "--is_test", default=0, help="is testing", type=int)
     parser.add_argument("-cnn", "--use_cnn", default=1, help="using cnn or not", type=int)
+    parser.add_argument("-r", "--rnn_layers", default=1, help="number of rnn layers", type=int)
 
     args = parser.parse_args()
 
     main(args.feature, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
-        dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn))
+        args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn))
     
