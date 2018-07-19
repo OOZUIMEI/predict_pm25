@@ -185,7 +185,7 @@ def get_prediction_real_time(sparkEngine, url_weight=""):
             print('==> initializing models')
             session.run(init)
             print('==> running model')
-            saver.restore(session, url_weight)
+            saver.restore(session, 'weights/cnn_lstm.weights')
             print('==> running model')
             _, preds = model.run_epoch(session, model.train, shuffle=False)
         # 5. Get prediction
