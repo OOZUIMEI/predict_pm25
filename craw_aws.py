@@ -84,7 +84,7 @@ def download(year, month, date, area):
 
 
 # perform craw in loop or by files
-def craw_data_controller(output, counter, last_save, save_interval, tmp):
+def craw_data_controller(output, filename, counter, last_save, save_interval, tmp):
     year = tmp.year
     month = format10(tmp.month)
     date = format10(tmp.day)
@@ -134,7 +134,7 @@ def main(args, cont=False):
         now = utils.now_milliseconds()
         if (now - start_point) >= args.interval:
             tmp = start
-            output, counter, last_save = craw_data_controller(output, counter, last_save, save_interval, tmp)
+            output, counter, last_save = craw_data_controller(output, filename, counter, last_save, save_interval, tmp)
             start = start + timedelta(days=1)
             start_point = now   
             utils.update_progress(counter * 1.0 / length)

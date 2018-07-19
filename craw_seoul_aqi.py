@@ -86,7 +86,7 @@ def craw_data(year, month, date, hour):
 
 
 # perform craw in loop or by files
-def craw_data_controller(output, counter, last_save, save_interval, tmp, hour, timestamp):
+def craw_data_controller(output, filename, counter, last_save, save_interval, tmp, hour, timestamp):
     year = tmp.year
     month = format10(tmp.month)
     date = format10(tmp.day)
@@ -141,7 +141,7 @@ def main(args, cont=False):
                 hour = "24"
             else:
                 hour = format10(tmp.hour)
-            output, counter, last_save = craw_data_controller(output, counter, last_save, save_interval, tmp, hour, start.strftime(pr.fm))
+            output, counter, last_save = craw_data_controller(output, filename, counter, last_save, save_interval, tmp, hour, start.strftime(pr.fm))
             start = start + timedelta(hours=1)
             start_point = now   
             utils.update_progress(counter * 1.0 / length)
