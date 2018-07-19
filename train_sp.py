@@ -10,12 +10,16 @@ import os
 import sys
 import time
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 import argparse
 import properties as p
 import heatmap
+import craw_seoul_aqi as aqi
+import craw_aws as aws
 
+import process_sp_vector as psv
 from baseline_cnnlstm import BaselineModel
+from  spark_engine import SparkEngine
 
 
 def convert_element_to_grid(self, context):
@@ -31,7 +35,7 @@ def convert_element_to_grid(self, context):
 
 # pre-process data for training 
 # convert 1-d data to grid-data
-def process_data(dtlength, batch_size, encoder_length, decoder_length, is_test):
+def process_data(dtlength, batch_size, encoder_length, decoder_length=None, is_test=False):
     # ma = heatmap.build_map()
     # maximum = (dtlength - encoder_length - decoder_length) // batch_size * batch_size
     maximum = dtlength - encoder_length - decoder_length
@@ -75,7 +79,7 @@ def execute(path, url_weight, model, session, saver, batch_size, encoder_length,
                 train_losses.append(train_loss)
                 print('Training loss: {}'.format(train_loss))
 
-                valid_loss = model.run_epoch(session, valid)
+                valid_loss, _ = model.run_epoch(session, valid)
                 print('Validation loss: {}'.format(valid_loss))
 
                 if valid_loss < best_val_loss:
@@ -128,7 +132,10 @@ def main(url_feature="", url_weight="sp", batch_size=128, encoder_length=24, emb
         os.makedirs(sum_dir)
 
     with tf.Session(config=tconfig) as session:
-        train_writer = tf.summary.FileWriter(sum_dir, session.graph)
+        if not is_test:
+            train_writer = tf.summary.FileWriter(sum_dir, session.graph)
+        else: 
+            train_writer = None
         session.run(init)
         folders = None
         if is_folder:
@@ -137,8 +144,52 @@ def main(url_feature="", url_weight="sp", batch_size=128, encoder_length=24, emb
                 print("==> Training set (%i, %s)" % (i + 1, x))
                 execute(os.path.join(url_feature, x), url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
         else:
-            execute(url_feature, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test)
+            execute(url_feature, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
+
+
+def get_prediction_real_time(sparkEngine, url_weight=""):
+    # continuously crawl aws and aqi & weather
+    # end = utils.get_datetime_now()
+    encoder_length = 24
+    decoder_length = 24
+    end = datetime.strptime("2018-06-19 11:01:00", p.fm)
+    e_ = end.strftime(p.fm)
+    start = end - timedelta(days=1)
+    start = start.replace(minute=0, second=0, microsecond=0)
+    s_ = start.strftime(p.fm)
+    # 2. process normalize data
+    vectors, w_pred = sparkEngine.process_vectors(s_, e_)
+    v_l = len(vectors)
+    if v_l:
+        sp_vectors = psv.convert_data_to_grid_exe(vectors)
+        if v_l < 24:
+            sp_vectors = np.pad(sp_vectors, ((encoder_length - v_l,0), (0,0), (0,0), (0, 0)), 'constant', constant_values=0)
         
+        # repeat for 25 districts
+        w_pred = np.repeat(np.expand_dims(w_pred, 1), 25, 1)
+        de_vectors = psv.convert_data_to_grid_exe(w_pred)
+        # pad to fill top elements of decoder vectors
+        de_vectors = np.pad(de_vectors, ((0, 0), (0, 0), (0, 0), (6, 0)), 'constant', constant_values=0)
+        sp_vectors = np.concatenate((sp_vectors, de_vectors), axis=0)
+        # 4. Feed to model
+        model = BaselineModel(encoder_length=encoder_length, encode_vector_size=12, batch_size=1, decoder_length=decoder_length, rnn_layers=2,
+                        dtype='grid', grid_size=25, use_cnn=True)
+        model.set_data(sp_vectors, [0], None)
+        
+        with tf.device('/%s' % p.device):
+            model.init_ops()
+            init = tf.global_variables_initializer()
+            saver = tf.train.Saver()
+
+        with tf.Session(config=tconfig) as session:
+            print('==> initializing models')
+            session.run(init)
+            print('==> running model')
+            saver.restore(session, url_weight)
+            print('==> running model')
+            _, preds = model.run_epoch(session, model.train, shuffle=False)
+        # 5. Get prediction
+    
 
 if __name__ == "__main__":
     # 10110 -> 10080 -> 126 batch 
@@ -160,7 +211,8 @@ if __name__ == "__main__":
     parser.add_argument("-r", "--rnn_layers", default=1, help="number of rnn layers", type=int)
 
     args = parser.parse_args()
-
-    main(args.feature, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
-        args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn))
+    sparkEngine = SparkEngine()
+    get_prediction_real_time(sparkEngine)
+    # main(args.feature, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
+    #     args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn))
     

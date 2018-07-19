@@ -51,6 +51,7 @@ def execute_sequence(inputs, params):
     return outputs, fn_state
 
 
+# not perform cnn on pm2_5 output
 def execute_decoder(inputs, init_state, sequence_length, params):
     # push final state of encoder to decoder
     dec_state = init_state
@@ -58,8 +59,45 @@ def execute_decoder(inputs, init_state, sequence_length, params):
     dec_out = None
     outputs = []
     cell_dec = get_cell(params["fw_cell"], params["fw_cell_size"])
+    print(pm2_5.shape)
     for t in xrange(sequence_length):
         dec_in = tf.concat([inputs[:, t], pm2_5], axis=1)
+        # need to do cnn here
+        dec_out, dec_state = cell_dec(dec_in, dec_state)
+        # pm2_5 with shape batchsize x (grid_size * grid_size)
+        pm2_5 = tf.layers.dense(dec_out, 
+                        params["de_output_size"],
+                        name="decoder_output",
+                        activation=tf.nn.sigmoid)
+        outputs.append(pm2_5)
+    return outputs
+
+
+# perform cnn on pm2_5 output
+def execute_decoder_cnn(inputs, init_state, sequence_length, params):
+    # push final state of encoder to decoder
+    dec_state = init_state
+    pm2_5 = np.zeros((params["batch_size"], params["de_output_size"]), dtype=np.float32)
+    dec_out = None
+    outputs = []
+    cell_dec = get_cell(params["fw_cell"], params["fw_cell_size"])
+    for t in xrange(sequence_length):
+        # shape of input_t bs x grid_size x grid_size x hidden_size
+        input_t = inputs[:, t]
+        pm2_5_t = tf.expand_dims(tf.reshape(pm2_5, [params["batch_size"], 25, 25]), 3)
+        dec_in = tf.concat([input_t, pm2_5_t], axis=3)
+        # need to do cnn here
+        dec_in = tf.transpose(dec_in, [0,3,1,2])
+        dec_in = tf.expand_dims(dec_in, 4)
+        dec_in = tf.layers.conv3d(
+            inputs=dec_in,
+            strides=(1,2,2),
+            filters=1,
+            kernel_size=(7,3,3),
+            padding="valid"
+        )
+        # bs x 12 x 12
+        dec_in = tf.reshape(tf.reshape(tf.squeeze(dec_in), [-1]), [params["batch_size"], 144])
         dec_out, dec_state = cell_dec(dec_in, dec_state)
         pm2_5 = tf.layers.dense(dec_out, 
                         params["de_output_size"],

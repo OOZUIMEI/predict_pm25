@@ -1,0 +1,16 @@
+# _*_ coding: utf-8 _*_
+total_iteration=2000
+early_stopping = 100
+gpu_fraction=0.25
+device="gpu"
+train_url = "vectors/train%s.pkl"
+dev_url = "vectors/dev%s.pkl"
+fm = "%Y-%m-%d %H:%M:%S"
+train_preds="accuracies/%spreds.txt"
+test_preds="test_acc/%s_test_preds.txt"
+seoul_map="resources/seoul_districts_trans1.png"
+class_weights=[0.9275844788087056, 0.07198596792668957, 0.000429553264604811, 0.0, 0.0, 0.0]
+months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+grid_size = 60
+district_codes = [1171,1170,1167,1168,1164,1152,1169,1153,1165,1154,1163,1172,1160,1155,1162,1176,1156,1161,1157,1173,1174,1158,1159,1166,1175]
+districts = [x.decode('utf-8') for x in ["평균","종로구","중구","용산구","성동구","광진구","동대문구","중랑구","성북구","강북구","도봉구","노원구","은평구","서대문구","마포구","양천구","강서구","구로구","금천구","영등포구","동작구","관악구","서초구","강남구","송파구","강동구"]]

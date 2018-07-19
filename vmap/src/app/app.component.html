@@ -1,0 +1,31 @@
+<div class="container">
+  <div class='map'>
+      <yaga-map 
+        [zoom]="mapConfig.zoom"
+        [(minZoom)]="mapConfig.zoom"
+        [(maxZoom)]="mapConfig.zoom"
+        [lat]="mapConfig.lat" [lng]="mapConfig.lng" >
+        <yaga-tile-layer [(url)]="mapConfig.tileLayerUrl"></yaga-tile-layer>
+        <yaga-geojson
+          [(data)]="district_geo" *ngIf="district_geo"
+          [defaultStyle]="mapConfig.style"
+          [styler]="style"
+        >
+        </yaga-geojson>
+      </yaga-map>
+  </div>
+  <div class="info-box">
+    <ul class='list-info' *ngIf="district_geo">
+      <li class='list-element list-header'>
+        <div class='list-item'>이름</div>
+        <div class='list-item'>PM2.5</div>
+        <div class="clearfix"></div>
+      </li>
+      <li class="list-element" *ngFor="let d of district_geo.features">
+        <div class='list-item'>{{d.properties.name}}</div>
+        <div class='list-item'>{{d.properties.density}}</div>
+        <div class="clearfix"></div>
+      </li>
+    </ul>
+  </div>
+</div>

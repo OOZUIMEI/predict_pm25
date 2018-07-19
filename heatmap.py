@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from  matplotlib.colors  import ListedColormap, BoundaryNorm
 import matplotlib.image as mpimg
 import scipy.interpolate as inter
+from colour import Color
 from argparse import ArgumentParser
 import os
 import numpy as np
@@ -114,53 +115,62 @@ def build_map(grid_size=25):
     return m
 
 
+def get_color_map(cr=10):
+    pm2_5_aqi = [0, 50, 100, 150, 200, 300, 500]
+    base_colors = ['green', 'yellow', 'orange', 'red', '#651a95', '#7c0e29']
+    colors = ['gray']
+    pm2_5_range = [0, 1]
+    for i in xrange(5):
+        c = Color(base_colors[i])
+        c_ = Color(base_colors[i+1])
+        r = int((pm2_5_aqi[i + 1] - pm2_5_aqi[i]) / cr)
+        colors += [cl.hex_l for cl in list(c.range_to(c_, r))]
+        pm2_5_range +=range(pm2_5_aqi[i] + 10, pm2_5_aqi[i + 1] + 1, cr)
+    pm2_5_range = np.asarray(pm2_5_range, dtype=np.float32) / 500
+    return colors, pm2_5_range.tolist()
+
+
 
 if __name__ == "__main__":
     map_ = build_map()
-    pm2_5_range = np.asarray([0, 1, 50, 100, 150, 200, 300, 400, 500], dtype=np.float32) / 500
-    bounds = pm2_5_range.tolist()
-    cmap = ListedColormap(['grey', 'green', 'yellow', 'orange', 'red', 'purple', 'brown', 'brown'])
+    # colors, bounds = get_color_map(5)
+    colors, bounds = pr.colors, pr.pm2_5_range
+    cmap = ListedColormap(colors)
     norm = BoundaryNorm(bounds, cmap.N)
     # h1 = [19,25,24,16,19,15,12,35,14,26,12,33,11,17,16,16,16,21,14,25,26,22,15,0,18,17]
     # h2 = np.asarray([67,78,74,69,54,63,61,45,73,67,53,57,65,73,89,115,64,66,98,52,63,88,49,71,43,35])
-
-    # "종로구","중구","용산구","성동구","광진구","동대문구","중랑구","성북구","강북구","도봉구","노원구","은평구","서대문구","마포구","양천구","강서구","구로구","금천구","영등포구","동작구","관악구","서초구","강남구","송파구","강동구"
     # seoulmap = mpimg.imread(pr.seoul_map)
     # ax.imshow(seoulmap, cmap=plt.cm.gray)
     # visualize(h2, map_)
-    fig = plt.figure(figsize=(100, 100))
-    # data = utils.load_file("vectors/test_sp/sp")
-    # data = utils.load_file("vectors/test_sp/non_cnn_grid")
-    data = utils.load_file("vectors/test_sp/non_cnn_grid")
+    fig = plt.figure(figsize=(100, 100), tight_layout=True)
+    data = utils.load_file("vectors/test_sp/non_cnn_grid_1")
     labels = np.asarray(utils.load_file("vectors/test_sp_grid"))
     data = np.asarray(data)
     data = data.reshape([-1])
     data = np.reshape(data, (82 * 128, 24, 25, 25))
-    y_s = 9212
+    y_s = 400
     x = data[y_s,:,:,:]
     x = np.where(x >= 0, x, np.zeros(x.shape))
     y = labels[y_s+24:(y_s+48),:,:,0]
     # x = np.where(x >= 0, x, np.zeros(x.shape))
     rows = 6
     cols = 4
-    # fig, ax = plt.subplots()
-    # cb3 = matplotlib.colorbar.ColorbarBase(ax, cmap=cmap,
-    #                             norm=norm,
-    #                             boundaries=[-10] + bounds + [10],
-    #                             extend='both',
-    #                             extendfrac='auto',
-    #                             ticks=bounds,
-    #                             spacing='uniform',
-    #                             orientation='horizontal')
+    idx = 0
     for i in xrange(0, 11, 2):
         for j in xrange(1, cols + 1):
             ax = fig.add_subplot(rows, cols * 2, i * cols + j)
-            ax.set_title("%ih" % i)
-            plt.imshow(x[i-1,:,:], cmap=cmap, norm=norm)
+            ax.set_title("%ih" % (idx + 1))
+            plt.imshow(x[idx,:,:], cmap=cmap, norm=norm)
+            idx+= 1
     
+    idx = 0
     for i in xrange(1, 12, 2):
         for j in xrange(1, cols + 1):
             ax_y = fig.add_subplot(rows,  cols * 2, i * cols + j)
-            ax_y.set_title("real %ih" % i)
-            plt.imshow(y[i-1,:,:], cmap=cmap, norm=norm)
+            ax_y.set_title("real %ih" % (idx + 1))
+            plt.imshow(y[idx,:,:], cmap=cmap, norm=norm)
+            idx+=1
+    fig.subplots_adjust(top=1.3)
     plt.show()
+
+

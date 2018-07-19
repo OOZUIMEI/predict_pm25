@@ -1,0 +1,65 @@
+/* You can add global styles to this file, and also import other style files */
+@media (min-width: 1600px){
+    .container {
+        width: 1400px;
+    }
+}
+
+@media (min-width: 1800px){
+    .container {
+        width: 1600px;
+    }
+}
+
+@media (min-width: 2000px){
+    .container {
+        width: 1800px;
+    }
+}
+
+.map{
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%
+}
+.yaga-map {
+    min-height: 100%;
+} 
+.info-box{
+    width: 350px;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 9999;
+    background: #ffffff;
+    border: 1px solid #ccc;
+}
+
+/* table info*/
+.list-element{
+    padding: 5px 0;
+    border-bottom: 1px solid #eee;
+}
+.list-element:nth-child(2n+1){
+    background: #f9f7f7;
+}
+.list-element:nth-child(2n){
+    background: #f3f3f3
+}
+.list-element .list-item{
+    float: left;
+    text-align: center
+}
+.list-element .list-item:first-child{
+    width: 100px;
+}
+.list-element .list-item:nth-child(2){
+    width: 100px;
+}
+.list-info .list-header{
+    font-weight: bold;
+    background: #e0e0e0;
+}

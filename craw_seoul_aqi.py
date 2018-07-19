@@ -94,7 +94,6 @@ def craw_data_controller(output, counter, last_save, save_interval, tmp, hour, t
     try:
         html = craw_data(year, month, date, hour)
         # data = mine_data(html)
-        # if  args.get_all:
         data = mine_all_area(html)
         for x in data:
             output += timestamp + "," + utils.array_to_str(x, ",") + "\n"
@@ -102,14 +101,6 @@ def craw_data_controller(output, counter, last_save, save_interval, tmp, hour, t
                 last_save = counter
                 write_log(filename, output)
                 output = ""
-        # else:
-        #     data = mine_data(html)
-        #     if data:
-        #         output += start.strftime(pr.fm) + "," + utils.array_to_str(data, ",") + "\n"
-        #     if (counter - last_save) == save_interval:
-        #         last_save = counter
-        #         write_log(filename, output)
-        #         output = ""
     except Exception as e:
         print(e)
     return output, counter, last_save
@@ -122,80 +113,47 @@ def write_log(filename, output):
             f.write(output)
 
 
+def main(args, cont=False):
+    save_interval = args.save_interval
+    start = datetime.strptime(args.start, pr.fm)
+    if args.end:
+        end = datetime.strptime(args.end, pr.fm)
+    else:
+        end = utils.get_datetime_now()
+        args.end = datetime.strftime(end, pr.fm)
+    if not cont:
+        filename = "craw_seoul_aqi_%s_%s.txt" % (utils.clear_datetime(args.start), utils.clear_datetime(args.end))
+    else:
+        filename = "craw_seoul_aqi_cont.csv"
+    start_point = utils.get_datetime_now()
+    # output = "timestamp,PM10_VAL,PM2.5_VAL,O3(ppm),NO2(ppm),CO(ppm),SO2(ppm),PM10_AQI,PM2.5_AQI\n"
+    output = ""
+    length = (end - start).total_seconds() / 3600.0
+    counter = 0
+    last_save = 0
+    while start <= end:
+        now = utils.get_datetime_now()
+        if (now - start_point).total_seconds() >= args.interval:
+            hour = start.hour
+            tmp = start
+            if tmp.hour == 0:
+                tmp = tmp - timedelta(hours=1)
+                hour = "24"
+            else:
+                hour = format10(tmp.hour)
+            output, counter, last_save = craw_data_controller(output, counter, last_save, save_interval, tmp, hour, start.strftime(pr.fm))
+            start = start + timedelta(hours=1)
+            start_point = now   
+            utils.update_progress(counter * 1.0 / length)
+    write_log(filename, output)      
+
+
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("-t", "--test", default=1, type=int)
     parser.add_argument("-i", "--interval", default=5, type=int, help="secondly interval")
-    parser.add_argument("-f", "--file", default="", type=str)
     parser.add_argument("-si", "--save_interval", default=48, type=int, help="secondly saving interval")
     parser.add_argument("-s", "--start", default="2008-01-01 01:00:00", type=str)
     parser.add_argument("-e", "--end", type=str)
-    parser.add_argument("-a", "--get_all", type=int, default=1)
     
     args = parser.parse_args()
-    save_interval = args.save_interval
-    if args.test:
-        with open("test_seoul_aqi.html") as file:
-            html = Soup(file.read(), "html5lib")
-            # timestamp,K,PM-10(㎍/㎥),PM-2.5(㎍/㎥),O3(ppm),NO2(ppm),CO(ppm),SO2(ppm)
-            # mine_data(html)
-            values = mine_all_area(html)
-            timestamp = "2008-01-01 01:00:00"
-            output = ""
-            for x in values:
-                output += timestamp + "," + utils.array_to_str(x, ",") + "\n"
-    elif args.file:
-        filename = "craw_seoul_aqi_missing.txt"
-        output = ""
-        counter = 0
-        last_save = 0
-        with open(args.file) as file:
-            data = file.readlines()
-            for d in data:
-                d = d.rstrip("\n")
-                tmp = datetime.strptime(d, pr.fm)
-                timestamp = tmp.strftime(pr.fm)
-                if tmp.hour == 0:
-                    tmp = tmp - timedelta(hours=1)
-                    hour = "24"
-                else:
-                    hour = format10(tmp.hour)
-                output, counter, last_save = craw_data_controller(output, counter, last_save, save_interval, tmp, hour, timestamp)    
-            write_log(filename, output)     
-    else:
-        start = datetime.strptime(args.start, pr.fm)
-        if args.end:
-            end = datetime.strptime(args.end, pr.fm)
-        else:
-            end = utils.get_datetime_now()
-            args.end = datetime.strftime(end, pr.fm)
-        filename = "craw_seoul_aqi_%s_%s.txt" % (utils.clear_datetime(args.start), utils.clear_datetime(args.end))
-        start_point = utils.get_datetime_now()
-        # output = "timestamp,PM10_VAL,PM2.5_VAL,O3(ppm),NO2(ppm),CO(ppm),SO2(ppm),PM10_AQI,PM2.5_AQI\n"
-        output = ""
-        length = (end - start).total_seconds() / 3600.0
-        counter = 0
-        last_save = 0
-        while start <= end:
-            now = utils.get_datetime_now()
-            if (now - start_point).total_seconds() >= args.interval:
-                hour = start.hour
-                tmp = start
-                if tmp.hour == 0:
-                    tmp = tmp - timedelta(hours=1)
-                    hour = "24"
-                else:
-                    hour = format10(tmp.hour)
-                output, counter, last_save = craw_data_controller(output, counter, last_save, save_interval, tmp, hour, start.strftime(pr.fm))
-                start = start + timedelta(hours=1)
-                start_point = now   
-                utils.update_progress(counter * 1.0 / length)
-        write_log(filename, output)
-        
-
-
-
-
-
-        
-    
+    main(args)

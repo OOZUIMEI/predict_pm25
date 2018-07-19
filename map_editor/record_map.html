@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seoul Transport Visualization</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <link rel="stylesheet" href="./public/css/font-awesome.min.css">
+    <link href="./public/css/leaflet.css" rel="stylesheet" type="text/css" />
+    <link href="./public/css/bootstrap-slider.min.css" rel="stylesheet" type="text/css" />
+    <script src="./public/js/jquery-1.10.2.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+    <script src="./public/js/lodash.js"></script>
+    <!-- <script src="map.js"></script> -->
+    <!-- <script src="map30.js"></script> -->
+    <style>
+   /* Always set the map height explicitly to define the size of the div
+       * element that contains the map. */
+    /*  
+      line 1: #0d4da1 
+      line 2: #00a650
+      line 3: #f26e22
+      line 4: #008acf   
+      line 5: #c710a2
+      line 6: #bd6b1e
+      line 7: #575e03
+      line 8: #ff4086
+      line 9: #8d764b
+
+    */
+    @media (min-width: 1800px){
+      .col-xlg-4 {
+          width: 33.33333%;
+      }
+    }
+    @media (min-width: 1200px) {
+        .container {
+            width: calc(100vw - 50px);
+        }
+    }
+
+    #map {
+        height: calc(100vh - 120px);
+    }
+    /* Optional: Makes the sample page fill the window. */
+
+    html,
+    body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        background: #f3f3f3;
+    }
+    /* line 3, ../sass/custom.scss */
+    .hide {
+        display: none;
+    }
+    #map{
+        width: 600px;
+        height: 600px;
+        position: relative;
+    }
+    #map img{
+        width: 100%;
+        user-select: none;
+    }
+    #capture{
+        position: absolute;
+        width: 600px;
+        height: 600px;
+        top: 0
+    }
+    .area{
+        word-wrap: break-word;
+    }
+    .action {
+        border-radius: 10px;
+        border: 1px solid #ccc;
+        padding: 20px 15px;
+        margin-bottom: 20px;
+        position: relative;
+    }
+    .action .btn-action{
+        float: right;
+        margin-top: 10px;
+    }
+    .action h3 {
+        margin-top: 0;
+        font-size: 18px;
+    }
+    .action .ruler{
+        position: absolute;
+        right: 10px;
+        top: 10px;
+        width: 30px;
+        opacity: 0.5;
+    }
+    .action .ruler:hover{
+        opacity: 0.8;
+    }
+    .action .ruler.active{
+        opacity: 1;
+    }
+    #area{
+        max-height: 600px;
+        overflow: scroll;
+    }
+    .area{
+        position: relative;
+        width: 100%
+    }
+    .area .area_label{
+        float: left
+        
+    }
+    .area .area_text{
+        display: inline-block;
+        width: calc(100% - 40px);
+        border-radius: 5px;
+        border-color: #CCC;
+        padding: 5px;
+        margin-left: 5px;
+    }
+    .area .btn{
+        position: absolute;
+        top: 5px;
+        right: 5px;
+    }
+    .area .btn.edit{
+        position: absolute;
+        right: 50px;
+    }
+    #addarea{
+        margin-top: 10px;
+        margin-right: 10px;
+        float: right;
+    }
+    .form-group, .subway-line{
+      user-select: none;
+    }
+    
+    .form-check-inline{
+      display: inline-block;
+      margin-right: 10px
+    }
+    .submit button {
+        float: right
+    }
+    </style>
+</head>
+
+<body>
+    <div class='container'>
+        <h1 class='map-title'>Life is not a dream</h1>
+        <div class='row'>
+            <div class='col-lg-6 col-md-6 col-sm-12 col-xs-12'>
+                <div id="map">
+                    <img src="resources/seoul_districts.png">
+                    <canvas id="capture" width="600" height="600"></canvas>
+                </div>
+            </div>
+            <div class='col-lg-6 col-md-6 col-sm-12 col-xs-12'>
+                  <div class='row action'>
+                        <h3>Filter Options</h3>
+                        <img class='ruler' src="resources/ruler.png">
+                        <div id="area">
+                            
+                        </div>                    
+                        <div class='col-lg-12'>
+                            <button type="button" id='save_area' class="btn btn-action btn-success right">Save</button>
+                            <button type="button" id='addarea' class="btn btn-action btn-primary right">Add Area</button>
+                        </div>
+                  </div>
+              </div>
+          </div>
+        </div>
+
+    </div>
+    <script>
+        var grid_no = 25
+        var grid_size = 20
+        var dot_size = 10
+        var mouse = false
+        var area_obj = {"subarea0":{"color":"#5A97C3","data":{"011,011":{"x":11,"y":11},"011,08":{"x":11,"y":8},"011,09":{"x":11,"y":9},"012,010":{"x":12,"y":10},"012,011":{"x":12,"y":11},"012,07":{"x":12,"y":7},"012,08":{"x":12,"y":8},"012,09":{"x":12,"y":9},"013,010":{"x":13,"y":10},"013,011":{"x":13,"y":11},"014,011":{"x":14,"y":11}}},"subarea1":{"color":"#41BE8F","data":{"012,012":{"x":12,"y":12},"012,013":{"x":12,"y":13},"013,012":{"x":13,"y":12},"013,013":{"x":13,"y":13},"014,012":{"x":14,"y":12},"014,013":{"x":14,"y":13}}},"subarea2":{"color":"#3F0B0B","data":{"011,014":{"x":11,"y":14},"011,015":{"x":11,"y":15},"012,014":{"x":12,"y":14},"012,015":{"x":12,"y":15},"012,016":{"x":12,"y":16},"013,014":{"x":13,"y":14},"013,015":{"x":13,"y":15},"014,014":{"x":14,"y":14}}},"subarea3":{"color":"#E8AC0D","data":{"015,012":{"x":15,"y":12},"015,013":{"x":15,"y":13},"015,014":{"x":15,"y":14},"016,012":{"x":16,"y":12},"016,013":{"x":16,"y":13},"016,014":{"x":16,"y":14},"017,013":{"x":17,"y":13},"017,014":{"x":17,"y":14}}},"subarea4":{"color":"#730B12","data":{"017,015":{"x":17,"y":15},"018,012":{"x":18,"y":12},"018,013":{"x":18,"y":13},"018,014":{"x":18,"y":14},"018,015":{"x":18,"y":15},"019,012":{"x":19,"y":12},"019,013":{"x":19,"y":13},"019,014":{"x":19,"y":14}}},"subarea5":{"color":"#EE8098","data":{"015,011":{"x":15,"y":11},"016,010":{"x":16,"y":10},"016,011":{"x":16,"y":11},"017,010":{"x":17,"y":10},"017,011":{"x":17,"y":11},"017,012":{"x":17,"y":12}}},"subarea6":{"color":"#A8016C","data":{"018,010":{"x":18,"y":10},"018,011":{"x":18,"y":11},"018,09":{"x":18,"y":9},"019,010":{"x":19,"y":10},"019,011":{"x":19,"y":11},"019,08":{"x":19,"y":8},"019,09":{"x":19,"y":9},"020,010":{"x":20,"y":10},"020,08":{"x":20,"y":8},"020,09":{"x":20,"y":9}}},"subarea7":{"color":"#FD496D","data":{"013,07":{"x":13,"y":7},"013,08":{"x":13,"y":8},"013,09":{"x":13,"y":9},"014,010":{"x":14,"y":10},"014,08":{"x":14,"y":8},"014,09":{"x":14,"y":9},"015,010":{"x":15,"y":10},"015,09":{"x":15,"y":9},"016,08":{"x":16,"y":8},"016,09":{"x":16,"y":9},"017,08":{"x":17,"y":8},"017,09":{"x":17,"y":9}}},"subarea8":{"color":"#5BB0AF","data":{"013,04":{"x":13,"y":4},"013,05":{"x":13,"y":5},"013,06":{"x":13,"y":6},"014,03":{"x":14,"y":3},"014,04":{"x":14,"y":4},"014,05":{"x":14,"y":5},"014,06":{"x":14,"y":6},"014,07":{"x":14,"y":7},"015,06":{"x":15,"y":6},"015,07":{"x":15,"y":7},"015,08":{"x":15,"y":8},"016,07":{"x":16,"y":7}}},"subarea9":{"color":"#F3D5C0","data":{"015,02":{"x":15,"y":2},"015,03":{"x":15,"y":3},"015,04":{"x":15,"y":4},"015,05":{"x":15,"y":5},"016,02":{"x":16,"y":2},"016,03":{"x":16,"y":3},"016,04":{"x":16,"y":4},"016,05":{"x":16,"y":5},"016,06":{"x":16,"y":6}}},"subarea10":{"color":"#089C41","data":{"017,02":{"x":17,"y":2},"017,03":{"x":17,"y":3},"017,04":{"x":17,"y":4},"017,05":{"x":17,"y":5},"017,06":{"x":17,"y":6},"017,07":{"x":17,"y":7},"018,02":{"x":18,"y":2},"018,03":{"x":18,"y":3},"018,04":{"x":18,"y":4},"018,05":{"x":18,"y":5},"018,06":{"x":18,"y":6},"018,07":{"x":18,"y":7},"018,08":{"x":18,"y":8},"019,02":{"x":19,"y":2},"019,03":{"x":19,"y":3},"019,04":{"x":19,"y":4},"019,05":{"x":19,"y":5},"019,06":{"x":19,"y":6},"019,07":{"x":19,"y":7},"020,06":{"x":20,"y":6},"020,07":{"x":20,"y":7}}},"subarea11":{"color":"#B09A7D","data":{"010,05":{"x":10,"y":5},"010,06":{"x":10,"y":6},"010,07":{"x":10,"y":7},"010,08":{"x":10,"y":8},"010,09":{"x":10,"y":9},"011,05":{"x":11,"y":5},"011,06":{"x":11,"y":6},"011,07":{"x":11,"y":7},"08,010":{"x":8,"y":10},"08,08":{"x":8,"y":8},"08,09":{"x":8,"y":9},"09,010":{"x":9,"y":10},"09,06":{"x":9,"y":6},"09,07":{"x":9,"y":7},"09,08":{"x":9,"y":8},"09,09":{"x":9,"y":9}}},"subarea12":{"color":"#819CE4","data":{"010,010":{"x":10,"y":10},"010,011":{"x":10,"y":11},"010,012":{"x":10,"y":12},"011,010":{"x":11,"y":10},"011,012":{"x":11,"y":12},"09,011":{"x":9,"y":11}}},"subarea13":{"color":"#CC8226","data":{"010,013":{"x":10,"y":13},"010,014":{"x":10,"y":14},"011,013":{"x":11,"y":13},"06,011":{"x":6,"y":11},"06,012":{"x":6,"y":12},"07,010":{"x":7,"y":10},"07,011":{"x":7,"y":11},"07,012":{"x":7,"y":12},"08,011":{"x":8,"y":11},"08,012":{"x":8,"y":12},"08,013":{"x":8,"y":13},"09,012":{"x":9,"y":12},"09,013":{"x":9,"y":13},"09,014":{"x":9,"y":14}}},"subarea14":{"color":"#2FDBFB","data":{"03,014":{"x":3,"y":14},"03,015":{"x":3,"y":15},"03,016":{"x":3,"y":16},"04,015":{"x":4,"y":15},"04,016":{"x":4,"y":16},"05,015":{"x":5,"y":15},"05,016":{"x":5,"y":16},"06,014":{"x":6,"y":14},"06,015":{"x":6,"y":15},"06,016":{"x":6,"y":16}}},"subarea15":{"color":"#25B5BA","data":{"00,013":{"x":0,"y":13},"01,012":{"x":1,"y":12},"01,013":{"x":1,"y":13},"02,010":{"x":2,"y":10},"02,011":{"x":2,"y":11},"02,012":{"x":2,"y":12},"02,013":{"x":2,"y":13},"02,09":{"x":2,"y":9},"03,010":{"x":3,"y":10},"03,011":{"x":3,"y":11},"03,012":{"x":3,"y":12},"03,013":{"x":3,"y":13},"04,011":{"x":4,"y":11},"04,012":{"x":4,"y":12},"04,013":{"x":4,"y":13},"04,014":{"x":4,"y":14},"05,012":{"x":5,"y":12},"05,013":{"x":5,"y":13},"05,014":{"x":5,"y":14},"06,013":{"x":6,"y":13}}},"subarea16":{"color":"#F0FC7C","data":{"03,017":{"x":3,"y":17},"03,018":{"x":3,"y":18},"03,019":{"x":3,"y":19},"04,017":{"x":4,"y":17},"04,018":{"x":4,"y":18},"04,019":{"x":4,"y":19},"05,017":{"x":5,"y":17},"05,018":{"x":5,"y":18},"06,017":{"x":6,"y":17},"06,018":{"x":6,"y":18},"07,017":{"x":7,"y":17},"07,018":{"x":7,"y":18}}},"subarea17":{"color":"#5C2BBA","data":{"06,019":{"x":6,"y":19},"07,019":{"x":7,"y":19},"07,020":{"x":7,"y":20},"07,021":{"x":7,"y":21},"07,022":{"x":7,"y":22},"08,019":{"x":8,"y":19},"08,020":{"x":8,"y":20},"08,021":{"x":8,"y":21},"08,022":{"x":8,"y":22}}},"subarea18":{"color":"#CE543D","data":{"010,015":{"x":10,"y":15},"07,014":{"x":7,"y":14},"07,015":{"x":7,"y":15},"07,016":{"x":7,"y":16},"08,014":{"x":8,"y":14},"08,015":{"x":8,"y":15},"08,016":{"x":8,"y":16},"08,017":{"x":8,"y":17},"09,015":{"x":9,"y":15},"09,016":{"x":9,"y":16}}},"subarea19":{"color":"#FE31AB","data":{"010,016":{"x":10,"y":16},"010,017":{"x":10,"y":17},"011,016":{"x":11,"y":16},"011,017":{"x":11,"y":17},"011,018":{"x":11,"y":18},"012,017":{"x":12,"y":17},"012,018":{"x":12,"y":18},"012,019":{"x":12,"y":19},"08,018":{"x":8,"y":18},"09,017":{"x":9,"y":17}}},"subarea20":{"color":"#849278","data":{"010,018":{"x":10,"y":18},"010,019":{"x":10,"y":19},"010,020":{"x":10,"y":20},"010,021":{"x":10,"y":21},"010,022":{"x":10,"y":22},"011,019":{"x":11,"y":19},"011,020":{"x":11,"y":20},"011,021":{"x":11,"y":21},"011,022":{"x":11,"y":22},"012,020":{"x":12,"y":20},"012,021":{"x":12,"y":21},"09,018":{"x":9,"y":18},"09,019":{"x":9,"y":19},"09,020":{"x":9,"y":20},"09,021":{"x":9,"y":21}}},"subarea21":{"color":"#EA7367","data":{"013,016":{"x":13,"y":16},"013,017":{"x":13,"y":17},"013,018":{"x":13,"y":18},"013,019":{"x":13,"y":19},"013,020":{"x":13,"y":20},"014,016":{"x":14,"y":16},"014,017":{"x":14,"y":17},"014,018":{"x":14,"y":18},"014,019":{"x":14,"y":19},"014,020":{"x":14,"y":20},"015,019":{"x":15,"y":19},"015,020":{"x":15,"y":20},"016,020":{"x":16,"y":20},"016,021":{"x":16,"y":21},"016,022":{"x":16,"y":22},"017,020":{"x":17,"y":20},"017,021":{"x":17,"y":21},"017,022":{"x":17,"y":22},"017,023":{"x":17,"y":23},"018,020":{"x":18,"y":20},"018,021":{"x":18,"y":21},"018,022":{"x":18,"y":22}}},"subarea22":{"color":"#B649FE","data":{"014,015":{"x":14,"y":15},"015,015":{"x":15,"y":15},"015,016":{"x":15,"y":16},"015,017":{"x":15,"y":17},"015,018":{"x":15,"y":18},"016,015":{"x":16,"y":15},"016,016":{"x":16,"y":16},"016,017":{"x":16,"y":17},"016,018":{"x":16,"y":18},"016,019":{"x":16,"y":19},"017,016":{"x":17,"y":16},"017,017":{"x":17,"y":17},"017,018":{"x":17,"y":18},"017,019":{"x":17,"y":19},"018,018":{"x":18,"y":18},"018,019":{"x":18,"y":19},"019,018":{"x":19,"y":18},"019,019":{"x":19,"y":19},"019,020":{"x":19,"y":20},"020,019":{"x":20,"y":19},"020,020":{"x":20,"y":20}}},"subarea23":{"color":"#81F3BC","data":{"018,016":{"x":18,"y":16},"018,017":{"x":18,"y":17},"019,016":{"x":19,"y":16},"019,017":{"x":19,"y":17},"020,014":{"x":20,"y":14},"020,015":{"x":20,"y":15},"020,016":{"x":20,"y":16},"020,017":{"x":20,"y":17},"020,018":{"x":20,"y":18},"021,016":{"x":21,"y":16},"021,017":{"x":21,"y":17},"021,018":{"x":21,"y":18},"021,019":{"x":21,"y":19},"022,018":{"x":22,"y":18},"022,019":{"x":22,"y":19}}},"subarea24":{"color":"#FB1309","data":{"020,013":{"x":20,"y":13},"021,012":{"x":21,"y":12},"021,013":{"x":21,"y":13},"021,014":{"x":21,"y":14},"021,015":{"x":21,"y":15},"022,012":{"x":22,"y":12},"022,013":{"x":22,"y":13},"022,014":{"x":22,"y":14},"022,015":{"x":22,"y":15},"023,012":{"x":23,"y":12},"023,013":{"x":23,"y":13},"023,014":{"x":23,"y":14},"024,012":{"x":24,"y":12},"024,013":{"x":24,"y":13}}}}
+        var currentArea = {}
+        var dotted = {}
+        var currentColor = "#ff0000"
+        var erase = false
+        var counter = 0
+        var ctx, ar
+        var color_list = ["#00ffff","#f0ffff","#f5f5dc","#000000","#0000ff","#a52a2a","#00ffff","#00008b","#008b8b","#a9a9a9","#006400","#bdb76b","#8b008b",
+                        "#556b2f","#ff8c00","#9932cc","#8b0000","#e9967a","#9400d3","#ff00ff","#ffd700","#008000","#4b0082","#f0e68c","#add8e6","#e0ffff","#90ee90",
+                        "#d3d3d3","#ffb6c1","#ffffe0","#00ff00","#ff00ff","#800000","#000080","#808000","#ffa500","#ffc0cb","#800080","#800080","#ff0000","#c0c0c0","#ffffff","#ffff00"]
+        function randomColor(){
+            var letters = '0123456789ABCDEF'
+            var color = "#"
+            for (var i = 0; i < 6; i++){
+                color += letters[Math.floor(Math.random() * 16)]
+            }
+            return color
+        }
+        function convertToGrid(x, y){
+            x_i = Math.ceil(x * 1.0 / grid_size) - 1
+            y_i = Math.ceil(y * 1.0 / grid_size) - 1
+            return [x_i, y_i]
+        }
+
+        // draw a grid on the top of m
+        function drawGrid(grid_no, bound){
+            ctx.lineWidth = 1
+            ctx.beginPath()
+            var mt_x = 0
+            var mt_y = 0
+            for(var i = 1; i < grid_no; i++){
+                mt_x = grid_size * i
+                mt_y = grid_size * i
+                ctx.moveTo(mt_x, 0)
+                ctx.lineTo(mt_x, bound)
+                ctx.moveTo(0, mt_y)
+                ctx.lineTo(bound, mt_y)
+            }
+            ctx.strokeStyle = "#ccc"
+            ctx.lineWidth = "1"
+            ctx.stroke()
+            
+        }
+
+        function format100(x){
+            if(x < 100)
+                return "0" + x
+            else
+                return "" + x
+        }
+        function validate_area(){
+            var flag = false
+            for(var x in currentArea){
+                flag = true
+                break
+            }
+            return flag
+        }
+        function getKey(x, y){
+            return format100(x) + "," + format100(y)
+        }
+        function getDotPos(x, y){
+            var x_ = Math.floor(x * grid_size + dot_size * 1.0 / 2)
+            var y_ = Math.floor(y * grid_size + dot_size * 1.0 / 2)
+            return [x_, y_]
+        }
+        function clearDot(x, y){
+            var obj = getDotPos(x, y)
+            ctx.clearRect(obj[0], obj[1], dot_size, dot_size)
+        }
+        // print selected dot to area
+        function printArea(ar, obj){
+            var tmp = ""
+            for(var x in obj){
+                tmp += "\"" + obj[x].x + "," + obj[x].y + "\","
+            }
+            ar.html(tmp)
+        }
+
+        // draw a dot on each moved in group
+        function draw_dot(x, y, color){
+            var obj = getDotPos(x, y)
+            var x_ = obj[0]
+            var y_ = obj[1]
+            ctx.fillStyle = color
+            ctx.fillRect(x_, y_, dot_size, dot_size)
+        }
+
+        // draw dot and print area
+        function paintArea(x, y, obj){
+            var key = getKey(x, y)
+            if(!erase && (!obj || !obj[key] || !dotted[key])){
+                obj[key] = {x: x, y: y}
+                dotted[key] = true
+                draw_dot(x, y, currentColor)
+            }else if(erase){
+                clearDot(x, y)
+                delete dotted[key]
+                delete obj[key]
+            }
+        }
+
+        // draw an area by mouse move
+        function draw_area(e, start_point, end_point){
+            if(start_point &&  end_point){
+                // left to right
+                var from_x = start_point[0]
+                var to_x = end_point[0]
+                // right to left
+                if(start_point[0] > end_point[0]){
+                    from_x = to_x + from_x
+                    to_x = from_x - to_x
+                    from_x = from_x - to_x
+                }
+                // top to bottom
+                var from_y = start_point[1]
+                var to_y = end_point[1]
+                // bottom to to[]
+                if(start_point[1] > end_point[1]){
+                    from_y = to_y + from_y
+                    to_y = from_y - to_y
+                    from_y = from_y - to_y
+                }
+                for(var x = from_x; x <= to_x; x++){
+                    for(var y = from_y; y <= to_y; y++){
+                        paintArea(x, y, currentArea)
+                    }
+                }
+            }
+        }
+
+        function removeArea(name){
+            if(area_obj[name]){
+                for(var key in area_obj[name]){
+                    var obj = area_obj[name][key]
+                    for(var kp in obj){
+                        var point = obj[kp]
+                        clearDot(point.x, point.y)
+                    }
+                    
+                }
+                delete area_obj[name]
+                $("#" + name).remove()
+            }
+        }
+
+        function modifyArea(name){
+            if(area_obj[name])
+                currentArea = area_obj[name].data
+                currentColor = area_obj[name].color
+        }
+
+        function updateArea(name, data){
+            var ord = {}
+            _(data).keys().sort().each(function(key){
+                ord[key] = data[key]
+            })
+            area_obj[name] = {
+                color: currentColor,
+                data: ord
+            }
+            return ord
+        }
+
+        function addArea(name, data){
+            counter++
+            var output
+            ar.append("<div class='area' id='"+name+"'>"
+                        + "<div class='area_label'>("+counter+")</div>"        
+                        + "<button type='button' class='btn btn-secondary edit' id='"+name+"_edit'><i class='fa fa-edit'></i></button>"
+                        + "<button type='button' class='btn btn-success edit hide' id='"+name+"_save'><i class='fa fa-check'></i></button>"
+                        + "<button type='button' class='btn btn-danger remove' id='"+name+"_remove'><i class='fa fa-remove'></i></button>"
+                        + "<textarea class='area_text' id='"+name+"_text'/>"
+                        + "</div>")
+            if(area_obj[name]){
+                output = area_obj[name].data
+            }else{
+                var ord = updateArea(name, currentArea)
+                currentArea = {}
+                output = ord
+            }
+            currentColor = randomColor()
+            var savebt = $("#" + name + "_save")
+            $("#" + name + "_edit").click(function(){
+                modifyArea(name)
+                savebt.removeClass("hide")
+            })
+            savebt.click(function(){
+                var ord = updateArea(name, currentArea)
+                currentArea = {}
+                savebt.addClass("hide")
+                printArea($("#" + name + "_text"), ord)
+                currentColor = randomColor()
+            })
+            $("#" + name + "_remove").click(function(){
+                removeArea(name)
+            })
+            printArea($("#" + name + "_text"), output)
+        }
+
+        function init_area(are){
+            var i = 0
+            for(var key in are){
+                var obj = are[key]
+                var points = obj["data"]
+                var color = randomColor()
+                obj["color"] = color
+                for(var kp in points){
+                    var point = points[kp]
+                    draw_dot(point.x, point.y, color)
+                }
+                addArea(key)
+                i++
+            }
+        }
+
+        function saveArea(){
+            var tmp = "["
+            var l = 0
+            var i = 0
+            var j = 0
+            var l1 = Object.keys(area_obj).length - 1
+            for(var key in area_obj){
+                var obj = area_obj[key].data
+                tmp += "["
+                l = Object.keys(obj).length - 1
+                i = 0
+                for(var kp in obj){
+                    var point = obj[kp]
+                    tmp += "\"" + point.x + "," + point.y + "\""
+                    if(i < l)  tmp += ","
+                    i++
+                }
+                tmp += "]"
+                if(j < l1)
+                    tmp += ","
+                j++
+            }
+            tmp += "]"
+            console.log(tmp)
+        }
+        $(document).ready(function(){
+            $(".ruler").click(function(){
+                var obj = $(this)
+                erase = !erase
+                if(erase) obj.addClass("active")
+                else obj.removeClass("active")
+            })
+            ar = $("#area")
+            $("#addarea").click(function(){
+                if(validate_area()){
+                    var l = Object.keys(area_obj).length
+                    var name = "subarea" + l
+                    addArea(name)
+                }else{
+                    alert("co gi dau ma add")
+                }
+            })
+            $("#save_area").click(saveArea)
+            var map_size = $("#map").width()
+            grid_size = map_size * 1.0 / grid_no
+            dot_size = grid_size / 2
+            var cans = document.getElementById("capture")
+            ctx = cans.getContext("2d")
+            ctx.globalAlpha = 0.5
+            drawGrid(grid_no, map_size)
+            init_area(area_obj)
+            var start_point, end_point
+            cans.addEventListener("click", function(e){
+                var x = e.offsetX
+                var y = e.offsetY
+                var loc = convertToGrid(x, y)
+                paintArea(loc[0], loc[1], currentArea)
+            })
+            cans.addEventListener("mousedown", function(e){
+                mouse = true
+                start_point = convertToGrid(e.offsetX, e.offsetY)
+            })
+            cans.addEventListener("mousemove", function(e){
+                if(mouse){
+                    end_point = convertToGrid(e.offsetX, e.offsetY)
+                    draw_area(e, start_point, end_point)
+                }
+            })
+            var cancel = function(e){
+                mouse = false
+                end_point = convertToGrid(e.offsetX, e.offsetY)
+            }
+            cans.addEventListener("mouseup", cancel)
+            cans.addEventListener("mouseleave", cancel)
+            cans.addEventListener("mouseout", cancel)
+        });
+    </script>
+</body>
+
+</html>

@@ -121,17 +121,18 @@ class BaselineModel():
         
         with tf.variable_scope("decoder", initializer=initializer, reuse=tf.AUTO_REUSE):
             if self.dtype == "grid":
-                if self.use_cnn:
-                    # add one cnn layer before decoding using lstm
-                    cnn = self.get_cnn_rep(dec, self.decoder_length, self.decode_vector_size)
-                else:
-                    cnn = dec
-                    grd_cnn = self.grid_square * self.decode_vector_size
-                dec_data = tf.reshape(cnn, [self.batch_size, self.decoder_length, grd_cnn])
+                # if self.use_cnn:
+                #     # add one cnn layer before decoding using lstm
+                #     cnn = self.get_cnn_rep(dec, self.decoder_length, self.decode_vector_size)
+                # else:
+                #     cnn = dec
+                #     grd_cnn = self.grid_square * self.decode_vector_size
+                # dec_data = tf.reshape(cnn, [self.batch_size, self.decoder_length, grd_cnn])
+                outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, e_params)
             else:
                 dec_data = tf.reshape(tf.reshape(dec, [-1]), [self.batch_size, self.decoder_length, self.districts * self.decode_vector_size])
             #finally push -> decoder
-            outputs = rnn_utils.execute_decoder(dec_data, enc_output, self.decoder_length, e_params)
+            # outputs = rnn_utils.execute_decoder(dec_data, enc_output, self.decoder_length, e_params)
             outputs = tf.stack(outputs, axis=1)
         return outputs
 

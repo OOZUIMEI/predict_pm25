@@ -50,8 +50,18 @@ def parse_vector(url, out_url, dim):
                 dis_vectors[idx] = [float(x) for x in f.split(",")]
         s = np.shape(dis_vectors)
         res.append(dis_vectors)   
-    print(np.shape(res))     
+    # print(np.shape(res))     
     utils.save_file("%s%s" % (file_path, out_url), res)
+    return res
+
+
+def convert_data_to_grid_exe(data):
+    ma = heatmap.build_map()
+    lt = len(data)
+    res = []
+    for i, t in enumerate(data):
+        g = heatmap.fill_map(t, ma)
+        res.append(g)
     return res
 
 
