@@ -19,7 +19,7 @@ class BaselineModel():
     
     def __init__(self, encoder_length=24, decoder_length=24, grid_size=25, rnn_hidden_units=128, 
                 encode_vector_size=12, decode_vector_size=6, learning_rate=0.01, batch_size=64, loss="mae", 
-                df_ele=6, rnn_layers=1, dtype="grid", use_cnn=False):
+                df_ele=6, rnn_layers=1, dtype="grid", use_cnn=False, no_cnn_decoder=False):
         self.encoder_length = encoder_length
         self.decoder_length = decoder_length
         self.sequence_length = encoder_length + decoder_length
@@ -39,6 +39,7 @@ class BaselineModel():
         self.use_cnn = use_cnn
         self.districts = 25
         self.rnn_layers = rnn_layers
+        self.no_cnn_decoder = no_cnn_decoder
     
     def set_training(self, training):
         self.is_training = training
@@ -121,19 +122,23 @@ class BaselineModel():
         
         with tf.variable_scope("decoder", initializer=initializer, reuse=tf.AUTO_REUSE):
             if self.dtype == "grid":
-                if self.use_cnn:
-                    # add one cnn layer before decoding using lstm
-                    cnn = self.get_cnn_rep(dec, self.decoder_length, self.decode_vector_size)
+                if self.no_cnn_decoder:
+                    if self.use_cnn:
+                        # add one cnn layer before decoding using lstm
+                        cnn = self.get_cnn_rep(dec, self.decoder_length, self.decode_vector_size)
+                    else:
+                        cnn = dec
+                        grd_cnn = self.grid_square * self.decode_vector_size
+                    dec_data = tf.reshape(cnn, [self.batch_size, self.decoder_length, grd_cnn])
                 else:
-                    cnn = dec
-                    grd_cnn = self.grid_square * self.decode_vector_size
-                dec_data = tf.reshape(cnn, [self.batch_size, self.decoder_length, grd_cnn])
-                # outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, e_params)
+                    outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, e_params)
             else:
                 dec_data = tf.reshape(tf.reshape(dec, [-1]), [self.batch_size, self.decoder_length, self.districts * self.decode_vector_size])
             #finally push -> decoder
-            outputs = rnn_utils.execute_decoder(dec_data, enc_output, self.decoder_length, e_params)
-            # outputs = tf.stack(outputs, axis=1)
+            if self.no_cnn_decoder:
+                outputs = rnn_utils.execute_decoder(dec_data, enc_output, self.decoder_length, e_params)
+            else:
+                outputs = tf.stack(outputs, axis=1)
         return outputs
 
 
