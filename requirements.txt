@@ -3,3 +3,5 @@ requests
 tensorflow
 tensorflow-gpu
 lxml
+cherrypy
+pyspark

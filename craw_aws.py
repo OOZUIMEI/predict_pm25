@@ -38,29 +38,7 @@ def format10(no):
         return str(no)
 
 
-# craw aqi data from source 
-def craw_data(timestamp, area):
-    data = {
-        "EXCEL": "SCREEN",
-        "MODE": "SEARCH",
-        "SDATAKEY":" ",
-        "VIEW_MIN":" ",
-        "VIEW_MAX":" ",
-        "VIEW_SITE":" ",
-        "VIEW_WIND":" ",
-        "AWS_ID": area,
-        "RptSDATE": timestamp,
-        "RptSH": "00",
-        "RptSM": "01",
-        "RptEH": "24",
-        "RptEM": "00"
-    }
-    r = requests.post("http://aws.seoul.go.kr/Report/RptWeatherMinute.asp", data)
-    # html = Soup(r.text, "html5lib")
-    return r.text
-
-
-def download(year, month, date, area):
+def download(year, month, date, area, st="00", ed="24"):
     timestamp = "%s-%s-%s" % (year, month, date)
     data = {
         "EXCEL": "EXCEL",
@@ -73,8 +51,8 @@ def download(year, month, date, area):
         "AWS_ID": area,
         "RptSDATE": timestamp,
         "RptSH": "00",
-        "RptSM": "01",
-        "RptEH": "24",
+        "RptSM": st,
+        "RptEH": ed,
         "RptEM": "00"
     }
     r = requests.post("http://aws.seoul.go.kr/Report/RptWeatherMinute.asp", data, stream=True)
@@ -83,16 +61,38 @@ def download(year, month, date, area):
             f.write(chunk)
 
 
+# craw aqi data from source 
+def craw_data(timestamp, area, st="00", ed="24"):
+    data = {
+        "EXCEL": "SCREEN",
+        "MODE": "SEARCH",
+        "SDATAKEY":" ",
+        "VIEW_MIN":" ",
+        "VIEW_MAX":" ",
+        "VIEW_SITE":" ",
+        "VIEW_WIND":" ",
+        "AWS_ID": area,
+        "RptSDATE": timestamp,
+        "RptSH": "00",
+        "RptSM": st,
+        "RptEH": ed,
+        "RptEM": "00"
+    }
+    r = requests.post("http://aws.seoul.go.kr/Report/RptWeatherMinute.asp", data)
+    # html = Soup(r.text, "html5lib")
+    return r.text
+
+
 # perform craw in loop or by files
-def craw_data_controller(output, filename, counter, last_save, save_interval, tmp):
+def craw_data_controller(output, filename, counter, last_save, save_interval, tmp, st, ed):
     year = tmp.year
     month = format10(tmp.month)
     date = format10(tmp.day)
     timestamp = "%s-%s-%s" % (year, month, date)
     counter += 1
-    try:
+    try:        
         for dis in pr.district_codes:
-            html = craw_data(timestamp, dis)
+            html = craw_data(timestamp, dis, st, ed)
             values = mine_data(html)
             for x in values:
                 output += timestamp + " " + x[0] + ":00," + str(dis) + "," + utils.array_to_str(x[1:], ",") + "\n"
@@ -121,29 +121,43 @@ def main(args, cont=False):
     output = ""
     counter = 0
     last_save = 0
+    crawler_range = 86400
     if not cont:
         cond = start <= end
         if args.end:
             end = datetime.strptime(args.end, pr.fm)
         else:
             end = utils.get_datetime_now()
-        length = (end - start).total_seconds() / 86400
+        length = (end - start).total_seconds() / crawler_range
     else:
         cond = True
     while cond:
         now = utils.get_datetime_now()
         if (now - start_point).total_seconds() >= args.interval:
             start_point = now
-            if (now - start).total_seconds() > 86400:
+            # how long from last crawled date to now?
+            delta = (now - start).total_seconds()
+            if delta > crawler_range:
                 tmp = start
-                output, counter, last_save = craw_data_controller(output, filename, counter, last_save, save_interval, tmp)
+                st = "00"
+                ed = "24"
+                if crawler_range == 3600:
+                    st = format10(tmp.hour)
+                    ed = format10(tmp.hour + 1)
+                output, counter, last_save = craw_data_controller(output, filename, counter, last_save, save_interval, tmp, st, ed)
                 # move pointer for timestep
-                start = start + timedelta(days=1)
                 if not cont:
                     utils.update_progress(counter * 1.0 / length)
                 else:
                     write_log(filename, output)
                     output = ""
+                if crawler_range == 86400:
+                    start = start + timedelta(days=1)
+                else:
+                    start = start + timedelta(hours=1)
+            else:
+                # Approach boundary then reduce range
+                crawler_range = 3600
                 # else:
                 #     print("Crawling %s" % st_)
     write_log(filename, output)
