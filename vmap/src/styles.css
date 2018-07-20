@@ -30,7 +30,7 @@
 .info-box{
     width: 350px;
     height: 100%;
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     z-index: 9999;
@@ -39,6 +39,10 @@
 }
 
 /* table info*/
+.list-info{
+    margin: 10px;
+    border-radius: 10px;
+}
 .list-element{
     padding: 5px 0;
     border-bottom: 1px solid #eee;
@@ -72,4 +76,30 @@
 }
 .navigation .back{
     margin: 0
+}
+
+
+.date {
+    position: fixed;
+    z-index: 9999;
+    top: 10px;
+    left: 360px;
+    width: 200px;
+    height: 40px;
+    background: rgba(200,200,255,0.5);
+    color: #000;
+    text-align: center;
+    line-height: 40px;
+    border-radius: 5px;
+    font-size: 16px;
+    font-weight: bold;
+}
+.chart{
+    position: fixed;
+    z-index: 9999;
+    right: 20px;
+    width: 400px;
+    height: 300px;
+    top: 50%;
+    margin-top: -300px;
 }

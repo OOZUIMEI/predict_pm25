@@ -19,6 +19,10 @@ import craw_aws as aws
 
 import process_sp_vector as psv
 from baseline_cnnlstm import BaselineModel
+# import matplotlib
+# import matplotlib.pyplot as plt
+from  spark_engine import SparkEngine
+import district_neighbors as dd
 
 
 def convert_element_to_grid(self, context):
@@ -156,12 +160,12 @@ def get_prediction_real_time(sparkEngine, url_weight=""):
     decoder_length = 24
     end = utils.get_datetime_now()
     # end = datetime.strptime("2018-06-19 11:01:00", p.fm)
-    e_ = end.strftime(p.fm)
+    # e_ = end.strftime(p.fm)
     start = end - timedelta(days=1)
     start = start.replace(minute=0, second=0, microsecond=0)
-    s_ = start.strftime(p.fm)
+    # s_ = start.strftime(p.fm)
     # 2. process normalize data
-    vectors, w_pred = sparkEngine.process_vectors(s_, e_)
+    vectors, w_pred, timestamp = sparkEngine.process_vectors(start, end)
     v_l = len(vectors)
     if v_l:
         sp_vectors = psv.convert_data_to_grid_exe(vectors)
@@ -193,7 +197,10 @@ def get_prediction_real_time(sparkEngine, url_weight=""):
             print('==> running model')
             _, preds = model.run_epoch(session, model.train, shuffle=False, verbose=False)
             preds = np.reshape(np.squeeze(preds), (decoder_length, 25, 25))
-            return preds
+            # _, ax = plt.subplots(figsize=(10, 10))
+            # ax.imshow(preds[0], cmap="gray")
+            return preds, timestamp
+    return [], []
         # 5. Get prediction
     
 def  get_districts_preds(preds):
@@ -201,7 +208,8 @@ def  get_districts_preds(preds):
     for d_t in preds:
         r_t = []
         for x, y in p.dis_points:
-            r_t.append(d_t[x][y] * 500)
+            # x = col, y = row
+            r_t.append(d_t[y][x] * 500)
         res.append(r_t)
     return res
 
@@ -226,7 +234,15 @@ if __name__ == "__main__":
     parser.add_argument("-r", "--rnn_layers", default=1, help="number of rnn layers", type=int)
 
     args = parser.parse_args()
-    
+    # if not os.path.exists("missing.pkl"):
+    #     sparkEngine = SparkEngine()
+    #     preds, timestamp = get_prediction_real_time(sparkEngine)
+    #     utils.save_file("missing.pkl", preds)
+    # else:
+    #     preds = utils.load_file("missing.pkl")
+    # preds = np.reshape(np.squeeze(preds), (24, 25, 25))
+    # prediction = get_districts_preds(preds)
+    # print(prediction[0])
     # main(args.feature, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
     #     args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn))
     

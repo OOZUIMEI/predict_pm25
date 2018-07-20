@@ -3,9 +3,10 @@ from pyspark.sql.functions import *
 from pyspark.sql.types import *
 from pyspark import SparkConf
 from pyspark.ml.feature import MinMaxScaler, VectorAssembler
-
+from datetime import timedelta
 import numpy as np
 import properties as p
+import utils
 import udf as udf_utils
 
 class SparkEngine():
@@ -106,19 +107,25 @@ class SparkEngine():
         w_pred = self.spark.read.format("csv").option("header", "false").schema(self.sw_pred).load(p3) \
                      .groupBy("timestamp").agg(last("temp").alias("temp"),last("precip").alias("precip"), \
                             last("humidity").alias("humidity"),last("wind_sp").alias("wind_sp"), \
-                            last("wind_gust").alias("wind_gust"),last("wind_dir").alias("wind_dir"))
+                            last("wind_gust").alias("wind_gust"),last("wind_dir").alias("wind_dir")) \
                      .select("timestamp", "temp", "precip", "humidity", "wind_sp", "wind_gust", self.udf_dir("wind_dir").cast("double").alias("wind_agl"))
                      
         vectors = self.normalize_vector(merge, self.features)
         final = self.assembler.transform(vectors)
         if start and end:
-            final = final.filter((col("timestamp") >= start) & (col("timestamp") <= end))
-            # w_pred = w_pred.filter((col("timestamp") >= start) & (col("timestamp") <= end))
+            st_ = start.strftime(p.fm)
+            ed_ = end.strftime(p.fm)
+            final = final.filter((col("timestamp") >= st_) & (col("timestamp") <= ed_))
+            end = end + timedelta(days=1)
+            ed2_ = end.strftime(p.fm)
+            w_pred = w_pred.filter((col("timestamp") >= ed_) & (col("timestamp") <= ed2_))
         # future forecast
         w_pred = w_pred.orderBy("timestamp").collect()
         w_ = []
+        timestamp = []
         for x in w_pred:
             a = [x['temp'],x["precip"],x["humidity"],x["wind_sp"],x["wind_gust"], x["wind_agl"]]
+            timestamp.append(x['timestamp'])
             w_.append(a)
         
 
@@ -137,4 +144,4 @@ class SparkEngine():
                 dis_vectors[idx] = features[i]
             res.append(dis_vectors)       
         
-        return res, w_
+        return res, w_, timestamp

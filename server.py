@@ -21,16 +21,18 @@ class Prediction(object):
     def __init__(self, sparkEngine):
         self.sparkEngine =  sparkEngine
         self.prediction = None
+        self.timestamp = None
         self.avg = None
 
     @cherrypy.tools.accept(media="text/plain")
     @cherrypy.expose
     def GET(self):
         if not self.prediction:
-            preds = get_prediction_real_time(sparkEngine)
+            preds, timestamp = get_prediction_real_time(sparkEngine)
             self.prediction = get_districts_preds(preds)
             self.avg = np.mean(self.prediction, axis=1).tolist()
-        return json.dumps({"status": "OK", "data": self.prediction, "avg": self.avg})
+            self.timestamp = timestamp
+        return json.dumps({"status": "OK", "data": self.prediction, "avg": self.avg, "timestamp": self.timestamp})
 
 
 if __name__ == "__main__":

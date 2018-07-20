@@ -4,6 +4,7 @@ https://gist.github.com/cpelley/6351152
 http://scitools.org.uk/iris/docs/latest/examples/Meteorology/wind_speed.html
 Colormap: 
 https://matplotlib.org/2.0.2/examples/color/colormaps_reference.html
+https://matplotlib.org/2.0.2/examples/api/colorbar_only.html
 """
 import matplotlib
 import matplotlib.pyplot as plt
@@ -110,67 +111,93 @@ def build_map(grid_size=25):
     m = np.zeros((grid_size, grid_size), dtype=np.int32)
     for k, value in enumerate(grid):
         for part in value:
-            corr = part.split(",")
-            m[int(corr[1])][int(corr[0])] = k + 1
+            x, y = part
+            m[y][x] = k + 1
     return m
 
 
 def get_color_map(cr=10):
     pm2_5_aqi = [0, 50, 100, 150, 200, 300, 500]
-    base_colors = ['green', 'yellow', 'orange', 'red', '#651a95', '#7c0e29']
-    colors = ['gray']
-    pm2_5_range = [0, 1]
-    for i in xrange(5):
-        c = Color(base_colors[i])
-        c_ = Color(base_colors[i+1])
-        r = int((pm2_5_aqi[i + 1] - pm2_5_aqi[i]) / cr)
-        colors += [cl.hex_l for cl in list(c.range_to(c_, r))]
-        pm2_5_range +=range(pm2_5_aqi[i] + 10, pm2_5_aqi[i + 1] + 1, cr)
-    pm2_5_range = np.asarray(pm2_5_range, dtype=np.float32) / 500
-    return colors, pm2_5_range.tolist()
+    b1 = ['#11f52c', '#ffff73', '#ff983d', '#ff312e', '#9000f0', '#851e35', '#690018']
+    b2 = ['#009917', '#cfc31d', '#f0690a', '#e00000', '#651a95', '#690018']
+    colors = ['gray', '#11f52c']
+    pm2_5_range = [0, 0.5]
+    for i in xrange(6):
+        c = Color(b1[i])
+        c_ = Color(b2[i])
+        r = int((pm2_5_aqi[i + 1] - pm2_5_aqi[i]) / cr) + 1
+        cl = [cl.hex_l for cl in list(c.range_to(c_, r))]
+        colors += cl[1:-1] + [b1[i+1]]
+        pm = range(pm2_5_aqi[i] + cr, pm2_5_aqi[i + 1] + 1, cr)
+        pm2_5_range += pm
+    return colors, pm2_5_range
 
+
+def draw_color_map():
+    colors, bounds = get_color_map(10)
+    fig = plt.figure(figsize=(8, 3))
+    cmap = ListedColormap(colors)
+    norm = BoundaryNorm(bounds, cmap.N)
+    ax2 = fig.add_axes([0.05, 0.15, 0.9, 0.15])
+    cb3 = matplotlib.colorbar.ColorbarBase(ax2, cmap=cmap, norm=norm,
+                                boundaries=bounds,
+                                extend='both',
+                                ticks=bounds,  # optional
+                                spacing='proportional',
+                                orientation='horizontal')
 
 
 if __name__ == "__main__":
     map_ = build_map()
-    # colors, bounds = get_color_map(5)
-    colors, bounds = pr.colors, pr.pm2_5_range
+    colors, bounds = get_color_map(5)
+    print(colors)
+    print(bounds)
+    fig = plt.figure(figsize=(8, 3))
     cmap = ListedColormap(colors)
     norm = BoundaryNorm(bounds, cmap.N)
+    ax2 = fig.add_axes([0.05, 0.15, 0.9, 0.15])
+    cb3 = matplotlib.colorbar.ColorbarBase(ax2, cmap=cmap, norm=norm,
+                                # to use 'extend', you must
+                                # specify two extra boundaries:
+                                boundaries=bounds + [500],
+                                extend='both',
+                                ticks=bounds,  # optional
+                                spacing='proportional',
+                                orientation='horizontal')
     # h1 = [19,25,24,16,19,15,12,35,14,26,12,33,11,17,16,16,16,21,14,25,26,22,15,0,18,17]
     # h2 = np.asarray([67,78,74,69,54,63,61,45,73,67,53,57,65,73,89,115,64,66,98,52,63,88,49,71,43,35])
     # seoulmap = mpimg.imread(pr.seoul_map)
     # ax.imshow(seoulmap, cmap=plt.cm.gray)
     # visualize(h2, map_)
-    fig = plt.figure(figsize=(100, 100), tight_layout=True)
-    data = utils.load_file("vectors/test_sp/non_cnn_grid_1")
-    labels = np.asarray(utils.load_file("vectors/test_sp_grid"))
-    data = np.asarray(data)
-    data = data.reshape([-1])
-    data = np.reshape(data, (82 * 128, 24, 25, 25))
-    y_s = 400
-    x = data[y_s,:,:,:]
-    x = np.where(x >= 0, x, np.zeros(x.shape))
-    y = labels[y_s+24:(y_s+48),:,:,0]
+    # fig = plt.figure(figsize=(100, 100), tight_layout=True)
+    # data = utils.load_file("vectors/test_sp/non_cnn_grid_1")
+    # labels = np.asarray(utils.load_file("vectors/test_sp_grid"))
+    # data = np.asarray(data)
+    # data = data.reshape([-1])
+    # data = np.reshape(data, (82 * 128, 24, 25, 25))
+    # y_s = 400
+    # x = data[y_s,:,:,:]
     # x = np.where(x >= 0, x, np.zeros(x.shape))
-    rows = 6
-    cols = 4
-    idx = 0
-    for i in xrange(0, 11, 2):
-        for j in xrange(1, cols + 1):
-            ax = fig.add_subplot(rows, cols * 2, i * cols + j)
-            ax.set_title("%ih" % (idx + 1))
-            plt.imshow(x[idx,:,:], cmap=cmap, norm=norm)
-            idx+= 1
+    # y = labels[y_s+24:(y_s+48),:,:,0]
+    # # x = np.where(x >= 0, x, np.zeros(x.shape))
+    # rows = 6
+    # cols = 4
+    # idx = 0
+    # for i in xrange(0, 11, 2):
+    #     for j in xrange(1, cols + 1):
+    #         ax = fig.add_subplot(rows, cols * 2, i * cols + j)
+    #         ax.set_title("%ih" % (idx + 1))
+    #         plt.imshow(x[idx,:,:], cmap=cmap, norm=norm)
+    #         idx+= 1
     
-    idx = 0
-    for i in xrange(1, 12, 2):
-        for j in xrange(1, cols + 1):
-            ax_y = fig.add_subplot(rows,  cols * 2, i * cols + j)
-            ax_y.set_title("real %ih" % (idx + 1))
-            plt.imshow(y[idx,:,:], cmap=cmap, norm=norm)
-            idx+=1
-    fig.subplots_adjust(top=1.3)
+    # idx = 0
+    # for i in xrange(1, 12, 2):
+    #     for j in xrange(1, cols + 1):
+    #         ax_y = fig.add_subplot(rows,  cols * 2, i * cols + j)
+    #         ax_y.set_title("real %ih" % (idx + 1))
+    #         plt.imshow(y[idx,:,:], cmap=cmap, norm=norm)
+    #         idx+=1
+    # fig.subplots_adjust(top=1.3)
     plt.show()
 
 
