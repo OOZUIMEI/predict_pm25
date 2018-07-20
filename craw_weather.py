@@ -150,20 +150,22 @@ def main(args):
 def get_future(args):
     start_point = utils.get_datetime_now()
     start_point = start_point - timedelta(days=1)
-    filename = "%s_weather.csv" % args.city
+    filename = "data/%s_weather.csv" % args.city
     # use flag to craw first time
     while True:
         now = utils.get_datetime_now()
         if (now - start_point).total_seconds() >= args.interval:
             try:
-                start_point = start_point + timedelta(days=1)
-                date = "%s-%s-%s" % (start_point.year, utils.format10(start_point.month), utils.format10(start_point.day))
-                html = craw_future(args.city, 1)
-                data = mine_data(date, html)
-                if data:
-                    output = "\n".join(data) + "\n"
-                    write_log(filename, output)
-                
+                # craw 3 days forward
+                for i in xrange(3):
+                    start_point = start_point + timedelta(days=1)
+                    date = "%s-%s-%s" % (start_point.year, utils.format10(start_point.month), utils.format10(start_point.day))
+                    html = craw_future(args.city, i)
+                    data = mine_data(date, html)
+                    if data:
+                        output = "\n".join(data) + "\n"
+                        write_log(filename, output)
+            
             except Exception as e:
                 print(e)
 

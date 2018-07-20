@@ -19,7 +19,6 @@ import craw_aws as aws
 
 import process_sp_vector as psv
 from baseline_cnnlstm import BaselineModel
-from  spark_engine import SparkEngine
 
 
 def convert_element_to_grid(self, context):
@@ -110,6 +109,15 @@ def execute(path, url_weight, model, session, saver, batch_size, encoder_length,
             utils.save_file("test_sp/%s" % name_s, preds)
 
 
+def get_gpu_options():
+    gpu_options = None
+    if p.device == "gpu":
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=p.gpu_fraction)
+        os.environ["CUDA_VISIBLE_DEVICES"]=p.gpu_devices
+    configs = tf.ConfigProto(allow_soft_placement=True, gpu_options=gpu_options)
+    return configs
+
+
 def main(url_feature="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, rnn_layers=1,
         dtype="grid", is_folder=False, is_test=False, use_cnn=True):
     model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, rnn_layers=rnn_layers,
@@ -121,12 +129,7 @@ def main(url_feature="", url_weight="sp", batch_size=128, encoder_length=24, emb
         saver = tf.train.Saver()
     utils.assert_url(url_feature)
 
-    gpu_options = None
-    if p.device == "gpu":
-        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=p.gpu_fraction)
-        os.environ["CUDA_VISIBLE_DEVICES"]=p.gpu_devices
-    
-    tconfig = tf.ConfigProto(allow_soft_placement=True, gpu_options=gpu_options)
+    tconfig = get_gpu_options()
     sum_dir = 'summaries/' + time.strftime("%Y-%m-%d %H %M")
     if not utils.check_file(sum_dir):
         os.makedirs(sum_dir)
@@ -149,10 +152,10 @@ def main(url_feature="", url_weight="sp", batch_size=128, encoder_length=24, emb
 
 def get_prediction_real_time(sparkEngine, url_weight=""):
     # continuously crawl aws and aqi & weather
-    # end = utils.get_datetime_now()
     encoder_length = 24
     decoder_length = 24
-    end = datetime.strptime("2018-06-19 11:01:00", p.fm)
+    end = utils.get_datetime_now()
+    # end = datetime.strptime("2018-06-19 11:01:00", p.fm)
     e_ = end.strftime(p.fm)
     start = end - timedelta(days=1)
     start = start.replace(minute=0, second=0, microsecond=0)
@@ -172,7 +175,7 @@ def get_prediction_real_time(sparkEngine, url_weight=""):
         de_vectors = np.pad(de_vectors, ((0, 0), (0, 0), (0, 0), (6, 0)), 'constant', constant_values=0)
         sp_vectors = np.concatenate((sp_vectors, de_vectors), axis=0)
         # 4. Feed to model
-        model = BaselineModel(encoder_length=encoder_length, encode_vector_size=12, batch_size=1, decoder_length=decoder_length, rnn_layers=2,
+        model = BaselineModel(encoder_length=encoder_length, encode_vector_size=12, batch_size=1, decoder_length=decoder_length, rnn_layers=1,
                         dtype='grid', grid_size=25, use_cnn=True)
         model.set_data(sp_vectors, [0], None)
         
@@ -180,23 +183,35 @@ def get_prediction_real_time(sparkEngine, url_weight=""):
             model.init_ops()
             init = tf.global_variables_initializer()
             saver = tf.train.Saver()
-
+        
+        tconfig = get_gpu_options()
         with tf.Session(config=tconfig) as session:
             print('==> initializing models')
             session.run(init)
             print('==> running model')
             saver.restore(session, 'weights/cnn_lstm.weights')
             print('==> running model')
-            _, preds = model.run_epoch(session, model.train, shuffle=False)
+            _, preds = model.run_epoch(session, model.train, shuffle=False, verbose=False)
+            preds = np.reshape(np.squeeze(preds), (decoder_length, 25, 25))
+            return preds
         # 5. Get prediction
     
+def  get_districts_preds(preds):
+    res = []
+    for d_t in preds:
+        r_t = []
+        for x, y in p.dis_points:
+            r_t.append(d_t[x][y] * 500)
+        res.append(r_t)
+    return res
+
 
 if __name__ == "__main__":
     # 10110 -> 10080 -> 126 batch 
     # python train.py -pr "vectors/labels" -f "vectors/full_data" -fl "vectors/full_data_len" -p "train_basic_64b_tanh_12h_" -fw "basic" -dc 1 -l mae -r 10 -usp 1 -e 13 -bs 126 -sl 24 -ir 0 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-u", "--feature", help="prefix to save weighted files")
-    parser.add_argument("-f", "--folder", default=0, type=int)
+    parser.add_argument("-u", "--feature", help="")
+    parser.add_argument("-f", "--folder", default=0, type=int,  help="prefix to save weighted files")
     parser.add_argument("-w", "--url_weight", type=str, default="")
     parser.add_argument("-bs", "--batch_size", type=int, default=64)
     parser.add_argument("-l", "--loss", default='mae')
@@ -211,8 +226,7 @@ if __name__ == "__main__":
     parser.add_argument("-r", "--rnn_layers", default=1, help="number of rnn layers", type=int)
 
     args = parser.parse_args()
-    sparkEngine = SparkEngine()
-    get_prediction_real_time(sparkEngine)
+    
     # main(args.feature, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
     #     args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn))
     

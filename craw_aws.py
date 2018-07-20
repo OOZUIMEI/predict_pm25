@@ -115,38 +115,47 @@ def write_log(filename, output):
 def main(args, cont=False):
     save_interval = args.save_interval
     start = datetime.strptime(args.start, pr.fm)
-    if args.end:
-        end = datetime.strptime(args.end, pr.fm)
-    else:
-        end = utils.get_datetime_now()
-        args.end = datetime.strftime(end, pr.fm)
-    if not cont:
-        filename = "craw_aws_%s_%s.csv" % (utils.clear_datetime(args.start), utils.clear_datetime(args.end))
-    else:
-        filename = "craw_aws_cont.csv"
-    start_point = utils.now_milliseconds()
+    filename = "data/seoul_aws.csv"
+    start_point = utils.get_datetime_now()
     # output = "timestamp,PM10_VAL,PM2.5_VAL,O3(ppm),NO2(ppm),CO(ppm),SO2(ppm),PM10_AQI,PM2.5_AQI\n"
     output = ""
-    length = (end - start).total_seconds() / 86400
     counter = 0
     last_save = 0
-    while start <= end:
-        now = utils.now_milliseconds()
-        if (now - start_point) >= args.interval:
-            tmp = start
-            output, counter, last_save = craw_data_controller(output, filename, counter, last_save, save_interval, tmp)
-            start = start + timedelta(days=1)
-            start_point = now   
-            utils.update_progress(counter * 1.0 / length)
+    if not cont:
+        cond = start <= end
+        if args.end:
+            end = datetime.strptime(args.end, pr.fm)
+        else:
+            end = utils.get_datetime_now()
+        length = (end - start).total_seconds() / 86400
+    else:
+        cond = True
+    while cond:
+        now = utils.get_datetime_now()
+        if (now - start_point).total_seconds() >= args.interval:
+            start_point = now
+            if (now - start).total_seconds() > 86400:
+                tmp = start
+                output, counter, last_save = craw_data_controller(output, filename, counter, last_save, save_interval, tmp)
+                # move pointer for timestep
+                start = start + timedelta(days=1)
+                if not cont:
+                    utils.update_progress(counter * 1.0 / length)
+                else:
+                    write_log(filename, output)
+                    output = ""
+                # else:
+                #     print("Crawling %s" % st_)
     write_log(filename, output)
 
 
 if __name__ == "__main__":
     parser = ArgumentParser()
+    parser.add_argument("-f", "--forward", default=1, type=int, help="continuously collecting")
     parser.add_argument("-i", "--interval", default=5, type=int)
     parser.add_argument("-si", "--save_interval", default=48, type=int)
     parser.add_argument("-s", "--start", default="2009-03-01 00:00:00", type=str)
     parser.add_argument("-e", "--end", type=str)
     
     args = parser.parse_args()
-    main(args)
+    main(args, args.forward)

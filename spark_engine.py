@@ -79,7 +79,7 @@ class SparkEngine():
 
     def process_vectors(self, start=None, end=None):
         # engine do something
-        p1 = "data/seoul_air_test.csv"
+        p1 = "data/seoul_aqi.csv"
         p2 = "data/seoul_aws.csv"
         p3 = "data/seoul_weather.csv"
         dim = 12
@@ -104,16 +104,16 @@ class SparkEngine():
                     .na.fill(0.0, ["pm2_5_norm", "pm10_norm", "o3_val","no2_val","co_val","so2_val", "temp", "precip", "humidity", "wind_agl", "wind_sp", "wind_gust"])
 
         w_pred = self.spark.read.format("csv").option("header", "false").schema(self.sw_pred).load(p3) \
+                     .groupBy("timestamp").agg(last("temp").alias("temp"),last("precip").alias("precip"), \
+                            last("humidity").alias("humidity"),last("wind_sp").alias("wind_sp"), \
+                            last("wind_gust").alias("wind_gust"),last("wind_dir").alias("wind_dir"))
                      .select("timestamp", "temp", "precip", "humidity", "wind_sp", "wind_gust", self.udf_dir("wind_dir").cast("double").alias("wind_agl"))
                      
-        
         vectors = self.normalize_vector(merge, self.features)
         final = self.assembler.transform(vectors)
-
         if start and end:
             final = final.filter((col("timestamp") >= start) & (col("timestamp") <= end))
             # w_pred = w_pred.filter((col("timestamp") >= start) & (col("timestamp") <= end))
-
         # future forecast
         w_pred = w_pred.orderBy("timestamp").collect()
         w_ = []
