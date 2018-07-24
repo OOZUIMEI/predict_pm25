@@ -3,12 +3,15 @@
     <div class="date">Prediction: {{ current_timestamp }}</div>
       <yaga-map 
         [zoom]="mapConfig.zoom"
-        [(minZoom)]="mapConfig.zoom"
-        [(maxZoom)]="mapConfig.zoom"
+        [(minZoom)]="mapConfig.minZoom"
+        [(maxZoom)]="mapConfig.maxZoom"
         [lat]="mapConfig.lat" [lng]="mapConfig.lng" >
         <yaga-tile-layer [(url)]="mapConfig.tileLayerUrl"></yaga-tile-layer>
-        <yaga-geojson
-          [(data)]="district_geo" *ngIf="district_geo"
+        <!-- 
+          don't use [(data)]. use [data] instead
+        -->
+        <yaga-geojson 
+          [data]="district_geo" *ngIf="district_geo"
           [defaultStyle]="mapConfig.style"
           [styler]="style"
         >
@@ -37,4 +40,5 @@
   <div class='chart'>
     <div [chart]="chart"></div>
   </div>
+  <div class="colorbar"></div>
 </div>

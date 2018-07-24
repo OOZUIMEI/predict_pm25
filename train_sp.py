@@ -154,7 +154,7 @@ def main(url_feature="", url_weight="sp", batch_size=128, encoder_length=24, emb
             execute(url_feature, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
 
 
-def get_prediction_real_time(sparkEngine, url_weight=""):
+def get_prediction_real_time(sparkEngine, url_weight="", dim=12):
     # continuously crawl aws and aqi & weather
     encoder_length = 24
     decoder_length = 24
@@ -165,18 +165,22 @@ def get_prediction_real_time(sparkEngine, url_weight=""):
     start = start.replace(minute=0, second=0, microsecond=0)
     # s_ = start.strftime(p.fm)
     # 2. process normalize data
-    vectors, w_pred, timestamp = sparkEngine.process_vectors(start, end)
+    vectors, w_pred, timestamp = sparkEngine.process_vectors(start, end, dim)
     v_l = len(vectors)
     if v_l:
         sp_vectors = psv.convert_data_to_grid_exe(vectors)
-        if v_l < 24:
+        if v_l < encoder_length:
             sp_vectors = np.pad(sp_vectors, ((encoder_length - v_l,0), (0,0), (0,0), (0, 0)), 'constant', constant_values=0)
         
         # repeat for 25 districts
-        w_pred = np.repeat(np.expand_dims(w_pred, 1), 25, 1)
-        de_vectors = psv.convert_data_to_grid_exe(w_pred)
-        # pad to fill top elements of decoder vectors
-        de_vectors = np.pad(de_vectors, ((0, 0), (0, 0), (0, 0), (6, 0)), 'constant', constant_values=0)
+        if w_pred:
+            w_pred = np.repeat(np.expand_dims(w_pred, 1), 25, 1)
+            de_vectors = psv.convert_data_to_grid_exe(w_pred)
+            # pad to fill top elements of decoder vectors
+            de_vectors = np.pad(de_vectors, ((0, 0), (0, 0), (0, 0), (6, 0)), 'constant', constant_values=0)
+        else:
+            # know nothing about future weather forecast
+            de_vectors = np.zeros((decoder_length, 25, 25, dim))
         sp_vectors = np.concatenate((sp_vectors, de_vectors), axis=0)
         # 4. Feed to model
         model = BaselineModel(encoder_length=encoder_length, encode_vector_size=12, batch_size=1, decoder_length=decoder_length, rnn_layers=1,
@@ -235,9 +239,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     # if not os.path.exists("missing.pkl"):
-    #     sparkEngine = SparkEngine()
-    #     preds, timestamp = get_prediction_real_time(sparkEngine)
-    #     utils.save_file("missing.pkl", preds)
+    sparkEngine = SparkEngine()
+    preds, timestamp = get_prediction_real_time(sparkEngine)
+        # utils.save_file("missing.pkl", preds)
     # else:
     #     preds = utils.load_file("missing.pkl")
     # preds = np.reshape(np.squeeze(preds), (24, 25, 25))

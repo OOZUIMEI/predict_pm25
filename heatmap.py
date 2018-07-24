@@ -133,37 +133,44 @@ def get_color_map(cr=10):
     return colors, pm2_5_range
 
 
-def draw_color_map():
-    colors, bounds = get_color_map(10)
-    fig = plt.figure(figsize=(8, 3))
+def draw_color_map(cr=10):
+    pm2_5_aqi = [0, 50, 100, 150, 200, 300, 500]
+    colors, bounds = get_color_map(cr)
+    fig = plt.figure(figsize=(3, 10))
     cmap = ListedColormap(colors)
     norm = BoundaryNorm(bounds, cmap.N)
-    ax2 = fig.add_axes([0.05, 0.15, 0.9, 0.15])
+    ax2 = fig.add_axes([0.1, 0, 0.1, 0.95])
     cb3 = matplotlib.colorbar.ColorbarBase(ax2, cmap=cmap, norm=norm,
-                                boundaries=bounds,
-                                extend='both',
-                                ticks=bounds,  # optional
-                                spacing='proportional',
-                                orientation='horizontal')
-
-
-if __name__ == "__main__":
-    map_ = build_map()
-    colors, bounds = get_color_map(5)
-    print(colors)
-    print(bounds)
-    fig = plt.figure(figsize=(8, 3))
-    cmap = ListedColormap(colors)
-    norm = BoundaryNorm(bounds, cmap.N)
-    ax2 = fig.add_axes([0.05, 0.15, 0.9, 0.15])
-    cb3 = matplotlib.colorbar.ColorbarBase(ax2, cmap=cmap, norm=norm,
-                                # to use 'extend', you must
-                                # specify two extra boundaries:
                                 boundaries=bounds + [500],
                                 extend='both',
                                 ticks=bounds,  # optional
                                 spacing='proportional',
-                                orientation='horizontal')
+                                orientation='vertical')
+    ticks = [str(int(x + 1)) if x in pm2_5_aqi else "" for x in cb3.get_ticks()]
+    ticks = ["0"] + ticks[1:-1] + [500]
+    cb3.set_ticklabels(ticks)
+    # plt.show()
+    plt.savefig("figures/color_bar.png", format="png", bbox_inches='tight')
+
+
+if __name__ == "__main__":
+    draw_color_map(5)
+    # map_ = build_map()
+    # colors, bounds = get_color_map(5)
+    # print(colors)
+    # print(bounds)
+    # fig = plt.figure(figsize=(8, 3))
+    # cmap = ListedColormap(colors)
+    # norm = BoundaryNorm(bounds, cmap.N)
+    # ax2 = fig.add_axes([0.05, 0.15, 0.9, 0.15])
+    # cb3 = matplotlib.colorbar.ColorbarBase(ax2, cmap=cmap, norm=norm,
+    #                             # to use 'extend', you must
+    #                             # specify two extra boundaries:
+    #                             boundaries=bounds + [500],
+    #                             extend='both',
+    #                             ticks=bounds,  # optional
+    #                             spacing='proportional',
+    #                             orientation='horizontal')
     # h1 = [19,25,24,16,19,15,12,35,14,26,12,33,11,17,16,16,16,21,14,25,26,22,15,0,18,17]
     # h2 = np.asarray([67,78,74,69,54,63,61,45,73,67,53,57,65,73,89,115,64,66,98,52,63,88,49,71,43,35])
     # seoulmap = mpimg.imread(pr.seoul_map)
@@ -198,6 +205,6 @@ if __name__ == "__main__":
     #         plt.imshow(y[idx,:,:], cmap=cmap, norm=norm)
     #         idx+=1
     # fig.subplots_adjust(top=1.3)
-    plt.show()
+    # plt.show()
 
 

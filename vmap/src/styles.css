@@ -1,22 +1,3 @@
-/* You can add global styles to this file, and also import other style files */
-@media (min-width: 1600px){
-    .container {
-        width: 1400px;
-    }
-}
-
-@media (min-width: 1800px){
-    .container {
-        width: 1600px;
-    }
-}
-
-@media (min-width: 2000px){
-    .container {
-        width: 1800px;
-    }
-}
-
 .map{
     position: fixed;
     top: 0;
@@ -84,7 +65,7 @@
     z-index: 9999;
     top: 10px;
     left: 360px;
-    width: 200px;
+    width: 300px;
     height: 40px;
     background: rgba(200,200,255,0.5);
     color: #000;
@@ -97,9 +78,64 @@
 .chart{
     position: fixed;
     z-index: 9999;
-    right: 20px;
+    right: 10px;
     width: 400px;
     height: 300px;
-    top: 50%;
-    margin-top: -300px;
+    top: 0;
+}
+.chart .highcharts-legend-item .highcharts-point{
+    display: none !important;
+}
+.colorbar{
+    position: fixed;
+    bottom: 0;
+    right: 10px;
+    width: 64px;
+    height: 700px;
+    background-image: url('./assets/css/images/color_bar.png');
+    background-repeat: no-repeat;
+    background-size: contain;
+    z-index: 9999;
+}
+
+/* You can add global styles to this file, and also import other style files */
+@media (min-width: 1600px){
+    .container {
+        width: 1400px;
+    }
+}
+
+@media (min-width: 1800px){
+    .container {
+        width: 1600px;
+    }
+}
+
+@media (min-width: 2000px){
+    .container {
+        width: 1800px;
+    }
+}
+
+@media only screen and (min-width: 992px) and (max-width: 1199px){
+    .chart{
+        right: 0px;
+        width: 400px;
+        height: 200px;
+        top: 0px;
+        margin-top: 0px;
+    }
+    .info-box {
+        width: 230px;
+        height: 100%;
+    }
+    .date {
+        top: 0px;
+        left: 250px;
+    }
+    .colorbar{
+        right: 0;
+        width: 45px;
+        height: 494px;
+    }
 }

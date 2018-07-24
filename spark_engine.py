@@ -13,6 +13,7 @@ class SparkEngine():
 
     def __init__(self):
         self.features = ["o3_val","no2_val","co_val","so2_val", "temp", "precip", "humidity", "wind_sp", "wind_gust"]
+        self.w_features = ["temp", "precip", "humidity", "wind_sp", "wind_gust"]
         self.spark = self.init_spark()
         self.assembler = VectorAssembler(inputCols=["pm2_5_norm", "pm10_norm", "features", "wind_agl"], outputCol="all_features")
         # init udf function
@@ -78,12 +79,11 @@ class SparkEngine():
         trans = mxm_scaler.transform(output)
         return trans
 
-    def process_vectors(self, start=None, end=None):
+    def process_vectors(self, start=None, end=None, dim=12):
         # engine do something
         p1 = "data/seoul_aqi.csv"
         p2 = "data/seoul_aws.csv"
         p3 = "data/seoul_weather.csv"
-        dim = 12
         air = self.spark.read.format("csv").option("header", "false").schema(self.sp_schema).load(p1) \
                     .select("timestamp","district_code","pm10_val","pm2_5_val","o3_val","no2_val","co_val","so2_val","pm10_aqi","pm2_5_aqi",
                     self.udf_pm(col("pm2_5_aqi")).cast("double").alias("pm2_5_norm"), self.udf_pm(col("pm10_aqi")).cast("double").alias("pm10_norm"))
@@ -98,50 +98,72 @@ class SparkEngine():
                     .groupBy("code", "timestamp") \
                     .agg(avg("wind_agl").alias("wind_agl"), avg("wind_sp").alias("wind_sp"), avg("wind_gust").alias("wind_gust"), \
                         avg("temp").alias("temp"), avg("precip").alias("precip"), avg("humidity").alias("humidity"))
+        
         merge = air.filter(col("district_code") != 0) \
                     .join(aws_mean, [air.timestamp == aws_mean.timestamp, air.district_code == aws_mean.code], "left_outer") \
                     .select(air.timestamp, air.district_code, "o3_val", "no2_val", "co_val", "so2_val", \
-                            "pm2_5_norm", "pm10_norm", "temp", "precip", "humidity", self.udf_agl(col("wind_agl")).cast('double').alias("wind_agl"), "wind_sp", "wind_gust") \
-                    .na.fill(0.0, ["pm2_5_norm", "pm10_norm", "o3_val","no2_val","co_val","so2_val", "temp", "precip", "humidity", "wind_agl", "wind_sp", "wind_gust"])
+                            "temp", "precip", "humidity", "wind_sp", "wind_gust", "pm2_5_norm", "pm10_norm", self.udf_agl(col("wind_agl")).cast('double').alias("wind_agl")) \
+                    .na.fill(0.0, ["o3_val","no2_val","co_val","so2_val", "temp", "precip", "humidity", "wind_sp", "wind_gust", "pm2_5_norm", "pm10_norm", "wind_agl"])
 
         w_pred = self.spark.read.format("csv").option("header", "false").schema(self.sw_pred).load(p3) \
                      .groupBy("timestamp").agg(last("temp").alias("temp"),last("precip").alias("precip"), \
                             last("humidity").alias("humidity"),last("wind_sp").alias("wind_sp"), \
                             last("wind_gust").alias("wind_gust"),last("wind_dir").alias("wind_dir")) \
                      .select("timestamp", "temp", "precip", "humidity", "wind_sp", "wind_gust", self.udf_dir("wind_dir").cast("double").alias("wind_agl"))
-                     
-        vectors = self.normalize_vector(merge, self.features)
-        final = self.assembler.transform(vectors)
+
         if start and end:
             st_ = start.strftime(p.fm)
             ed_ = end.strftime(p.fm)
-            final = final.filter((col("timestamp") >= st_) & (col("timestamp") <= ed_))
+            merge = merge.filter((col("timestamp") >= st_) & (col("timestamp") <= ed_))
             end = end + timedelta(days=1)
             ed2_ = end.strftime(p.fm)
             w_pred = w_pred.filter((col("timestamp") >= ed_) & (col("timestamp") <= ed2_))
-        # future forecast
-        w_pred = w_pred.orderBy("timestamp").collect()
-        w_ = []
-        timestamp = []
-        for x in w_pred:
-            a = [x['temp'],x["precip"],x["humidity"],x["wind_sp"],x["wind_gust"], x["wind_agl"]]
-            timestamp.append(x['timestamp'])
-            w_.append(a)
         
-
-        final = final.select("timestamp", "district_code", "all_features") \
-                            .groupBy("timestamp") \
-                            .agg(collect_list("district_code").alias("district_code"), \
-                                collect_list("all_features").alias("all_features")) \
-                            .orderBy("timestamp").collect()
+        final = merge.groupBy("timestamp") \
+                     .agg(collect_list("district_code").alias("district_code"), \
+                        collect_list("o3_val").alias("o3_val"), \
+                        collect_list("no2_val").alias("no2_val"), \
+                        collect_list("co_val").alias("co_val"), \
+                        collect_list("so2_val").alias("so2_val"), \
+                        collect_list("temp").alias("temp"), \
+                        collect_list("precip").alias("precip"), \
+                        collect_list("humidity").alias("humidity"), \
+                        collect_list("wind_sp").alias("wind_sp"), \
+                        collect_list("wind_gust").alias("wind_gust"), \
+                        collect_list("pm2_5_norm").alias("pm2_5_norm"), \
+                        collect_list("pm10_norm").alias("pm10_norm"), \
+                        collect_list("wind_agl").alias("wind_agl")) \
+                     .orderBy("timestamp").limit(24).collect()
         res = []
+        mx_val = np.array(p.max_values)
+        mn_val = np.array(p.min_values)
+        del_val = mx_val - mn_val
         for d in final:
             dis_vectors = [np.zeros(dim, dtype=np.float).tolist()] * 25
             dis = d["district_code"]
-            features = d["all_features"]
+            values = np.array([d["o3_val"],d["no2_val"],d["co_val"],d["so2_val"],d["temp"],d["precip"],d["humidity"],d["wind_sp"],d["wind_gust"]])
+            values_norm = np.array([d["pm2_5_norm"],d["pm10_norm"],d["wind_agl"]])
+            values = np.transpose(values)
+            values_norm = np.transpose(values_norm)
+            values = (values - mn_val) / del_val
+            values = np.concatenate((values, values_norm), axis=1)
             for i, x in enumerate(dis):
                 idx = int(x) - 1
-                dis_vectors[idx] = features[i]
-            res.append(dis_vectors)       
+                dis_vectors[idx] = [1 if y > 1 else y if y > 0 else 0 for y in values[i]]
+            res.append(dis_vectors)     
+        # future forecast
+        w_pred = w_pred.orderBy("timestamp").limit(24).collect()
+        w_ = []
+        timestamp = []
+        w_max = np.array(p.max_values[4:])
+        w_min = np.array(p.min_values[4:])
+        w_delta = w_max - w_min
+        for x in w_pred:
+            # normalize future forecast according to 0 -- 1 corresponding to min -- max of training set
+            a = (np.array([x['temp'],x["precip"],x["humidity"],x["wind_sp"],x["wind_gust"]]) - w_min) / w_delta
+            a = a.tolist()
+            a = [1 if y > 1 else y if y > 0 else 0 for y in a] + [x["wind_agl"]]
+            timestamp.append(x['timestamp'])
+            w_.append(a)
         
         return res, w_, timestamp
