@@ -228,10 +228,11 @@ def process_data(dataset, data_len, pred, batch_size, max_input_len, max_sent,
             break
     # print(np.shape(decode_vec))
     if not is_test:
+        nl = len(new_data)
         new_data, new_pred, decode_vec = np.asarray(new_data, dtype=np.float32), np.asarray(new_pred, dtype=np.int32), np.asarray(decode_vec, dtype=np.float32)
-        train_len = int(dlength_b * 0.8) * batch_size
+        train_len = int(nl * 0.8) 
         # permutation to balance distribution
-        r = np.random.permutation(dlength_b)
+        r = np.random.permutation(nl)
         new_data, new_pred, decode_vec = new_data[r], new_pred[r], decode_vec[r]
         # training set = 80% of dataset
         train_data = new_data[:train_len]
@@ -241,7 +242,6 @@ def process_data(dataset, data_len, pred, batch_size, max_input_len, max_sent,
         valid_data = new_data[train_len:]
         valid_pred = new_pred[train_len:]
         valid_dec = decode_vec[train_len:]        
-
         if data_len:
             new_data_len = np.asarray(new_data_len, dtype=np.int32)
             new_data_len = new_data_len[r]

@@ -157,7 +157,7 @@ def get_future(args):
         if (now - start_point).total_seconds() >= args.interval:
             try:
                 # craw 3 days forward
-                for i in xrange(3):
+                for i in xrange(4):
                     start_point = start_point + timedelta(days=1)
                     date = "%s-%s-%s" % (start_point.year, utils.format10(start_point.month), utils.format10(start_point.day))
                     html = craw_future(args.city, i)

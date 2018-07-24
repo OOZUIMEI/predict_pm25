@@ -193,7 +193,7 @@ def get_prediction_real_time(sparkEngine, url_weight=""):
             print('==> initializing models')
             session.run(init)
             print('==> running model')
-            saver.restore(session, 'weights/%s' % pr.prediction_weight)
+            saver.restore(session, 'weights/%s' % p.prediction_weight)
             print('==> running model')
             _, preds = model.run_epoch(session, model.train, shuffle=False, verbose=False)
             preds = np.reshape(np.squeeze(preds), (decoder_length, 25, 25))
