@@ -136,7 +136,7 @@ def get_color_map(cr=10):
 def draw_color_map(cr=10):
     pm2_5_aqi = [0, 50, 100, 150, 200, 300, 500]
     colors, bounds = get_color_map(cr)
-    fig = plt.figure(figsize=(3, 10))
+    fig = plt.figure(figsize=(6, 20))
     cmap = ListedColormap(colors)
     norm = BoundaryNorm(bounds, cmap.N)
     ax2 = fig.add_axes([0.1, 0, 0.1, 0.95])
@@ -150,7 +150,7 @@ def draw_color_map(cr=10):
     ticks = ["0"] + ticks[1:-1] + [500]
     cb3.set_ticklabels(ticks)
     # plt.show()
-    plt.savefig("figures/color_bar.png", format="png", bbox_inches='tight')
+    plt.savefig("figures/color_bar.png", format="png", bbox_inches='tight', dpi=300)
 
 
 if __name__ == "__main__":
