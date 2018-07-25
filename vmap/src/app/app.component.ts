@@ -71,12 +71,12 @@ export class AppComponent implements OnInit{
     let wd = window.innerWidth
     if(wd <= 1199 && wd >= 768){
       sz = 140
-      this.mapConfig.zoom = 11
-      this.mapConfig.lng = 126.89923
+      this.mapConfig["zoom"] = 11
+      this.mapConfig["lng"] = 126.89923
     }else if(wd < 768){
-      this.mapConfig.zoom = 10
-      this.mapConfig.minZoom = 8
-      this.mapConfig.lng = 126.96923
+      this.mapConfig["zoom"] = 10
+      this.mapConfig["minZoom"] = 8
+      this.mapConfig["lng"] = 126.96923
     }
     let chart = new Chart({
       chart: {
