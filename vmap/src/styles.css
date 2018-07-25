@@ -75,12 +75,15 @@
     font-size: 16px;
     font-weight: bold;
 }
+.date-mobile{
+    left: 0;
+}
 .chart{
     position: fixed;
     z-index: 9999;
     right: 10px;
     width: 400px;
-    height: 300px;
+    height: 150px;
     top: 0;
 }
 .chart .highcharts-legend-item .highcharts-point{
@@ -88,16 +91,23 @@
 }
 .colorbar{
     position: fixed;
-    bottom: 0;
+    top: 50%;
     right: 10px;
-    width: 64px;
-    height: 700px;
-    background-image: url('./assets/css/images/color_bar.png');
+    width: 100px;
+    margin-top: -265px;
+    height: 530px;
+    background-image: url('./assets/css/images/color_bar_2.png');
     background-repeat: no-repeat;
     background-size: contain;
     z-index: 9999;
+    opacity: 0.8;
 }
-
+.colorbar-mobile{
+    top: auto;
+    bottom: 0;
+    width: 38px;
+    height: 202px;
+}
 /* You can add global styles to this file, and also import other style files */
 @media (min-width: 1600px){
     .container {
@@ -120,8 +130,8 @@
 @media only screen and (min-width: 992px) and (max-width: 1199px){
     .chart{
         right: 0px;
-        width: 400px;
-        height: 200px;
+        width: 300px;
+        height: 140px;
         top: 0px;
         margin-top: 0px;
     }
@@ -137,5 +147,29 @@
         right: 0;
         width: 45px;
         height: 494px;
+    }
+}
+@media only screen and (max-width: 767px){
+    .chart{
+        right: 0px;
+        width: 300px;
+        height: 140px;
+        top: 0px;
+        margin-top: 0px;
+    }
+    .info-box {
+        display: none;
+    }
+    .date {
+        top: 0px;
+        left: 250px;
+    }
+    .colorbar{
+        right: 0;
+        top: auto;
+        bottom: 0;
+        width: 38px;
+        margin-top: auto;
+        height: 202px;
     }
 }

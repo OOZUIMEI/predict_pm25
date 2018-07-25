@@ -1,6 +1,6 @@
 <div class="container">
   <div class='map'>
-    <div class="date">Prediction: {{ current_timestamp }}</div>
+    <div class="date"  [ngClass]="{'date-mobile': isMobile}">Prediction: {{ current_timestamp }}</div>
       <yaga-map 
         [zoom]="mapConfig.zoom"
         [(minZoom)]="mapConfig.minZoom"
@@ -18,7 +18,7 @@
         </yaga-geojson>
       </yaga-map>
   </div>
-  <div class="info-box">
+  <div class="info-box" [ngClass]="{'hide': isMobile}">
     <ul class='list-info' *ngIf="district_geo">
       <li class='list-element list-header'>
         <div class='list-item'>이름</div>
@@ -40,5 +40,5 @@
   <div class='chart'>
     <div [chart]="chart"></div>
   </div>
-  <div class="colorbar"></div>
+  <div class="colorbar" [ngClass]="{'colorbar-mobile': isMobile}"></div>
 </div>

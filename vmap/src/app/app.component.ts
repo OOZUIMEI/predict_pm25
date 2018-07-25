@@ -18,8 +18,8 @@ export class AppComponent implements OnInit{
     minZoom: 10,
     maxZoom: 14,
     zoom: 12,
-    lat: 37.5917,
-    lng: 126.99923,
+    lat: 37.5617,
+    lng: 126.93923,
     tileLayerUrl: "http://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
     style: {
       weight: 1,
@@ -38,6 +38,7 @@ export class AppComponent implements OnInit{
   public current_time: number = 0
   public current_timestamp: string = ""
   public chart: Chart;
+  public isMobile: boolean = false
 
   @ViewChild(MapComponent) private mapComponent: MapComponent;
   
@@ -65,10 +66,17 @@ export class AppComponent implements OnInit{
   }
 
   ngOnInit(){
-    let sz = 300
+    let sz = 150
+    this.isMobile = this.checkMobile(navigator.userAgent)
     let wd = window.innerWidth
-    if(wd >= 992  && wd < 1199){
-      sz = 200
+    if(wd <= 1199 && wd >= 768){
+      sz = 140
+      this.mapConfig.zoom = 11
+      this.mapConfig.lng = 126.89923
+    }else if(wd < 768){
+      this.mapConfig.zoom = 10
+      this.mapConfig.minZoom = 8
+      this.mapConfig.lng = 126.96923
     }
     let chart = new Chart({
       chart: {
@@ -121,6 +129,13 @@ export class AppComponent implements OnInit{
       },
     });
     this.chart = chart
+  }
+
+  checkMobile(agent: string){
+    if(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS/i.test(agent)){
+      return true
+    }
+    return false
   }
 
   addPoint(point: number) {
