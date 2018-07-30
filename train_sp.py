@@ -19,6 +19,7 @@ import craw_aws as aws
 
 import process_sp_vector as psv
 from baseline_cnnlstm import BaselineModel
+from mask_gan import MaskGan
 # import matplotlib
 # import matplotlib.pyplot as plt
 from  spark_engine import SparkEngine
@@ -154,6 +155,69 @@ def main(url_feature="", url_weight="sp", batch_size=128, encoder_length=24, emb
             execute(url_feature, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
 
 
+def execute_gan(path, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None):
+    print("==> Loading dataset")
+    dataset = utils.load_file(path)
+    if dataset:
+        dataset = np.asarray(dataset, dtype=np.float32)
+        lt = len(dataset)
+        train, valid, _ = process_data(lt, batch_size, encoder_length, decoder_length, is_test)
+        if not is_test:
+            model.set_data(dataset, train, valid)
+            print('==> starting training')
+            for epoch in xrange(p.total_iteration):
+                print('Epoch {}'.format(epoch))
+
+                gen_loss, dis_loss, critic_loss, _ = model.run_epoch(
+                    session, train, epoch, train_writer, train=True)
+                print('Train loss: {}|{}|{}'.format(gen_loss, dis_loss, critic_loss))
+
+                v_gen_loss, v_dis_loss, v_critic_loss, _ = model.run_epoch(session, valid)
+                print('Validation loss: {}|{}|{}'.format(v_gen_loss, v_dis_loss, v_critic_loss))
+        else:
+            model.set_data(dataset, train, valid)
+            saver.restore(session, url_weight)
+            print('==> running model')
+            loss, preds = model.run_epoch(session, model.train, shuffle=False)
+            l_str = 'Test mae loss: %.4f' % loss
+            print(l_str)
+            pt = re.compile("weights/([A-Za-z0-9_.]*).weights")
+            name = pt.match(url_weight)
+            name_s = name.group(1)
+            utils.save_file("test_sp/%s_loss.txt" % name_s, l_str, use_pickle=False)
+            utils.save_file("test_sp/%s" % name_s, preds)
+
+
+def train_gan(url_feature="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, rnn_layers=1, dtype="grid", is_folder=False, is_test=False):
+    model = MaskGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, rnn_layers=rnn_layers, grid_size=grid_size, use_cnn=1)
+    print('==> initializing models')
+    with tf.device('/%s' % p.device):
+        model.init_ops()
+        init = tf.global_variables_initializer()
+        saver = tf.train.Saver()
+    utils.assert_url(url_feature)
+
+    tconfig = get_gpu_options()
+    sum_dir = 'summaries/' + time.strftime("%Y-%m-%d %H %M")
+    if not utils.check_file(sum_dir):
+        os.makedirs(sum_dir)
+
+    with tf.Session(config=tconfig) as session:
+        if not is_test:
+            train_writer = tf.summary.FileWriter(sum_dir, session.graph)
+        else: 
+            train_writer = None
+        session.run(init)
+        folders = None
+        if is_folder:
+            folders = os.listdir(url_feature)
+            for i, x in enumerate(folders):
+                print("==> Training set (%i, %s)" % (i + 1, x))
+                execute_gan(os.path.join(url_feature, x), url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
+        else:
+            execute_gan(url_feature, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
+
+
 def get_prediction_real_time(sparkEngine, url_weight="", dim=12):
     # continuously crawl aws and aqi & weather
     encoder_length = 24
@@ -205,8 +269,8 @@ def get_prediction_real_time(sparkEngine, url_weight="", dim=12):
             # ax.imshow(preds[0], cmap="gray")
             return preds, timestamp
     return [], []
-        # 5. Get prediction
     
+
 def  get_districts_preds(preds):
     res = []
     for d_t in preds:
@@ -236,11 +300,12 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--is_test", default=0, help="is testing", type=int)
     parser.add_argument("-cnn", "--use_cnn", default=1, help="using cnn or not", type=int)
     parser.add_argument("-r", "--rnn_layers", default=1, help="number of rnn layers", type=int)
+    parser.add_argument("-a", "--adversarial", default=1, help="Using adversarial networks", type=int)
 
     args = parser.parse_args()
     # if not os.path.exists("missing.pkl"):
-    sparkEngine = SparkEngine()
-    preds, timestamp = get_prediction_real_time(sparkEngine)
+    # sparkEngine = SparkEngine()
+    # preds, timestamp = get_prediction_real_time(sparkEngine)
         # utils.save_file("missing.pkl", preds)
     # else:
     #     preds = utils.load_file("missing.pkl")
@@ -249,4 +314,6 @@ if __name__ == "__main__":
     # print(prediction[0])
     # main(args.feature, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
     #     args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn))
+    train_gan(args.feature, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
+        args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test))
     

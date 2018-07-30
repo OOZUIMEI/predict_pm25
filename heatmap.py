@@ -68,19 +68,17 @@ def clear_interpolate_bound(grid, m):
 
 
 # fill map with normalized pm2.5 value of 25 district
-def fill_map(data, m, is_interpolate=False, is_clear_out=True):
+def fill_map(data, districts, is_interpolate=False, is_clear_out=True):
     data_s = np.shape(data)
-    m_s = np.shape(m)
     if len(data_s) is 1:
-        grid = np.zeros(m_s)
+        grid = np.zeros((pr.map_size, pr.map_size))
     else:
-        grid = np.zeros(tuple(list(m_s) + [data_s[-1]]))
+        # grid_size x grid_size x features_dim
+        grid = np.zeros((pr.map_size, pr.map_size, data_s[-1]))
     dis = -1
-    for i, row in enumerate(m):
-        for j, col in enumerate(row):          
-            dis = col - 1
-            if dis >= 0:
-                grid[i][j] = data[dis]
+    for d_i, d in enumerate(districts):
+        for p_x, p_y in d:
+            grid[p_y][p_x] = data[d_i]
     if is_interpolate:
         grid = interpolate(grid)
         if is_clear_out:
@@ -108,12 +106,12 @@ def build_map(grid_size=25):
         grid = dis.points_25
     else:
         raise ValueError("Not support grid size: %i" % grid_size)
-    m = np.zeros((grid_size, grid_size), dtype=np.int32)
-    for k, value in enumerate(grid):
-        for part in value:
-            x, y = part
-            m[y][x] = k + 1
-    return m
+    # m = np.zeros((grid_size, grid_size), dtype=np.int32)
+    # for k, value in enumerate(grid):
+    #     for part in value:
+    #         x, y = part
+    #         m[y][x] = k + 1
+    return grid
 
 
 def get_color_map(cr=10):
@@ -154,8 +152,8 @@ def draw_color_map(cr=10):
 
 
 if __name__ == "__main__":
-    draw_color_map(5)
-    # map_ = build_map()
+    # draw_color_map(5)
+    map_ = build_map()
     # colors, bounds = get_color_map(5)
     # print(colors)
     # print(bounds)
@@ -172,10 +170,10 @@ if __name__ == "__main__":
     #                             spacing='proportional',
     #                             orientation='horizontal')
     # h1 = [19,25,24,16,19,15,12,35,14,26,12,33,11,17,16,16,16,21,14,25,26,22,15,0,18,17]
-    # h2 = np.asarray([67,78,74,69,54,63,61,45,73,67,53,57,65,73,89,115,64,66,98,52,63,88,49,71,43,35])
+    h2 = np.asarray([67,78,74,69,54,63,61,45,73,67,53,57,65,73,89,115,64,66,98,52,63,88,49,71,43,35])
     # seoulmap = mpimg.imread(pr.seoul_map)
     # ax.imshow(seoulmap, cmap=plt.cm.gray)
-    # visualize(h2, map_)
+    visualize(h2, map_)
     # fig = plt.figure(figsize=(100, 100), tight_layout=True)
     # data = utils.load_file("vectors/test_sp/non_cnn_grid_1")
     # labels = np.asarray(utils.load_file("vectors/test_sp_grid"))

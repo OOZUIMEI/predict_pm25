@@ -14,7 +14,7 @@ import rnn_utils
 import heatmap
 
 
-class BaselineModel():
+class BaselineModel(object):
 
     
     def __init__(self, encoder_length=24, decoder_length=24, grid_size=25, rnn_hidden_units=128, 
@@ -40,6 +40,31 @@ class BaselineModel():
         self.districts = 25
         self.rnn_layers = rnn_layers
         self.no_cnn_decoder = no_cnn_decoder
+        self.initializer = tf.contrib.layers.xavier_initializer()
+        self.e_params = {
+            "fw_cell_size" : self.rnn_hidden_units,
+            "fw_cell": "basic",
+            "batch_size" : self.batch_size,
+            "type": 0,
+            "rnn_layer": self.rnn_layers,
+            "decoder_strides": (1,2,2),
+            "decoder_kernel": (7,3,3),
+            "grid_size": grid_size,
+            "decoder_filter": 1
+        }
+        if self.dtype == "grid":
+            if self.use_cnn:
+                self.grd_cnn = 12 * 12
+            else:
+                self.grd_cnn = self.grid_square * self.encode_vector_size
+            # size of output prediction matrix (24 * 24)
+            self.e_params["de_output_size"] = self.grid_square
+            if self.rnn_layers > 1:
+                e_params["fw_cell_size"] = self.grd_cnn
+        else:
+            self.e_params["de_output_size"] = self.districts
+            if self.rnn_layers > 1:
+                self.e_params["fw_cell_size"] = self.districts
     
     def set_training(self, training):
         self.is_training = training
@@ -69,6 +94,32 @@ class BaselineModel():
     def inference(self):
         # embedding = tf.Variable(self.datasets, name="Embedding")
         # check if dtype is grid then just look up index from the datasets 
+        enc, dec = self.lookup_input()
+        enc_output = self.exe_encoder(enc)
+        outputs = self.exe_decoder(dec, enc_output)
+        return outputs
+
+    # perform encoder
+    def exe_encoder(self, enc):
+        with tf.variable_scope("encoder", initializer=self.initializer):
+            if self.dtype == "grid":
+                if self.use_cnn:
+                    # add one cnn layer here
+                    cnn = self.get_cnn_rep(enc, self.encoder_length, self.encode_vector_size)
+                else:
+                    cnn = enc
+                enc_data = tf.unstack(tf.reshape(cnn, [self.batch_size, self.encoder_length, self.grd_cnn]), axis=1)
+            else:
+                enc = tf.reshape(tf.reshape(enc, [-1]), [self.batch_size, self.encoder_length, self.districts * self.encode_vector_size])
+                enc_data = tf.unstack(enc, axis=1)
+            # then push through lstm
+            _, enc_output = rnn_utils.execute_sequence(enc_data, self.e_params)
+            if self.rnn_layers > 1:
+                enc_output = enc_output[-1]
+        return enc_output
+
+    # mapping input indices to dataset
+    def lookup_input(self):
         enc = tf.nn.embedding_lookup(self.embedding, self.encoder_inputs)
         dec_f = tf.nn.embedding_lookup(self.embedding, self.decoder_inputs)
         if self.dtype == "grid":
@@ -78,49 +129,11 @@ class BaselineModel():
         else:
             dec = dec_f[:,:,:,self.df_ele:]
             self.pred_placeholder = dec_f[:,:,:,0]
+        return enc, dec
 
-        initializer = tf.contrib.layers.xavier_initializer()
-        
-        e_params = {
-            "fw_cell_size" : self.rnn_hidden_units,
-            "fw_cell": "basic",
-            "batch_size" : self.batch_size,
-            "type": 0,
-            "rnn_layer": self.rnn_layers
-        }
-
-        if self.dtype == "grid":
-            if self.use_cnn:
-                grd_cnn = 12 * 12
-            else:
-                grd_cnn = self.grid_square * self.encode_vector_size
-            # size of output prediction matrix (24 * 24)
-            e_params["de_output_size"] = self.grid_square
-            if self.rnn_layers > 1:
-                e_params["fw_cell_size"] = grd_cnn
-        else:
-            e_params["de_output_size"] = self.districts
-            if self.rnn_layers > 1:
-                e_params["fw_cell_size"] = self.districts
-        
-        with tf.variable_scope("encoder", initializer=initializer):
-            if self.dtype == "grid":
-                if self.use_cnn:
-                    # add one cnn layer here
-                    cnn = self.get_cnn_rep(enc, self.encoder_length, self.encode_vector_size)
-                else:
-                    cnn = enc
-                enc_data = tf.unstack(tf.reshape(cnn, [self.batch_size, self.encoder_length, grd_cnn]), axis=1)
-            else:
-                enc = tf.reshape(tf.reshape(enc, [-1]), [self.batch_size, self.encoder_length, self.districts * self.encode_vector_size])
-                enc_data = tf.unstack(enc, axis=1)
-            # then push through lstm
-            
-            _, enc_output = rnn_utils.execute_sequence(enc_data, e_params)
-            if self.rnn_layers > 1:
-                enc_output = enc_output[-1]
-        
-        with tf.variable_scope("decoder", initializer=initializer, reuse=tf.AUTO_REUSE):
+    #perform decoder
+    def exe_decoder(self, dec, enc_output):
+        with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             if self.dtype == "grid":
                 if self.no_cnn_decoder:
                     if self.use_cnn:
@@ -131,17 +144,17 @@ class BaselineModel():
                         grd_cnn = self.grid_square * self.decode_vector_size
                     dec_data = tf.reshape(cnn, [self.batch_size, self.decoder_length, grd_cnn])
                 else:
-                    outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, e_params)
+                    outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, self.e_params)
             else:
                 dec_data = tf.reshape(tf.reshape(dec, [-1]), [self.batch_size, self.decoder_length, self.districts * self.decode_vector_size])
             #finally push -> decoder
             if self.no_cnn_decoder:
-                outputs = rnn_utils.execute_decoder(dec_data, enc_output, self.decoder_length, e_params)
+                outputs = rnn_utils.execute_decoder(dec_data, enc_output, self.decoder_length, self.e_params)
             else:
                 outputs = tf.stack(outputs, axis=1)
         return outputs
 
-
+    # get cnn representation of input images 
     def get_cnn_rep(self, dec, length, vector_size):
         cnn_inputs = tf.transpose(dec, [0,1,4,2,3])
         cnn_inputs = tf.reshape(cnn_inputs, [-1])

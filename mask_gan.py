@@ -2,60 +2,203 @@ from __future__ import print_function
 from __future__ import division
 
 import sys
+import copy
 import time
 import numpy as np
 import tensorflow as tf
-from tensorflow.contrib.rnn import BasicLSTMCell, LayerNormBasicLSTMCell
 
-import properties as prp
+from baseline_cnnlstm import BaselineModel
+import properties as pr
 import utils
+import rnn_utils
+
+"""
+
+case -1: LSTM + Regular training method
+case 0: 1CNN + 1LSTM + Regular training method
+case 1: 1CNN + 1LSTM + Masked + Regular training method
+case 2: 1CNN + 1LSTM + GAN + Policy gradient with Actor - critic (Like all decoding steps are masked)
+case 2: 1CNN + 1LSTM + Masked GAN + Policy gradient with Actor - critic 
+case 3: Multiple CNNs + 1LSTM + Regular training method
+case 4: Multiple CNNs + 1LSTM + Masked + Regular training method
+case 5: Multiple CNNs + 1LSTM + Masked + Policy gradient with Actor - critic
+Instance noice, a trick for stabilizing gan
+https://www.inference.vc/instance-noise-a-trick-for-stabilising-gan-training/
+https://medium.com/@utk.is.here/keep-calm-and-train-a-gan-pitfalls-and-tips-on-training-generative-adversarial-networks-edd529764aa9
+https://github.com/soumith/ganhacks
+"""
 
 
-class Model():
+class MaskGan(BaselineModel):
 
-    
-    def __init__(self, sequence_length=48):
-        self.sequence_length = sequence_length
+    def __init__(self, gamma=0.9, dis_learning_rate=0.01, gen_learning_rate=0.01, critic_learning_rate=0.01, *args, **kwargs):
+        super(self.__class__, self).__init__(*args, **kwargs)
+        self.gamma = gamma
+        self.dis_learning_rate = dis_learning_rate
+        self.gen_learning_rate = gen_learning_rate
+        self.critic_learning_rate = critic_learning_rate
 
     def init_ops(self):
-       
-
-    def add_placeholders(self):
+        self.add_placeholders()
+        self.outputs = self.inference()
+        self.merged = tf.summary.merge_all()
 
     def inference(self):
-
-    # rnn through each 30', 1h 
-    def get_input_representation(self, params):
-        fw_cell = LayerNormBasicLSTMCell(params.encoder_size)
-        _, fn_state = tf.nn.static_rnn(
-            fw_cell,
-            inputs,
-            dtype=np.float32
-        )
-        # (new_c, new_h)
-        return fn_state
-
-    def create_discriminator():
-
-    def create_generator(self, inputs):
-        with tf.variable_scope("generator", reuse=reuse, initializer=initializer):
-            state_dec = self.get_input_representation(inputs)
-            # push final state of encoder to decoder
-            for t in xrange(self.sequence_length):
-                dec_in = inputs[:, t]
-                dec_out, state_dec = cell_dec(dec_in, state_dec)
-                pm2_5 = tf.dense(dec_out, 
-                                name="decoder_output",
-                                activation=None)
-                
-                
-
-
-    def add_loss_generator(self, output):
-    
-    def add_loss_discriminator(self, output):
-
-    def add_training_op(self, loss):
-
-    def run_epoch(self):
+        enc_output, dec, outputs, estimated_values = self.create_generator()
+        fake_preds, fake_rewards, real_preds = self.create_discriminator(enc_output, dec, outputs)
+        self.gen_loss = self.add_generator_loss(fake_preds, fake_rewards, estimated_values)
+        self.dis_loss = self.add_discriminator_loss(fake_preds, real_preds)
+        self.critic_loss = self.add_critic_loss(fake_rewards, estimated_values)
+        self.gen_op = self.train_generator(self.gen_loss)
+        self.critic_op = self.train_critic(self.critic_loss)
+        self.dis_op = self.train_discriminator(self.dis_loss)
         
+        return outputs
+    
+    def create_generator(self):
+        with tf.variable_scope("generator_critic", self.initializer, reuse=tf.AUTO_REUSE):
+            # shape:  batch_size x decoder_length x grid_size x grid_size
+            enc, dec = self.lookup_input()
+            enc_output = self.exe_encoder(enc)
+            # estimated_values [0, inf]
+            outputs, estimated_values = self.exe_decoder_critic(dec, enc_output)
+        return enc_output, dec, outputs, estimated_values
+
+    # inputs is either from generator or from real context
+    # enc_output: last hidden layer of encoder
+    # dec: decoder vectors without pm2.5
+    # output: fake prediction pm2.5 
+    def create_discriminator(self, enc_output, dec, outputs):
+        outputs_ = tf.expand_dims(tf.reshape(outputs, [self.batch_size, self.decoder_length, self.grid_size, self.grid_size]), axis=4)
+        params = copy.deepcopy(self.e_params)
+        params["de_output_size"] = 1
+        dec_real = tf.concat([dec, tf.expand_dims(self.pred_placeholder, axis=4)], axis=4)
+        dec_fake = tf.concat([dec, outputs_], axis=4)
+        with tf.variable_scope("discriminator", self.initializer, reuse=tf.AUTO_REUSE):
+            # get probability of reality (either fake or real)
+            fake_preds, fake_rewards = rnn_utils.execute_decoder_dis(dec_fake, enc_output, self.decoder_length, params, self.gamma)
+            real_preds, _ = rnn_utils.execute_decoder_dis(dec_real, enc_output, self.decoder_length, params, self.gamma, True)
+        return tf.squeeze(tf.stack(fake_preds, axis=1)), fake_rewards, tf.squeeze(tf.stack(real_preds, axis=1))
+
+    #perform decoder with critic estimated award
+    def exe_decoder_critic(self, dec, enc_output):
+        with tf.variable_scope("decoder_critic", initializer=self.initializer, reuse=tf.AUTO_REUSE):
+            # estimated_values [0, inf], outputs: [0, 1]
+            outputs, estimated_values = rnn_utils.execute_decoder_critic(dec, enc_output, self.decoder_length, self.e_params)
+            # batch_size x decoder_length x grid_size x grid_size
+            outputs = tf.stack(outputs, axis=1)
+            # batch_size x decoder_length
+        return outputs, estimated_values
+
+    # mse training
+    def  add_critic_loss(self, rewards, estimated_values):
+        loss = tf.losses.mean_squared_error(labels=rewards, predictions=estimated_values)
+        tf.summary.scalar("critic_loss", loss)
+        return loss
+
+    #
+    def add_generator_loss(self, fake_preds, rewards, estimated_values):
+        r_ = tf.squeeze(tf.stack(rewards, axis=1))
+        e_ = tf.squeeze(tf.stack(estimated_values, axis=1))
+        advantages = tf.subtract(r_, e_)
+        advantages = tf.clip_by_value(advantages, -5, 5)
+        fake_labels = tf.ones([self.batch_size, self.decoder_length])
+        log_preds = tf.log_sigmoid(fake_preds)
+        loss = tf.reduce_mean(tf.multiply(log_preds, tf.stop_gradient(advantages)))
+        tf.summary.scalar("gen_loss", loss)
+        return loss
+
+    # regular discriminator loss function
+    def add_discriminator_loss(self, fake_preds, real_preds):
+        real_labels = tf.ones([self.batch_size, self.decoder_length])
+        fake_labels = tf.zeros([self.batch_size, self.decoder_length])
+        dis_loss_fake = tf.reduce_mean(tf.losses.sigmoid_cross_entropy(fake_labels, fake_preds))
+        dis_loss_real = tf.reduce_mean(tf.losses.sigmoid_cross_entropy(real_labels, real_preds))
+        dis_loss = dis_loss_real + dis_loss_fake
+        tf.summary.scalar("dis_loss", dis_loss)
+        return dis_loss
+
+    def train_critic(self, loss):
+        with tf.name_scope("train_critic"):
+            critic_optimizer = tf.train.AdamOptimizer(self.critic_learning_rate)
+            critic_vars = [
+                v for v  in tf.trainable_variables() if ("critic_linear_output" in v.op.name or "decoder_reward" in v.op.name or v.op.name.startswith("discriminator/rnn"))
+            ]
+            # print("\nOptimizing Critic vars")
+            # for v in critic_vars:
+            #     print(v)
+            critic_grads = tf.gradients(loss, critic_vars)
+            critic_grads_clipped, _ = tf.clip_by_global_norm(critic_grads, 10.)
+            critic_train_op = critic_optimizer.apply_gradients(zip(critic_grads_clipped, critic_vars))        
+        return critic_train_op
+    
+    def train_discriminator(self, loss):
+        with tf.name_scope("train_discriminator"):
+            dis_optimizer = tf.train.AdamOptimizer(self.dis_learning_rate)
+            dis_vars = [v for v in tf.trainable_variables() if v.op.name.startswith("discriminator")]
+            dis_grads = tf.gradients(loss, dis_vars)
+            dis_grads_clipped, _ = tf.clip_by_global_norm(dis_grads, 10.)
+            dis_train_op = dis_optimizer.apply_gradients(zip(dis_grads_clipped, dis_vars))
+            return dis_train_op
+
+    # policy gradient
+    def train_generator(self, loss):
+        with tf.name_scope("train_generator"):
+            gen_optimizer = tf.train.AdamOptimizer(self.gen_learning_rate)
+            gen_vars = [v for v in tf.trainable_variables() if v.op.name.startswith("generator")]
+            # gradient ascent , maximum reward 
+            gen_grads = tf.gradients(-loss, gen_vars)
+            gen_grads_clipped, _ = tf.clip_by_global_norm(gen_grads, 10.)
+            gen_train_op = gen_optimizer.apply_gradients(zip(gen_grads_clipped, gen_vars))
+            return gen_train_op
+
+    def run_epoch(self, session, data, num_epoch=0, train_writer=None, verbose=True, train=False, shuffle=True):
+        if not train:
+            train_op = tf.no_op()
+        dt_length = len(data)
+        # print("data_size: ", dt_length)
+        total_steps = dt_length // self.batch_size
+        total_gen_loss = []
+        total_dis_loss = []
+        total_critic_loss = []
+        preds = []
+        ct = np.asarray(data, dtype=np.float32)
+        if shuffle:
+            r = np.random.permutation(dt_length)
+            ct = ct[r]
+        for step in xrange(total_steps):
+            index = range(step * self.batch_size,
+                          (step + 1) * self.batch_size)
+            # just the starting points of encoding batch_size,
+            ct_t = ct[index]
+            # switch batchsize, => batchsize * encoding_length
+            ct_t = np.asarray([range(int(x), int(x) + self.encoder_length) for x in ct_t])
+            dec_t = ct_t + self.decoder_length
+
+            feed = {
+                self.embedding: self.datasets,
+                self.encoder_inputs : ct_t,
+                self.decoder_inputs: dec_t,
+            }
+            summary, gen_loss, dis_loss, critic_loss, pred, _, _, _= session.run(
+                [self.merged, self.gen_loss, self.dis_loss, self.critic_loss, self.outputs, self.gen_op, 
+                self.dis_op, self.critic_op], feed_dict=feed)
+
+            if train_writer is not None:
+                train_writer.add_summary(
+                    summary, num_epoch * total_steps + step)
+            
+            total_gen_loss.append(gen_loss) 
+            total_dis_loss.append(dis_loss)
+            total_critic_loss.append(critic_loss) 
+            if verbose and step % verbose == 0:
+                sys.stdout.write('\r{} / {} \0 gen_loss = {} \n dis_loss = {} \n critic_loss = {}'.format(
+                    step, total_steps, np.mean(total_gen_loss), np.mean(total_dis_loss), np.mean(total_critic_loss)))
+                sys.stdout.flush()
+
+            preds.append(pred)
+
+        if verbose:
+            sys.stdout.write("\r")
+
+        return np.mean(total_gen_loss), np.mean(total_dis_loss), np.mean(total_critic_loss), preds

@@ -23,7 +23,6 @@ def get_cell(cell_type, size):
 
 # rnn through each 30', 1h 
 def execute_sequence(inputs, params):
-    print(params)
     # 1 is bidireciton
     # note: state_size of MultiRNNCell must be equal to size input_size
     fw_cell = get_cell(params["fw_cell"], params["fw_cell_size"])
@@ -75,7 +74,7 @@ def execute_decoder(inputs, init_state, sequence_length, params):
 
 
 # perform cnn on pm2_5 output
-def execute_decoder_cnn(inputs, init_state, sequence_length, params):
+def execute_decoder_cnn(inputs, init_state, sequence_length, params, mask=None):
     # push final state of encoder to decoder
     dec_state = init_state
     pm2_5 = np.zeros((params["batch_size"], params["de_output_size"]), dtype=np.float32)
@@ -85,16 +84,16 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params):
     for t in xrange(sequence_length):
         # shape of input_t bs x grid_size x grid_size x hidden_size
         input_t = inputs[:, t]
-        pm2_5_t = tf.expand_dims(tf.reshape(pm2_5, [params["batch_size"], 25, 25]), 3)
+        pm2_5_t = tf.expand_dims(tf.reshape(pm2_5, [params["batch_size"], params["grid_size"], params["grid_size"]]), 3)
         dec_in = tf.concat([input_t, pm2_5_t], axis=3)
         # need to do cnn here
         dec_in = tf.transpose(dec_in, [0,3,1,2])
         dec_in = tf.expand_dims(dec_in, 4)
         dec_in = tf.layers.conv3d(
             inputs=dec_in,
-            strides=(1,2,2),
-            filters=1,
-            kernel_size=(7,3,3),
+            strides=params["decoder_strides"],
+            filters=params["decoder_filter"],
+            kernel_size=params["decoder_kernel"],
             padding="valid"
         )
         # bs x 12 x 12
@@ -107,6 +106,81 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params):
         outputs.append(pm2_5)
     return outputs
 
+
+# perform cnn on pm2_5 output
+# estimated value of critic: 0 - inf
+# outputs: pm2.5 images
+def execute_decoder_critic(inputs, init_state, sequence_length, params, mask=None):
+    # push final state of encoder to decoder
+    dec_state = init_state
+    pm2_5 = np.zeros((params["batch_size"], params["de_output_size"]), dtype=np.float32)
+    dec_out = None
+    outputs = []
+    estimated_values = []
+    cell_dec = get_cell(params["fw_cell"], params["fw_cell_size"])
+    for t in xrange(sequence_length):
+        # shape of input_t bs x grid_size x grid_size x hidden_size
+        input_t = inputs[:, t]
+        pm2_5_t = tf.expand_dims(tf.reshape(pm2_5, [params["batch_size"], params["grid_size"], params["grid_size"]]), 3)
+        dec_in = tf.concat([input_t, pm2_5_t], axis=3)
+        # need to do cnn here
+        dec_in = tf.transpose(dec_in, [0,3,1,2])
+        dec_in = tf.expand_dims(dec_in, 4)
+        dec_in = tf.layers.conv3d(
+            inputs=dec_in,
+            strides=params["decoder_strides"],
+            filters=params["decoder_filter"],
+            kernel_size=params["decoder_kernel"],
+            padding="valid"
+        )
+        # bs x 12 x 12
+        dec_in = tf.reshape(tf.reshape(tf.squeeze(dec_in), [-1]), [params["batch_size"], 144])
+        dec_out, dec_state = cell_dec(dec_in, dec_state)
+        # belong to generator
+        pm2_5 = tf.layers.dense(dec_out, params["de_output_size"], name="decoder_output", activation=tf.nn.sigmoid)
+        # belong to critic
+        e_value = tf.layers.dense(dec_out, 1, name="critic_linear_output", activation=None)
+        outputs.append(pm2_5)
+        estimated_values.append(e_value)
+    return outputs, estimated_values
+
+# output: predictions - probability [0, 1], rewards [0, 1]
+def execute_decoder_dis(inputs, init_state, sequence_length, params, gamma, is_fake=True, mask=None):
+    # push final state of encoder to decoder
+    dec_state = init_state
+    dec_out = None
+    predictions = []
+    cell_dec = get_cell(params["fw_cell"], params["fw_cell_size"])
+    rewards = []
+    for t in xrange(sequence_length):
+        # shape of input_t bs x grid_size x grid_size x hidden_size
+        input_t = inputs[:, t]
+        # need to do cnn here
+        dec_in = tf.transpose(input_t, [0,3,1,2])
+        dec_in = tf.expand_dims(dec_in, 4)
+        dec_in = tf.layers.conv3d(
+            inputs=dec_in,
+            strides=params["decoder_strides"],
+            filters=params["decoder_filter"],
+            kernel_size=params["decoder_kernel"],
+            padding="valid"
+        )
+        # bs x 12 x 12
+        dec_in = tf.reshape(tf.reshape(tf.squeeze(dec_in), [-1]), [params["batch_size"], 144])
+        dec_out, dec_state = cell_dec(dec_in, dec_state)
+        # belong to disciminator
+        dec_out = tf.layers.dense(dec_out, 1, name="decoder_linear_value", activation=None)
+        # belong to critic
+        pred_value = tf.log_sigmoid(dec_out, name="decoder_reward")
+        if is_fake:
+            if rewards:
+                lt = len(rewards)
+                for i in xrange(lt):
+                    rewards[i] += np.power(gamma, (lt - i)) * pred_value
+            # r * gammar ^ 0
+            rewards.append(pred_value)
+        predictions.append(dec_out)
+    return predictions, rewards
 
 
 def execute_decoder_mask(inputs, init_state, sequence_length, is_training=True, masks=None):

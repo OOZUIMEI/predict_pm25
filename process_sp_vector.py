@@ -7,6 +7,7 @@ import re
 import math
 from datetime import datetime
 import heatmap
+import properties as pr
 
 
 file_path = "/home/alex/Documents/datasets/spatio_temporal/"
@@ -56,17 +57,17 @@ def parse_vector(url, out_url, dim):
 
 
 def convert_data_to_grid_exe(data):
-    ma = heatmap.build_map()
+    grid = heatmap.build_map()
     lt = len(data)
     res = []
     for i, t in enumerate(data):
-        g = heatmap.fill_map(t, ma)
+        g = heatmap.fill_map(t, grid)
         res.append(g)
     return res
 
 
 def convert_data_to_grid(url, out_url, part=1):
-    ma = heatmap.build_map()
+    grid = heatmap.build_map(pr.map_size)
     data = utils.load_file(url)
     lt = len(data)
     res = []
@@ -78,9 +79,8 @@ def convert_data_to_grid(url, out_url, part=1):
         if i and (i % bound) == 0:
             out_url_name = out_url + "_" + str(i / bound)
             utils.save_file(out_url_name, res)        
-            print(len(res))
             res = []
-        g = heatmap.fill_map(t, ma)
+        g = heatmap.fill_map(t, grid)
         res.append(g)
         utils.update_progress(float(i)/lt)
 
