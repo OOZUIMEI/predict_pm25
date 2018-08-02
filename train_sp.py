@@ -155,15 +155,21 @@ def main(url_feature="", url_weight="sp", batch_size=128, encoder_length=24, emb
             execute(url_feature, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
 
 
-def execute_gan(path, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None):
+def execute_gan(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None):
     print("==> Loading dataset")
     dataset = utils.load_file(path)
     if dataset:
         dataset = np.asarray(dataset, dtype=np.float32)
         lt = len(dataset)
         train, valid, _ = process_data(lt, batch_size, encoder_length, decoder_length, is_test)
+
+        # load attention data
+        if attention_url:
+            attention_data = utils.load_file(attention_url)
+        else:
+            attention_data = None
         if not is_test:
-            model.set_data(dataset, train, valid)
+            model.set_data(dataset, train, valid, attention_data)
             print('==> starting training')
             for epoch in xrange(p.total_iteration):
                 print('Epoch {}'.format(epoch))
@@ -188,7 +194,7 @@ def execute_gan(path, url_weight, model, session, saver, batch_size, encoder_len
             utils.save_file("test_sp/%s" % name_s, preds)
 
 
-def train_gan(url_feature="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, rnn_layers=1, dtype="grid", is_folder=False, is_test=False):
+def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, rnn_layers=1, dtype="grid", is_folder=False, is_test=False):
     model = MaskGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, rnn_layers=rnn_layers, grid_size=grid_size, use_cnn=1)
     print('==> initializing models')
     with tf.device('/%s' % p.device):
@@ -213,9 +219,9 @@ def train_gan(url_feature="", url_weight="sp", batch_size=128, encoder_length=24
             folders = os.listdir(url_feature)
             for i, x in enumerate(folders):
                 print("==> Training set (%i, %s)" % (i + 1, x))
-                execute_gan(os.path.join(url_feature, x), url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
+                execute_gan(os.path.join(url_feature, x), attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
         else:
-            execute_gan(url_feature, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
+            execute_gan(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
 
 
 def get_prediction_real_time(sparkEngine, url_weight="", dim=12):
@@ -289,6 +295,7 @@ if __name__ == "__main__":
     parser.add_argument("-u", "--feature", help="")
     parser.add_argument("-f", "--folder", default=0, type=int,  help="prefix to save weighted files")
     parser.add_argument("-w", "--url_weight", type=str, default="")
+    parser.add_argument("-au", "--attention_url", type=str, default="")
     parser.add_argument("-bs", "--batch_size", type=int, default=64)
     parser.add_argument("-l", "--loss", default='mae')
     parser.add_argument("-e", "--embed_size", type=int, default=12)
@@ -314,6 +321,6 @@ if __name__ == "__main__":
     # print(prediction[0])
     # main(args.feature, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
     #     args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn))
-    train_gan(args.feature, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
+    train_gan(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
         args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test))
     

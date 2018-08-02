@@ -34,8 +34,8 @@ def mine_data(year, html):
 
 
 # craw aqi data from source 
-def craw_data(year):
-    url = "https://www.timeanddate.com/holidays/south-korea/%s" % year
+def craw_data(year, country="south-korea"):
+    url = "https://www.timeanddate.com/holidays/%s/%s" % (country, year)
     r = requests.get(url)
     html = Soup(r.text, "html5lib")
     return html
@@ -53,10 +53,11 @@ if __name__ == "__main__":
     parser.add_argument("-i", "--interval", default=1, type=int)
     parser.add_argument("-s", "--start", default=2018, type=int)
     parser.add_argument("-e", "--end", default=2018, type=int)
+    parser.add_argument("-c", "--country", default="south-korea")
     
     args = parser.parse_args()
 
-    filename = "holiday_%s_%s.txt" % (args.start, args.end)
+    filename = "holiday_%s_%s_%s.txt" % (args.country, args.start, args.end)
     end = args.end
     start = args.start
     # output = "timestamp,PM10_VAL,PM2.5_VAL,O3(ppm),NO2(ppm),CO(ppm),SO2(ppm),PM10_AQI,PM2.5_AQI\n"
@@ -71,7 +72,7 @@ if __name__ == "__main__":
             counter += 1
             try:
                 year = start
-                html = craw_data(year)
+                html = craw_data(year, args.country)
                 data = mine_data(year, html)
                 if data:
                     output += ",".join(data) + "\n"

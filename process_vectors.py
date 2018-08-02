@@ -113,7 +113,7 @@ def to_one_hot(st, length, na):
 
 
 # parser completed vector operation
-def parse_full_vector(url, out_url, m, d, not_available=""):
+def parse_full_vector(url, out_url, m, d, not_available="", one_hot_included=False):
     if not_available:
         na = [int(x) for x in not_available.split(",")]
     else:
@@ -123,6 +123,8 @@ def parse_full_vector(url, out_url, m, d, not_available=""):
     res_l = []
     df = np.zeros(d, dtype=np.float32).tolist()
     pattern = re.compile('(\d{4}-\d\d-\d\d\s\d\d:\d\d:\d\d),\((\d+),\[((\d+,*)+)\],\[(1.0,?)+\]\),\[(([\dE\-\.],?)+)\],([01])')
+    pattern_no_oh = re.compile('(\d{4}-\d\d-\d\d\s\d\d:\d\d:\d\d.0),([\(\[\d.\],]*)')
+    str_ = "%s,[" % d
     for r in data:
         # each row record
         d_ = r.rstrip("\n")
@@ -150,10 +152,9 @@ def parse_full_vector(url, out_url, m, d, not_available=""):
                 tmp = ae + tmp.tolist()     
                 vecs[i] = tmp
             res_l.append(len(cm_features_))
-        else:
-            # print(d_)
-            mgrp = pattern.search(d_)
-            if m:
+        elif m:
+            if one_hot_included:
+                mgrp = pattern.search(d_)
                 # init onehot vector features
                 oh_l = int(mgrp.group(2))
                 oh_v = to_one_hot(mgrp.group(3), oh_l, na)
@@ -165,10 +166,23 @@ def parse_full_vector(url, out_url, m, d, not_available=""):
                 fe_v = [float(f_v) for f_v in fe.split(",")]
                 vecs = fe_v + oh_v.tolist()
             else:
-                vecs = np.zeros(d)
-                vecs = vecs.tolist()
+                mgrp = pattern_no_oh.search(d_)
+                f = mgrp.group(2).lstrip("(").rstrip("]")
+                if str_ in f:
+                    arr_ = f.split("],[")
+                    first_ = arr_[0].replace(str_, "").split(",")
+                    sec = arr_[-1].split(",")
+                    vecs = [0.0]  * d
+                    for i, v_i in enumerate(first_):
+                        id_v = int(v_i)
+                        vecs[id_v] = float(sec[i])
+                else:
+                    f = f.lstrip("[")
+                    vecs = [float(x) for x in f.split(",")]
+        else:
+            vecs = np.zeros(d)
+            vecs = vecs.tolist()
         res.append(vecs)
-    print(np.shape(res))
     if res_l:
         utils.save_file("%s_len" % out_url, res_l)
     utils.save_file("%s" % out_url, res)
@@ -204,15 +218,15 @@ def get_labels(url, url1, url2=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-p", "--prefix")
-    parser.add_argument("-u", "--url")
-    parser.add_argument("-u1", "--url1")
+    parser.add_argument("-p", "--prefix", help="use prefix folder to shorten url")
+    parser.add_argument("-u", "--url", help="input file url")
+    parser.add_argument("-u1", "--url1", help="output file url")
     parser.add_argument("-u2", "--url2")
     parser.add_argument("-u3", "--url3")
-    parser.add_argument("-t", "--task", type=int, default=0)
+    parser.add_argument("-t", "--task", type=int, default=2)
     parser.add_argument("-s", "--sent_length", type=int, default=30)
     parser.add_argument("-d", "--doc_length", type=int, default=12)
-    parser.add_argument("-m", "--max", type=int, default=1)
+    parser.add_argument("-m", "--max", type=int, default=1, help="max length of collect list")
     parser.add_argument("-dim", "--dim", type=int, default=13)
     parser.add_argument("-o", "--not_available", type=str, default="41,73,112,129,146")
     args = parser.parse_args()

@@ -7,6 +7,8 @@ import utils
 import properties as pr
 
 
+#https://young-0.com/airquality/charts.php?years=1&months=0&city=4&month=4&year=2018&dir=1&threshold=500&action=Export+CSV
+
 # clear out html and get data
 def mine_data(html):
     tables = html.find('table', attrs={"class": "tbl2"})

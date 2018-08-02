@@ -19,7 +19,8 @@ class BaselineModel(object):
     
     def __init__(self, encoder_length=24, decoder_length=24, grid_size=25, rnn_hidden_units=128, 
                 encode_vector_size=12, decode_vector_size=6, learning_rate=0.01, batch_size=64, loss="mae", 
-                df_ele=6, rnn_layers=1, dtype="grid", use_cnn=False, no_cnn_decoder=False):
+                df_ele=6, rnn_layers=1, dtype="grid", attention_length=24, atttention_hidden_size=17,
+                use_attention=True, use_cnn=False, no_cnn_decoder=False):
         self.encoder_length = encoder_length
         self.decoder_length = decoder_length
         self.sequence_length = encoder_length + decoder_length
@@ -40,6 +41,7 @@ class BaselineModel(object):
         self.districts = 25
         self.rnn_layers = rnn_layers
         self.no_cnn_decoder = no_cnn_decoder
+        self.atttention_hidden_size = atttention_hidden_size
         self.initializer = tf.contrib.layers.xavier_initializer()
         self.e_params = {
             "fw_cell_size" : self.rnn_hidden_units,
@@ -52,6 +54,9 @@ class BaselineModel(object):
             "grid_size": grid_size,
             "decoder_filter": 1
         }
+        self.dropout = 0.9
+        self.use_attention = use_attention
+        self.attention_length = attention_length
         if self.dtype == "grid":
             if self.use_cnn:
                 self.grd_cnn = 12 * 12
@@ -69,10 +74,11 @@ class BaselineModel(object):
     def set_training(self, training):
         self.is_training = training
 
-    def set_data(self, datasets, train, valid):
+    def set_data(self, datasets, train, valid, attention_vectors=None):
         self.datasets = datasets
         self.train = train
         self.valid = valid
+        self.attention_vectors = attention_vectors
 
     def init_ops(self):
        self.add_placeholders()
@@ -88,15 +94,22 @@ class BaselineModel(object):
         self.decoder_inputs = tf.placeholder(tf.int32, shape=(self.batch_size, self.decoder_length))
         if self.dtype == "grid":
             self.pred_placeholder = tf.placeholder(tf.float32, shape=(self.batch_size, self.decoder_length, self.grid_size, self. grid_size))
-        
-        self.dropout_placeholder = tf.placeholder(tf.float32)
+        # china attention_inputs
+        self.attention_embedding = tf.Variable([], validate_shape=False, dtype=tf.float32, trainable=False)
+        self.attention_inputs = tf.placeholder(tf.int32, shape=(self.batch_size, self.attention_length))
+        self.dropout_placeholder = tf.Variable(self.dropout, False, name="dropout", dtype=tf.float32)
 
     def inference(self):
         # embedding = tf.Variable(self.datasets, name="Embedding")
         # check if dtype is grid then just look up index from the datasets 
         enc, dec = self.lookup_input()
         enc_output = self.exe_encoder(enc)
-        outputs = self.exe_decoder(dec, enc_output)
+        attention = None
+        if self.use_attention:
+            # batch size x rnn_hidden_size
+            inputs = tf.nn.embedding_lookup(self.attention_vectors, self.attention_inputs)
+            attention = self.get_attention_rep(inputs)
+        outputs = self.exe_decoder(dec, enc_output, attention)
         return outputs
 
     # perform encoder
@@ -132,7 +145,7 @@ class BaselineModel(object):
         return enc, dec
 
     #perform decoder
-    def exe_decoder(self, dec, enc_output):
+    def exe_decoder(self, dec, enc_output, attention=None):
         with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             if self.dtype == "grid":
                 if self.no_cnn_decoder:
@@ -144,12 +157,12 @@ class BaselineModel(object):
                         grd_cnn = self.grid_square * self.decode_vector_size
                     dec_data = tf.reshape(cnn, [self.batch_size, self.decoder_length, grd_cnn])
                 else:
-                    outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, self.e_params)
+                    outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, self.e_params, attention)
             else:
                 dec_data = tf.reshape(tf.reshape(dec, [-1]), [self.batch_size, self.decoder_length, self.districts * self.decode_vector_size])
             #finally push -> decoder
             if self.no_cnn_decoder:
-                outputs = rnn_utils.execute_decoder(dec_data, enc_output, self.decoder_length, self.e_params)
+                outputs = rnn_utils.execute_decoder(dec_data, enc_output, self.decoder_length, self.e_params, attention, self.dropout_placeholder)
             else:
                 outputs = tf.stack(outputs, axis=1)
         return outputs
@@ -172,6 +185,19 @@ class BaselineModel(object):
         #output should have shape: bs * length, 28, 28, 1
         cnn = tf.reshape(tf.squeeze(cnn), [-1])
         return cnn
+    
+    # china representation
+    def get_attention_rep(self, inputs):
+        with tf.variable_scope("attention_rep", initializer=self.initializer, reuse=tf.AUTO_REUSE):
+            params = {
+                "fw_cell": "layer_norm_basic",
+                "fw_cell_size": self.rnn_hidden_units
+            }
+            inputs.set_shape((self.batch_size, self.attention_length, self.atttention_hidden_size))
+            inputs = tf.unstack(inputs, self.attention_length, 1)
+            outputs, _ = rnn_utils.execute_sequence(inputs, params)
+            outputs = tf.reduce_mean(outputs, axis=0)
+        return outputs
     
     # add loss function
     # output will be loss scalar    
@@ -229,14 +255,20 @@ class BaselineModel(object):
             # just the starting points of encoding batch_size,
             ct_t = ct[index]
             # switch batchsize, => batchsize * encoding_length
+            # lookup from x => x + encoder_length
+            # ct_t = batch_size x encoder_length
             ct_t = np.asarray([range(int(x), int(x) + self.encoder_length) for x in ct_t])
             dec_t = ct_t + self.decoder_length
 
             feed = {
                 self.embedding: self.datasets,
+                self.attention_embedding: self.attention_vectors,
                 self.encoder_inputs : ct_t,
                 self.decoder_inputs: dec_t,
             }
+            if self.use_attention:
+                feed[self.attention_inputs] = ct_t
+
             loss, summary, pred, _= session.run(
                 [self.loss_op, self.merged, self.output, train_op], feed_dict=feed)
             if train_writer is not None:
