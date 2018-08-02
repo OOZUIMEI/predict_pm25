@@ -114,10 +114,11 @@ def convert_data_to_grid(url, out_url, url_att="", out_url_att="", part=1):
         else:
             t = row
         if i and (i % bound) == 0:
-            out_url_name = out_url + "_" + str(i / bound)
+            p_i = i / bound
+            out_url_name = out_url + "_" + str(p_i)
             utils.save_file(out_url_name, res)        
             if url_att:
-                att_out_url_name = out_url_att + "_" + str(i / bound)
+                att_out_url_name = out_url_att + "_" + str(p_i)
                 utils.save_file(att_out_url_name, att_part)
             res = []
             att_part = []
@@ -130,6 +131,9 @@ def convert_data_to_grid(url, out_url, url_att="", out_url_att="", part=1):
     else:
         out_url_name = out_url + "_" + str(part)
     utils.save_file(out_url_name, res)
+    if url_att:
+        att_out_url_name = out_url_att + "_" + str(part)
+        utils.save_file(att_out_url_name, att_part)
 
 
 if __name__ == "__main__":
