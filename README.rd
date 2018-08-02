@@ -27,3 +27,11 @@ Crawling:
 craw daegu_aqi
 
 CNN - LSTM Training
+
+
+PROCESS SPATIOTEMPORAL
+- Convert bin to grid SEOUL - CHINA
+python process_sp_vector.py -u vectors/spatiotemporal/china_combined/sp_seoul_test_bin -au vectors/spatiotemporal/china_combined/sp_china_test_bin -u1 vectors/spatiotemporal/china_combined/test -au1 vectors/spatiotemporal/china_combined/test_china -t 1
+
+- Convert array to vectors bin
+python process_sp_vector.py -u raw/sp_seoul_test -u1 sp_seoul_test

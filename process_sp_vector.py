@@ -21,6 +21,7 @@ def parse_vector(url, out_url, dim):
     sub_pa = re.compile('(\d+),(\[(\d,?)*\]),(\[(\d\.[\dE-]*,*)+\]*[,\ \)]*)')
     res = []
     str_ = "%s,[" % dim
+    count = 0
     for r in data:
         # each row record
         dis_vectors = [np.zeros(dim, dtype=np.float).tolist()] * 25
@@ -28,7 +29,6 @@ def parse_vector(url, out_url, dim):
         # print(d_)
         mgrp = pattern.search(d_)
         if(mgrp):
-            # init onehot vector features
             dis_p = mgrp.group(0)
             dis = mgrp.group(1)
             dis_codes = dis.split(", ")
@@ -62,7 +62,20 @@ def parse_vector(url, out_url, dim):
                     else:
                         f_ = f.replace("[", "").replace("]", "")
                         dis_vectors[idx] = [float(x) for x in f_.split(",")]
-            res.append(dis_vectors)   
+        else:
+            mf = sub_pa.search(d_)
+            f = mf.group(0).rstrip("]))")
+            arr_ = f.split("],[")
+            first_ = arr_[0].replace(str_, "").split(",")
+            sec = arr_[-1].split(",")
+            v_ = [0.0]  * dim
+            for i, v_i in enumerate(first_):
+                id_v = int(v_i)
+                v_[id_v] = float(sec[i])
+            for i in xrange(25):
+                dis_vectors[i] = v_
+        res.append(dis_vectors)   
+    print(np.shape(res))
     utils.save_file("%s%s" % (file_path, out_url), res)
     return res
 
@@ -77,24 +90,41 @@ def convert_data_to_grid_exe(data):
     return res
 
 
-def convert_data_to_grid(url, out_url, part=1):
+def convert_data_to_grid(url, out_url, url_att="", out_url_att="", part=1):
     grid = heatmap.build_map(pr.map_size)
     data = utils.load_file(url)
     lt = len(data)
+    attention_data = None
+    att_part = None
+    if url_att:
+        attention_data = utils.load_file(url_att)
+        alt = len(attention_data)
+        if lt != alt:
+            raise ValueError("Attention & Main Data need same length while %s and %s" % (lt, alt))
+        data = zip(data, attention_data)
+        att_part = []
     res = []
     if part != 1:
         bound = int(math.ceil(float(lt) / part))
     else:
         bound = lt
-    for i, t in enumerate(data):
+    for i, row in enumerate(data):
+        if url_att:
+            t, a = row
+        else:
+            t = row
         if i and (i % bound) == 0:
             out_url_name = out_url + "_" + str(i / bound)
             utils.save_file(out_url_name, res)        
+            if url_att:
+                att_out_url_name = out_url_att + "_" + str(i / bound)
+                utils.save_file(att_out_url_name, att_part)
             res = []
+            att_part = []
         g = heatmap.fill_map(t, grid)
         res.append(g)
+        att_part.append(a)
         utils.update_progress(float(i)/lt)
-
     if part == 1:
         out_url_name = out_url
     else:
@@ -102,12 +132,13 @@ def convert_data_to_grid(url, out_url, part=1):
     utils.save_file(out_url_name, res)
 
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-p", "--prefix", help="prefix to fix")
     parser.add_argument("-u", "--url")
     parser.add_argument("-u1", "--url1")
+    parser.add_argument("-au", "--aurl")
+    parser.add_argument("-au1", "--aurl1")
     parser.add_argument("-dim", "--dim", type=int, default=15)
     # parser.add_argument("-dim", "--dim", type=int, default=12)
     parser.add_argument("-s", "--part", type=int, default=12)
@@ -117,7 +148,7 @@ if __name__ == "__main__":
     if args.task == 0:
         parse_vector(args.url, args.url1, args.dim)
     else:
-        convert_data_to_grid(args.url, args.url1, args.part)
+        convert_data_to_grid(args.url, args.url1, args.aurl, args.aurl1, args.part)
         
 
 
