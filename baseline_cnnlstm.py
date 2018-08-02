@@ -196,7 +196,13 @@ class BaselineModel(object):
             inputs.set_shape((self.batch_size, self.attention_length, self.atttention_hidden_size))
             inputs = tf.unstack(inputs, self.attention_length, 1)
             outputs, _ = rnn_utils.execute_sequence(inputs, params)
-            outputs = tf.reduce_mean(outputs, axis=0)
+            outputs = tf.stack(outputs, axis=1)
+            attention_logits = tf.squeeze(tf.layers.dense(outputs, units=1, activation=None, name="attention_logits"))
+            attention = tf.nn.softmax(attention_logits)
+            outputs = tf.transpose(outputs, [2, 0, 1])
+            outputs = tf.multiply(outputs, attention)
+            outputs = tf.transpose(outputs, [1, 2, 0])
+            outputs = tf.reduce_sum(outputs, axis=1)
         return outputs
     
     # add loss function
