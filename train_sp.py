@@ -77,17 +77,16 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
 
             print('==> starting training')
             train_losses = []
+            train_f, valid_f = train_writer
             for epoch in xrange(p.total_iteration):
                 print('Epoch {}'.format(epoch))
                 start = time.time()
 
-                train_loss, _ = model.run_epoch(
-                    session, train, epoch, train_writer,
-                    train_op=model.train_op, train=True)
+                train_loss, _ = model.run_epoch(session, train, epoch, train_f,train_op=model.train_op, train=True)
                 train_losses.append(train_loss)
                 print('Training loss: {}'.format(train_loss))
 
-                valid_loss, _ = model.run_epoch(session, valid)
+                valid_loss, _ = model.run_epoch(session, valid, train_writer=valid_f)
                 print('Validation loss: {}'.format(valid_loss))
 
                 if valid_loss < best_val_loss:
@@ -139,9 +138,12 @@ def main(url_feature="", attention_url="", url_weight="sp", batch_size=128, enco
     utils.assert_url(url_feature)
 
     tconfig = get_gpu_options()
-    sum_dir = 'summaries/' + time.strftime("%Y-%m-%d %H %M")
+    sum_dir = 'summaries'
     if not utils.check_file(sum_dir):
         os.makedirs(sum_dir)
+
+    train_writer = None
+    valid_writer = None
 
     with tf.Session(config=tconfig) as session:
         if not is_test:
@@ -164,7 +166,10 @@ def main(url_feature="", attention_url="", url_weight="sp", batch_size=128, enco
                 else: 
                     x = files
                     print("==> Training set (%i, %s)" % (i + 1, x))
-                execute(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
+                if not is_test:
+                    train_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_train", session.graph)
+                    valid_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_valid", session.graph)
+                execute(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer))
         else:
             execute(url_feature, att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
 
@@ -188,9 +193,7 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
             train_f, valid_f = train_writer
             for epoch in xrange(p.total_iteration):
                 print('Epoch {}'.format(epoch))
-
-                gen_loss, dis_loss, critic_loss, _ = model.run_epoch(
-                    session, train, epoch, train_f, train=True)
+                gen_loss, dis_loss, critic_loss, _ = model.run_epoch(session, train, epoch, train_f, train=True)
                 
                 print('Train loss: gen_loss = {} | dis_loss = {} | critic_loss = {}'.format(gen_loss, dis_loss, critic_loss))
 
@@ -236,7 +239,6 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
                 a_folders = os.listdir(attention_url)
                 folders = zip(folders, a_folders)
             for i, files in enumerate(folders):
-                data_url = os.path.join(url_feature, x)
                 if attention_url:
                     x, y = files
                     att_url = os.path.join(attention_url, y)
@@ -245,9 +247,9 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
                     x = files
                     print("==> Training set (%i, %s)" % (i + 1, x))
                 if not is_test:
-                    train_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_train"), session.graph)
+                    train_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_train", session.graph)
                     valid_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_valid", session.graph)
-                execute_gan(data_url, att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer))
+                execute_gan(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer))
         else:
             execute_gan(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
 
