@@ -278,10 +278,8 @@ class BaselineModel(object):
             if self.use_attention:
                 feed[self.attention_inputs] = ct_t
 
-            loss, summary, pred, _= session.run(
-                [self.loss_op, self.merged, self.output, train_op], feed_dict=feed)
-            if train_writer is not None:
-                train_writer.add_summary(summary, num_epoch * total_steps + step)
+            loss, pred, _= session.run(
+                [self.loss_op, self.output, train_op], feed_dict=feed)
             
             total_loss.append(loss)
             if verbose and step % verbose == 0:
@@ -293,6 +291,11 @@ class BaselineModel(object):
 
         if verbose:
             sys.stdout.write("\r")
-
-        return np.mean(total_loss), preds
+        
+        total_loss = np.mean(total_loss)
+        if train_writer is not None:
+            summary = tf.Summary()
+            summary.value.add(tag= "Total Loss", simple_value=total_loss)
+            train_writer.add_summary(summary, num_epoch)
+        return total_loss, preds
         
