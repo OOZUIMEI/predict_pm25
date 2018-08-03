@@ -99,7 +99,7 @@ def visualize(data, m):
 # preload map points to matrix map
 def build_map(grid_size=25):
     if grid_size is 60:
-        grid = dis.points_draw20
+        grid = dis.points_draw60
     elif grid_size is 30:
         grid = dis.points_30
     elif grid_size is 25:

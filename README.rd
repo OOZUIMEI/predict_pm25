@@ -35,3 +35,5 @@ python process_sp_vector.py -u vectors/spatiotemporal/china_combined/sp_seoul_te
 
 - Convert array to vectors bin
 python process_sp_vector.py -u raw/sp_seoul_test -u1 sp_seoul_test
+
+Train Spatiotemporal Seoul-China
