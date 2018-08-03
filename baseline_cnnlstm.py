@@ -50,7 +50,7 @@ class BaselineModel(object):
             "type": 0,
             "rnn_layer": self.rnn_layers,
             "decoder_strides": (1,2,2),
-            "decoder_kernel": (7,3,3),
+            "decoder_kernel": (self.decode_vector_size + 1,3,3),
             "grid_size": grid_size,
             "decoder_filter": 1
         }
@@ -119,7 +119,6 @@ class BaselineModel(object):
                 if self.use_cnn:
                     # add one cnn layer here
                     cnn = self.get_cnn_rep(enc, self.encoder_length, self.encode_vector_size)
-                    print(cnn.get_shape())
                 else:
                     cnn = enc
                 enc_data = tf.unstack(tf.reshape(cnn, [self.batch_size, self.encoder_length, self.grd_cnn]), axis=1)
@@ -186,7 +185,6 @@ class BaselineModel(object):
             kernel_size=(vector_size,3,3),
             padding="valid"
         )
-        print(cnn.get_shape())
         #output should have shape: bs * length, 28, 28, 1
         cnn = tf.reshape(tf.squeeze(cnn), [-1])
         return cnn
