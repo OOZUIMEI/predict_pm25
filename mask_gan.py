@@ -115,7 +115,7 @@ class MaskGan(BaselineModel):
         advantages = tf.clip_by_value(advantages, -5, 5)
         fake_labels = tf.constant(1, shape=[self.batch_size, self.decoder_length])
         log_preds = tf.log_sigmoid(fake_preds)
-        loss = tf.reduce_mean(tf.multiply(log_pcreds, tf.stop_gradient(advantages)))
+        loss = tf.reduce_mean(tf.multiply(log_preds, tf.stop_gradient(advantages)))
         tf.summary.scalar("gen_loss", loss)
         return loss
 
