@@ -177,7 +177,8 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
         dataset = np.asarray(dataset, dtype=np.float32)
         lt = len(dataset)
         train, valid, _ = process_data(lt, batch_size, encoder_length, decoder_length, is_test)
-
+        # in gan, we don't need to validate
+        train = train + valid
         # load attention data
         if attention_url:
             attention_data = utils.load_file(attention_url)
@@ -190,13 +191,12 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
             for epoch in xrange(p.total_iteration):
                 print('Epoch {}'.format(epoch))
                 gen_loss, dis_loss, critic_loss, _ = model.run_epoch(session, train, epoch, train_f, train=True)
-                
                 print('Train loss: gen_loss = {} | dis_loss = {} | critic_loss = {}'.format(gen_loss, dis_loss, critic_loss))
 
-                v_gen_loss, v_dis_loss, v_critic_loss, _ = model.run_epoch(session, valid, train_writer=valid_f)
-                print('Validation loss: gen_loss = {} | dis_loss = {} | critic_loss = {}'.format(v_gen_loss, v_dis_loss, v_critic_loss))
-
-                saver.save(session, 'weights/%s.weights' % url_weight)
+                # v_gen_loss, v_dis_loss, v_critic_loss, _ = model.run_epoch(session, valid, train_writer=valid_f)
+                # print('Validation loss: gen_loss = {} | dis_loss = {} | critic_loss = {}'.format(v_gen_loss, v_dis_loss, v_critic_loss))
+                if epoch % 100:
+                    saver.save(session, 'weights/%s.weights' % url_weight)
         else:
             model.set_data(dataset, train, valid)
             saver.restore(session, url_weight)
