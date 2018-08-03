@@ -107,7 +107,7 @@ class BaselineModel(object):
         attention = None
         if self.use_attention:
             # batch size x rnn_hidden_size
-            inputs = tf.nn.embedding_lookup(self.attention_vectors, self.attention_inputs)
+            inputs = tf.nn.embedding_lookup(self.attention_embedding, self.attention_inputs)
             attention = self.get_attention_rep(inputs)
         outputs = self.exe_decoder(dec, enc_output, attention)
         return outputs
@@ -119,6 +119,7 @@ class BaselineModel(object):
                 if self.use_cnn:
                     # add one cnn layer here
                     cnn = self.get_cnn_rep(enc, self.encoder_length, self.encode_vector_size)
+                    print(cnn.get_shape())
                 else:
                     cnn = enc
                 enc_data = tf.unstack(tf.reshape(cnn, [self.batch_size, self.encoder_length, self.grd_cnn]), axis=1)
@@ -134,13 +135,16 @@ class BaselineModel(object):
     # mapping input indices to dataset
     def lookup_input(self):
         enc = tf.nn.embedding_lookup(self.embedding, self.encoder_inputs)
+        enc.set_shape((self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.encode_vector_size))
         dec_f = tf.nn.embedding_lookup(self.embedding, self.decoder_inputs)
         if self.dtype == "grid":
             # embedding = tf.Variable(self.datasets, name="embedding")
             dec = dec_f[:,:,:,:,self.df_ele:]
+            dec.set_shape((self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.decode_vector_size))
             self.pred_placeholder = dec_f[:,:,:,:,0]
         else:
             dec = dec_f[:,:,:,self.df_ele:]
+            dec.set_shape((self.batch_size, self.encoder_length, 25, self.decode_vector_size))
             self.pred_placeholder = dec_f[:,:,:,0]
         return enc, dec
 
@@ -182,6 +186,7 @@ class BaselineModel(object):
             kernel_size=(vector_size,3,3),
             padding="valid"
         )
+        print(cnn.get_shape())
         #output should have shape: bs * length, 28, 28, 1
         cnn = tf.reshape(tf.squeeze(cnn), [-1])
         return cnn

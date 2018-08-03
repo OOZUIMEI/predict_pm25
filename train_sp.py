@@ -57,15 +57,19 @@ def process_data(dtlength, batch_size, encoder_length, decoder_length=None, is_t
     return train, valid, end
 
 
-def execute(path, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None):
+def execute(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None):
     print("==> Loading dataset")
     dataset = utils.load_file(path)
     if dataset:
         dataset = np.asarray(dataset, dtype=np.float32)
         lt = len(dataset)
         train, valid, _ = process_data(lt, batch_size, encoder_length, decoder_length, is_test)
+        if attention_url:
+            attention_data = utils.load_file(attention_url)
+        else:
+            attention_data = None
         if not is_test:
-            model.set_data(dataset, train, valid)
+            model.set_data(dataset, train, valid, attention_data)
 
             best_val_epoch = 0
             best_val_loss = float('inf')
@@ -123,7 +127,7 @@ def get_gpu_options():
     return configs
 
 
-def main(url_feature="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, rnn_layers=1,
+def main(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, rnn_layers=1,
         dtype="grid", is_folder=False, is_test=False, use_cnn=True):
     model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, rnn_layers=rnn_layers,
                         dtype=dtype, grid_size=grid_size, use_cnn=use_cnn)
@@ -146,13 +150,23 @@ def main(url_feature="", url_weight="sp", batch_size=128, encoder_length=24, emb
             train_writer = None
         session.run(init)
         folders = None
+        
         if is_folder:
             folders = os.listdir(url_feature)
-            for i, x in enumerate(folders):
-                print("==> Training set (%i, %s)" % (i + 1, x))
-                execute(os.path.join(url_feature, x), url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
+            if attention_url:
+                a_folders = os.listdir(attention_url)
+                folders = zip(folders, a_folders)
+            for i, files in enumerate(folders):
+                if attention_url:
+                    x, y = files
+                    att_url = os.path.join(attention_url, y)
+                    print("==> Training set (%i, %s, %s)" % (i + 1, x, y))
+                else: 
+                    x = files
+                    print("==> Training set (%i, %s)" % (i + 1, x))
+                execute(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
         else:
-            execute(url_feature, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
+            execute(url_feature, att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
 
 
 def execute_gan(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None):
@@ -328,8 +342,8 @@ if __name__ == "__main__":
     # preds = np.reshape(np.squeeze(preds), (24, 25, 25))
     # prediction = get_districts_preds(preds)
     # print(prediction[0])
-    # main(args.feature, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
-    #     args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn))
-    train_gan(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
-        args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test))
+    main(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
+        args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn))
+    # train_gan(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
+    #     args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test))
     
