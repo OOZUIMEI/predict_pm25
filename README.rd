@@ -42,4 +42,4 @@ python process_sp_vector.py -u ~/Documents/datasets/spatio_temporal_ck/sample_se
 
 
 Train Spatiotemporal Seoul-China
-python train_sp.py -u vectors/spatiotemporal/sample_sp_grid -au vectors/spatiotemporal/china_combined/sp_china_test_bin -w "test_gan" -f 1
+python train_sp.py -u vectors/spatiotemporal/sample_sp_grid -au vectors/spatiotemporal/china_combined/sp_china_test_bin -w "test_gan" -f 1 -e 15 -ds 9

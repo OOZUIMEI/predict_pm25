@@ -86,7 +86,7 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
                 train_losses.append(train_loss)
                 print('Training loss: {}'.format(train_loss))
 
-                valid_loss, _ = model.run_epoch(session, valid, train_writer=valid_f)
+                valid_loss, _ = model.run_epoch(session, valid, epoch, train_writer=valid_f)
                 print('Validation loss: {}'.format(valid_loss))
 
                 if valid_loss < best_val_loss:
@@ -195,6 +195,8 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
 
                 v_gen_loss, v_dis_loss, v_critic_loss, _ = model.run_epoch(session, valid, train_writer=valid_f)
                 print('Validation loss: gen_loss = {} | dis_loss = {} | critic_loss = {}'.format(v_gen_loss, v_dis_loss, v_critic_loss))
+
+                saver.save(session, 'weights/%s.weights' % url_weight)
         else:
             model.set_data(dataset, train, valid)
             saver.restore(session, url_weight)
