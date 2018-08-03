@@ -30,11 +30,16 @@ CNN - LSTM Training
 
 
 PROCESS SPATIOTEMPORAL
-- Convert bin to grid SEOUL - CHINA
-python process_sp_vector.py -u vectors/spatiotemporal/china_combined/sp_seoul_test_bin -au vectors/spatiotemporal/china_combined/sp_china_test_bin -u1 vectors/spatiotemporal/china_combined/test -au1 vectors/spatiotemporal/china_combined/test_china -t 1
-
 - Convert array to vectors bin
 python process_sp_vector.py -u raw/sp_seoul_test -u1 sp_seoul_test
+
+- Convert Data to Vectors of china:
+python process_vectors.py -u ~/Documents/datasets/spatio_temporal_ck/raw/sample_china -u1 ~/Documents/datasets/spatio_temporal_ck/sample_china_bin -t 2 -dim 17
+
+- Convert bin to grid SEOUL - CHINA
+python process_sp_vector.py -u vectors/spatiotemporal/china_combined/sp_seoul_test_bin -au vectors/spatiotemporal/china_combined/sp_china_test_bin -u1 vectors/spatiotemporal/china_combined/test -au1 vectors/spatiotemporal/china_combined/test_china -t 1
+python process_sp_vector.py -u ~/Documents/datasets/spatio_temporal_ck/sample_seoul_bin -u1 ~/Documents/datasets/spatio_temporal_ck/sample_seoul_grid -t 1
+
 
 Train Spatiotemporal Seoul-China
 python train_sp.py -u vectors/spatiotemporal/sample_sp_grid -au vectors/spatiotemporal/china_combined/sp_china_test_bin -w "test_gan" -f 1

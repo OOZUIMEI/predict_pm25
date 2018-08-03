@@ -124,7 +124,8 @@ def convert_data_to_grid(url, out_url, url_att="", out_url_att="", part=1):
             att_part = []
         g = heatmap.fill_map(t, grid)
         res.append(g)
-        att_part.append(a)
+        if url_att:
+            att_part.append(a)
         utils.update_progress(float(i)/lt)
     if part == 1:
         out_url_name = out_url
@@ -145,7 +146,7 @@ if __name__ == "__main__":
     parser.add_argument("-au1", "--aurl1")
     parser.add_argument("-dim", "--dim", type=int, default=15)
     # parser.add_argument("-dim", "--dim", type=int, default=12)
-    parser.add_argument("-s", "--part", type=int, default=12)
+    parser.add_argument("-s", "--part", type=int, default=1)
     parser.add_argument("-t", "--task", type=int, default=0)
     args = parser.parse_args()
 
