@@ -37,3 +37,4 @@ python process_sp_vector.py -u vectors/spatiotemporal/china_combined/sp_seoul_te
 python process_sp_vector.py -u raw/sp_seoul_test -u1 sp_seoul_test
 
 Train Spatiotemporal Seoul-China
+python train_sp.py -u vectors/spatiotemporal/sample_sp_grid -au vectors/spatiotemporal/china_combined/sp_china_test_bin -w "test_gan" -f 1

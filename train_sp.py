@@ -217,9 +217,18 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
         folders = None
         if is_folder:
             folders = os.listdir(url_feature)
-            for i, x in enumerate(folders):
-                print("==> Training set (%i, %s)" % (i + 1, x))
-                execute_gan(os.path.join(url_feature, x), os.path.join(attention_url, x), url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
+            if attention_url:
+                a_folders = os.listdir(attention_url)
+                folders = zip(folders, a_folders)
+            for i, files in enumerate(folders):
+                if attention_url:
+                    x, y = files
+                    att_url = os.path.join(attention_url, y)
+                    print("==> Training set (%i, %s, %s)" % (i + 1, x, y))
+                else: 
+                    x = files
+                    print("==> Training set (%i, %s)" % (i + 1, x))
+                execute_gan(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
         else:
             execute_gan(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
 
