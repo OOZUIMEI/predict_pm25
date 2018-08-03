@@ -190,10 +190,10 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
 
                 gen_loss, dis_loss, critic_loss, _ = model.run_epoch(
                     session, train, epoch, train_writer, train=True)
-                print('Train loss: {}|{}|{}'.format(gen_loss, dis_loss, critic_loss))
+                print('Train loss: gen_loss = {} | dis_loss = {} | critic_loss = {}'.format(gen_loss, dis_loss, critic_loss))
 
                 v_gen_loss, v_dis_loss, v_critic_loss, _ = model.run_epoch(session, valid)
-                print('Validation loss: {}|{}|{}'.format(v_gen_loss, v_dis_loss, v_critic_loss))
+                print('Validation loss: gen_loss = {} | dis_loss = {} | critic_loss = {}'.format(v_gen_loss, v_dis_loss, v_critic_loss))
         else:
             model.set_data(dataset, train, valid)
             saver.restore(session, url_weight)
@@ -218,7 +218,7 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
     utils.assert_url(url_feature)
 
     tconfig = get_gpu_options()
-    sum_dir = 'summaries/' + time.strftime("%Y-%m-%d %H %M")
+    sum_dir = 'summaries/%s_%s' % (url_weight, time.strftime("%Y-%m-%d %H %M"))
     if not utils.check_file(sum_dir):
         os.makedirs(sum_dir)
 
