@@ -281,8 +281,7 @@ class BaselineModel(object):
             loss, summary, pred, _= session.run(
                 [self.loss_op, self.merged, self.output, train_op], feed_dict=feed)
             if train_writer is not None:
-                train_writer.add_summary(
-                    summary, num_epoch * total_steps + step)
+                train_writer.add_summary(summary, num_epoch * total_steps + step)
             
             total_loss.append(loss)
             if verbose and step % verbose == 0:

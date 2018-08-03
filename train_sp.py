@@ -144,12 +144,11 @@ def main(url_feature="", attention_url="", url_weight="sp", batch_size=128, enco
 
     train_writer = None
     valid_writer = None
-
     with tf.Session(config=tconfig) as session:
         if not is_test:
-            train_writer = tf.summary.FileWriter(sum_dir, session.graph)
-        else: 
-            train_writer = None
+            train_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_train", session.graph)
+            valid_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_valid", session.graph)
+
         session.run(init)
         folders = None
         
@@ -166,12 +165,9 @@ def main(url_feature="", attention_url="", url_weight="sp", batch_size=128, enco
                 else: 
                     x = files
                     print("==> Training set (%i, %s)" % (i + 1, x))
-                if not is_test:
-                    train_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_train", session.graph)
-                    valid_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_valid", session.graph)
                 execute(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer))
         else:
-            execute(url_feature, att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
+            execute(url_feature, att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer))
 
 
 def execute_gan(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None):
@@ -230,7 +226,10 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
     train_writer = None
     valid_writer = None
     
-    with tf.Session(config=tconfig) as session:            
+    with tf.Session(config=tconfig) as session:       
+        if not is_test:
+            train_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_train", session.graph)
+            valid_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_valid", session.graph)     
         session.run(init)
         folders = None
         if is_folder:
@@ -246,12 +245,9 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
                 else: 
                     x = files
                     print("==> Training set (%i, %s)" % (i + 1, x))
-                if not is_test:
-                    train_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_train", session.graph)
-                    valid_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_valid", session.graph)
                 execute_gan(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer))
         else:
-            execute_gan(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
+            execute_gan(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer))
 
 
 def get_prediction_real_time(sparkEngine, url_weight="", dim=12):

@@ -205,12 +205,9 @@ class MaskGan(BaselineModel):
             summary, gen_loss, dis_loss, critic_loss, pred, _, _, _= session.run(
                 [self.merged, self.gen_loss, self.dis_loss, self.critic_loss, self.outputs, self.gen_op, 
                 self.dis_op, self.critic_op], feed_dict=feed)
-            
+
             if train_writer is not None:
                 train_writer.add_summary(summary, num_epoch * total_steps + step)
-                train_writer.add_summary(summary, gen_loss)
-                train_writer.add_summary(summary, dis_loss)
-                train_writer.add_summary(summary, critic_loss)
 
             total_gen_loss.append(gen_loss) 
             total_dis_loss.append(dis_loss)
