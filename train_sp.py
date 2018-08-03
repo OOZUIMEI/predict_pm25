@@ -218,7 +218,7 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
     utils.assert_url(url_feature)
 
     tconfig = get_gpu_options()
-    sum_dir = 'summaries/%s_%s' % (url_weight, time.strftime("%Y-%m-%d %H %M"))
+    sum_dir = 'summaries/%s_%s' % (url_weight, time.strftime("%Y_%m_%d_%H_%M"))
     if not utils.check_file(sum_dir):
         os.makedirs(sum_dir)
 
@@ -331,6 +331,7 @@ if __name__ == "__main__":
     parser.add_argument("-cnn", "--use_cnn", default=1, help="using cnn or not", type=int)
     parser.add_argument("-r", "--rnn_layers", default=1, help="number of rnn layers", type=int)
     parser.add_argument("-a", "--adversarial", default=1, help="Using adversarial networks", type=int)
+    parser.add_argument("-m", "--model", default="GAN")
 
     args = parser.parse_args()
     # if not os.path.exists("missing.pkl"):
@@ -342,8 +343,9 @@ if __name__ == "__main__":
     # preds = np.reshape(np.squeeze(preds), (24, 25, 25))
     # prediction = get_districts_preds(preds)
     # print(prediction[0])
-    main(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
+    if args.model == "GAN":
+        train_gan(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
+            args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test))
+    else:
+        main(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
         args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn))
-    # train_gan(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
-    #     args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test))
-    
