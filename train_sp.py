@@ -185,14 +185,16 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
         if not is_test:
             model.set_data(dataset, train, valid, attention_data)
             print('==> starting training')
+            train_f, valid_f = train_writer
             for epoch in xrange(p.total_iteration):
                 print('Epoch {}'.format(epoch))
 
                 gen_loss, dis_loss, critic_loss, _ = model.run_epoch(
-                    session, train, epoch, train_writer, train=True)
+                    session, train, epoch, train_f, train=True)
+                
                 print('Train loss: gen_loss = {} | dis_loss = {} | critic_loss = {}'.format(gen_loss, dis_loss, critic_loss))
 
-                v_gen_loss, v_dis_loss, v_critic_loss, _ = model.run_epoch(session, valid)
+                v_gen_loss, v_dis_loss, v_critic_loss, _ = model.run_epoch(session, valid, train_writer=valid_f)
                 print('Validation loss: gen_loss = {} | dis_loss = {} | critic_loss = {}'.format(v_gen_loss, v_dis_loss, v_critic_loss))
         else:
             model.set_data(dataset, train, valid)
@@ -218,15 +220,14 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
     utils.assert_url(url_feature)
 
     tconfig = get_gpu_options()
-    sum_dir = 'summaries/%s_%s' % (url_weight, time.strftime("%Y_%m_%d_%H_%M"))
+    sum_dir = 'summaries'
     if not utils.check_file(sum_dir):
         os.makedirs(sum_dir)
-
-    with tf.Session(config=tconfig) as session:
-        if not is_test:
-            train_writer = tf.summary.FileWriter(sum_dir, session.graph)
-        else: 
-            train_writer = None
+    
+    train_writer = None
+    valid_writer = None
+    
+    with tf.Session(config=tconfig) as session:            
         session.run(init)
         folders = None
         if is_folder:
@@ -235,6 +236,7 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
                 a_folders = os.listdir(attention_url)
                 folders = zip(folders, a_folders)
             for i, files in enumerate(folders):
+                data_url = os.path.join(url_feature, x)
                 if attention_url:
                     x, y = files
                     att_url = os.path.join(attention_url, y)
@@ -242,7 +244,10 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
                 else: 
                     x = files
                     print("==> Training set (%i, %s)" % (i + 1, x))
-                execute_gan(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
+                if not is_test:
+                    train_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_train"), session.graph)
+                    valid_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_valid", session.graph)
+                execute_gan(data_url, att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer))
         else:
             execute_gan(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
 
