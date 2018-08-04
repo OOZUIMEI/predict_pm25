@@ -57,9 +57,10 @@ def process_data(dtlength, batch_size, encoder_length, decoder_length=None, is_t
     return train, valid, end
 
 
-def execute(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None):
+def execute(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None, offset=0):
     print("==> Loading dataset")
     dataset = utils.load_file(path)
+    last_epoch = 0
     if dataset:
         dataset = np.asarray(dataset, dtype=np.float32)
         lt = len(dataset)
@@ -73,7 +74,7 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
 
             best_val_epoch = 0
             best_val_loss = float('inf')
-            best_overall_val_loss = float('inf')
+            # best_overall_val_loss = float('inf')
 
             print('==> starting training')
             train_losses = []
@@ -82,22 +83,23 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
                 print('Epoch {}'.format(epoch))
                 start = time.time()
 
-                train_loss, _ = model.run_epoch(session, train, epoch, train_f,train_op=model.train_op, train=True)
+                train_loss, _ = model.run_epoch(session, train, offset + epoch, train_f,train_op=model.train_op, train=True)
                 train_losses.append(train_loss)
                 print('Training loss: {}'.format(train_loss))
 
-                valid_loss, _ = model.run_epoch(session, valid, epoch, train_writer=valid_f)
+                valid_loss, _ = model.run_epoch(session, valid, offset + epoch, train_writer=valid_f)
                 print('Validation loss: {}'.format(valid_loss))
 
                 if valid_loss < best_val_loss:
                     best_val_loss = valid_loss
                     best_val_epoch = epoch
-                    if best_val_loss < best_overall_val_loss:
-                        print('Saving weights')
-                        best_overall_val_loss = best_val_loss
-                        saver.save(session, 'weights/%s.weights' % url_weight)
+                    # if best_val_loss < best_overall_val_loss:
+                    print('Saving weights')
+                    # best_overall_val_loss = best_val_loss
+                    saver.save(session, 'weights/%s.weights' % url_weight)
 
                 if (epoch - best_val_epoch) > p.early_stopping:
+                    last_epoch += epoch + 1
                     break
                 print('Total time: {}'.format(time.time() - start))
             tm = utils.clear_datetime(datetime.strftime(utils.get_datetime_now(), "%Y-%m-%d %H:%M:%S"))
@@ -115,6 +117,7 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
             name_s = name.group(1)
             utils.save_file("test_sp/%s_loss.txt" % name_s, l_str, use_pickle=False)
             utils.save_file("test_sp/%s" % name_s, preds)
+    return last_epoch
 
 
 def get_gpu_options():
@@ -146,8 +149,9 @@ def main(url_feature="", attention_url="", url_weight="sp", batch_size=128, enco
     valid_writer = None
     with tf.Session(config=tconfig) as session:
         if not is_test:
-            train_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_train", session.graph)
-            valid_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_valid", session.graph)
+            suf = time.strftime("%Y.%m.%d_%H.%M")
+            train_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_train", session.graph, filename_suffix=suf)
+            valid_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_valid", session.graph, filename_suffix=suf)
 
         session.run(init)
         folders = None
@@ -157,6 +161,7 @@ def main(url_feature="", attention_url="", url_weight="sp", batch_size=128, enco
             if attention_url:
                 a_folders = os.listdir(attention_url)
                 folders = zip(folders, a_folders)
+            last_epoch = 0
             for i, files in enumerate(folders):
                 if attention_url:
                     x, y = files
@@ -165,12 +170,12 @@ def main(url_feature="", attention_url="", url_weight="sp", batch_size=128, enco
                 else: 
                     x = files
                     print("==> Training set (%i, %s)" % (i + 1, x))
-                execute(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer))
+                last_epoch = execute(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer), last_epoch)
         else:
             execute(url_feature, att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer))
 
 
-def execute_gan(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None):
+def execute_gan(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None, offset=0):
     print("==> Loading dataset")
     dataset = utils.load_file(path)
     if dataset:
@@ -190,7 +195,7 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
             train_f, valid_f = train_writer
             for epoch in xrange(p.total_iteration):
                 print('Epoch {}'.format(epoch))
-                gen_loss, dis_loss, critic_loss, _ = model.run_epoch(session, train, epoch, train_f, train=True)
+                gen_loss, dis_loss, critic_loss, _ = model.run_epoch(session, train, offset + epoch, train_f, train=True)
                 print('Train loss: gen_loss = {} | dis_loss = {} | critic_loss = {}'.format(gen_loss, dis_loss, critic_loss))
 
                 # v_gen_loss, v_dis_loss, v_critic_loss, _ = model.run_epoch(session, valid, train_writer=valid_f)
@@ -230,8 +235,9 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
     
     with tf.Session(config=tconfig) as session:       
         if not is_test:
-            train_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_train", session.graph)
-            valid_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_valid", session.graph)     
+            suf = time.strftime("%Y.%m.%d_%H.%M")
+            train_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_train", session.graph, filename_suffix=suf)
+            valid_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_valid", session.graph, filename_suffix=suf)
         session.run(init)
         folders = None
         if is_folder:
@@ -247,7 +253,7 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
                 else: 
                     x = files
                     print("==> Training set (%i, %s)" % (i + 1, x))
-                execute_gan(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer))
+                execute_gan(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer), i * p.total_iteration)
         else:
             execute_gan(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer))
 
