@@ -130,7 +130,7 @@ def get_gpu_options():
 
 
 def main(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, rnn_layers=1,
-        dtype="grid", is_folder=False, is_test=False, use_cnn=True):
+        dtype="grid", is_folder=False, is_test=False, use_cnn=True, restore=False):
     model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, rnn_layers=rnn_layers,
                         dtype=dtype, grid_size=grid_size, use_cnn=use_cnn)
     print('==> initializing models')
@@ -148,12 +148,19 @@ def main(url_feature="", attention_url="", url_weight="sp", batch_size=128, enco
     train_writer = None
     valid_writer = None
     with tf.Session(config=tconfig) as session:
+        if not restore:
+            session.run(init)
+        else:
+            print("==> Reload pre-trained weights")
+            saver.restore(url_weight)
+            url_weight = url_weight.split("/")[-1]
+            url_weight = url_weight.rstrip(".weights")
+        
         if not is_test:
             suf = time.strftime("%Y.%m.%d_%H.%M")
             train_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_train", session.graph, filename_suffix=suf)
             valid_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_valid", session.graph, filename_suffix=suf)
 
-        session.run(init)
         folders = None
         
         if is_folder:
@@ -181,9 +188,8 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
     if dataset:
         dataset = np.asarray(dataset, dtype=np.float32)
         lt = len(dataset)
-        train, valid, _ = process_data(lt, batch_size, encoder_length, decoder_length, is_test)
+        train, valid, _ = process_data(lt, batch_size, encoder_length, decoder_length, True)
         # in gan, we don't need to validate
-        train = train + valid
         # load attention data
         if attention_url:
             attention_data = utils.load_file(attention_url)
@@ -216,7 +222,8 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
             utils.save_file("test_sp/%s" % name_s, preds)
 
 
-def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, rnn_layers=1, dtype="grid", is_folder=False, is_test=False):
+def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, rnn_layers=1, 
+            dtype="grid", is_folder=False, is_test=False, restore=False):
     model = MaskGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, rnn_layers=rnn_layers, grid_size=grid_size, use_cnn=1)
     print('==> initializing models')
     with tf.device('/%s' % p.device):
@@ -234,11 +241,19 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
     valid_writer = None
     
     with tf.Session(config=tconfig) as session:       
+        if not restore:
+            session.run(init)
+        else:
+            print("==> Reload pre-trained weights")
+            saver.restore(url_weight)
+            url_weight = url_weight.split("/")[-1]
+            url_weight = url_weight.rstrip(".weights")
+
         if not is_test:
             suf = time.strftime("%Y.%m.%d_%H.%M")
             train_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_train", session.graph, filename_suffix=suf)
             valid_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_valid", session.graph, filename_suffix=suf)
-        session.run(init)
+
         folders = None
         if is_folder:
             folders = os.listdir(url_feature)
@@ -343,6 +358,7 @@ if __name__ == "__main__":
     parser.add_argument("-r", "--rnn_layers", default=1, help="number of rnn layers", type=int)
     parser.add_argument("-a", "--adversarial", default=1, help="Using adversarial networks", type=int)
     parser.add_argument("-m", "--model", default="GAN")
+    parser.add_argument("-rs", "--restore", default=0, help="Restore pre-trained models", type=int)
 
     args = parser.parse_args()
     # if not os.path.exists("missing.pkl"):
@@ -356,7 +372,7 @@ if __name__ == "__main__":
     # print(prediction[0])
     if args.model == "GAN":
         train_gan(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
-            args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test))
+            args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), restore=bool(args.restore))
     else:
         main(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
-        args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn))
+        args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn),  restore=bool(args.restore))

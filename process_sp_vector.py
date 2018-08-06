@@ -96,6 +96,7 @@ def convert_data_to_grid(url, out_url, url_att="", out_url_att="", part=1):
     lt = len(data)
     attention_data = None
     att_part = None
+    print(url_att)
     if url_att:
         attention_data = utils.load_file(url_att)
         alt = len(attention_data)
