@@ -119,10 +119,10 @@ class BaselineModel(object):
                     cnn = self.get_cnn_rep(enc, self.encoder_length, self.encode_vector_size)
                 else:
                     cnn = enc
-                enc_data = tf.reshape(cnn, [self.batch_size, self.encoder_length, self.grd_cnn])
-                # enc_data = tf.unstack(, axis=1)
+                enc_data = tf.unstack(tf.reshape(cnn, [self.batch_size, self.encoder_length, self.grd_cnn]), axis=1)
             else:
                 enc = tf.reshape(tf.reshape(enc, [-1]), [self.batch_size, self.encoder_length, self.districts * self.encode_vector_size])
+                enc_data = tf.unstack(enc, axis=1)
             # then push through lstm
             _, enc_output = rnn_utils.execute_sequence(enc_data, self.e_params)
             if self.rnn_layers > 1:
@@ -196,7 +196,7 @@ class BaselineModel(object):
                 "fw_cell_size": self.rnn_hidden_units
             }
             inputs.set_shape((self.batch_size, self.attention_length, self.atttention_hidden_size))
-            # inputs = tf.unstack(inputs, self.attention_lenZZgth, 1)
+            inputs = tf.unstack(inputs, self.attention_length, 1)
             outputs, _ = rnn_utils.execute_sequence(inputs, params)
             outputs = tf.stack(outputs, axis=1)
             attention_logits = tf.squeeze(tf.layers.dense(outputs, units=1, activation=None, name="attention_logits"))
