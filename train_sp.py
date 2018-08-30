@@ -200,14 +200,16 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
             print('==> starting training')
             train_f, valid_f = train_writer
             for epoch in xrange(p.total_iteration):
+                start = time.time()
                 print('Epoch {}'.format(epoch))
                 gen_loss, dis_loss, critic_loss, _ = model.run_epoch(session, train, offset + epoch, train_f, train=True)
                 print('Train loss: gen_loss = {} | dis_loss = {} | critic_loss = {}'.format(gen_loss, dis_loss, critic_loss))
-
                 # v_gen_loss, v_dis_loss, v_critic_loss, _ = model.run_epoch(session, valid, train_writer=valid_f)
                 # print('Validation loss: gen_loss = {} | dis_loss = {} | critic_loss = {}'.format(v_gen_loss, v_dis_loss, v_critic_loss))
                 if epoch % 100:
                     saver.save(session, 'weights/%s.weights' % url_weight)
+                dur = time.time() - start
+                print("Running time: %.2f" % dur)
         else:
             model.set_data(dataset, train, valid)
             saver.restore(session, url_weight)

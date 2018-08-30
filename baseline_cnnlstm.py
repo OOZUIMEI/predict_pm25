@@ -122,7 +122,6 @@ class BaselineModel(object):
                 enc_data = tf.unstack(tf.reshape(cnn, [self.batch_size, self.encoder_length, self.grd_cnn]), axis=1)
             else:
                 enc = tf.reshape(tf.reshape(enc, [-1]), [self.batch_size, self.encoder_length, self.districts * self.encode_vector_size])
-                enc_data = tf.unstack(enc, axis=1)
             # then push through lstm
             _, enc_output = rnn_utils.execute_sequence(enc_data, self.e_params)
             if self.rnn_layers > 1:
