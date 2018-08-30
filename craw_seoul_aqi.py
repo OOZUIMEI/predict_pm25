@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 from datetime import datetime, timedelta
 import utils
 import properties as pr
+import subprocess
 
 
 #https://young-0.com/airquality/charts.php?years=1&months=0&city=4&month=4&year=2018&dir=1&threshold=500&action=Export+CSV
@@ -159,6 +160,7 @@ def main(args, cont=False):
 
 
 if __name__ == "__main__":
+    subprocess.call("source activate tensorflow")
     parser = ArgumentParser()
     parser.add_argument("-f", "--forward", default=1, type=int, help="continuously collecting")
     parser.add_argument("-i", "--interval", default=5, type=int, help="secondly interval")

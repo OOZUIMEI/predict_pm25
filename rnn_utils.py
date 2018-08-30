@@ -47,7 +47,7 @@ def execute_sequence(inputs, params):
         )
     # default is one direction static rnn
     else:
-        outputs, fn_state = fw_cell(inputs, dtype=tf.float32)
+        outputs, fn_state = fw_cell(inputs)
         # exe_inputs = tf.unstack(inputs, axis=1)
         # outputs, fn_state = tf.nn.static_rnn(
         #     fw_cell,

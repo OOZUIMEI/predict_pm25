@@ -14,17 +14,20 @@ python test.py -f vectors/full_256_sep/test_256_p2 -pr vectors/full_256_sep/test
 python train.py -pr vectors/seoul_data/train_labels.txt -f vectors/seoul_data/train -e 190 -bs 32 -sl 24 -s 20 -ds 184 -rn 2 -p "32_190_seoul_24_20"
 
 Crawling:
-# craw autonomous weather system
+# crawl autonomous weather system
     $ nohup python craw_aws.py -t 0 -s "2010-01-01 00:00:00" -e "2011-12-31 00:00:00" -i 1 -si 10 &
     # crawl continously
     $ python craw_aws.py -f 1 -s "2018-07-19 00:00:00" -i 1 -f 1
 
-# craw air pollution 
+# crawl air pollution 
     $ nohup python craw_seoul_aqi.py -t 0 -s "2010-01-01 00:00:00" -e "2011-12-31 00:00:00" -i 1 -si 10 &
     # continously
     $ python craw_seoul_aqi.py -f 1 -s "2018-07-20 00:00:00" -i 1
 
-craw daegu_aqi
+crawl daegu_aqi
+
+# crawl weather
+    $ python craw_weather.py -f 1
 
 CNN - LSTM Training
 
@@ -43,3 +46,5 @@ python process_sp_vector.py -u ~/Documents/datasets/spatio_temporal_ck/sample_se
 
 Train Spatiotemporal Seoul-China
 python train_sp.py -u vectors/spatiotemporal/sample_sp_grid -au vectors/spatiotemporal/china_combined/sp_china_test_bin -w "test_gan" -f 1 -e 15 -ds 9
+
+# start server
