@@ -27,7 +27,7 @@ def get_cell(cell_type, size):
 
 
 # rnn through each 30', 1h 
-def execute_sequence(exe_inputs, params):
+def execute_sequence(inputs, params):
     # 1 is bidireciton
     # note: state_size of MultiRNNCell must be equal to size input_size
     fw_cell = get_cell(params["fw_cell"], params["fw_cell_size"])
@@ -38,7 +38,7 @@ def execute_sequence(exe_inputs, params):
         
         if "rnn_layer" in params and params["rnn_layer"] > 1:
             bw_cell = MultiRNNCell([bw_cell] * params["rnn_layer"])
-        # exe_inputs = tf.unstack(inputs, axis=1)
+        exe_inputs = tf.unstack(inputs, axis=1)
         outputs, fn_state  = tf.nn.static_bidirectional_rnn(
             fw_cell,
             bw_cell,
@@ -47,13 +47,13 @@ def execute_sequence(exe_inputs, params):
         )
     # default is one direction static rnn
     else:
-        # outputs, fn_state = fw_cell(inputs, dtype=tf.float32)
+        outputs, fn_state = fw_cell(inputs, dtype=tf.float32)
         # exe_inputs = tf.unstack(inputs, axis=1)
-        outputs, fn_state = tf.nn.static_rnn(
-            fw_cell,
-            inputs,
-            dtype=np.float32
-        )
+        # outputs, fn_state = tf.nn.static_rnn(
+        #     fw_cell,
+        #     inputs,
+        #     dtype=np.float32
+        # )
 
     # new_h, (new_c, new_h)
     return outputs, fn_state

@@ -87,15 +87,15 @@ class BaselineModel(object):
     
     # preserve memory for tensors
     def add_placeholders(self):
-        self.embedding = tf.Variable([], validate_shape=False, dtype=tf.float32, trainable=False)
+        self.embedding = tf.Variable([], validate_shape=False, dtype=tf.float32, trainable=False, name="Variable")
         self.encoder_inputs = tf.placeholder(tf.int32, shape=(self.batch_size, self.encoder_length))
         self.decoder_inputs = tf.placeholder(tf.int32, shape=(self.batch_size, self.decoder_length))
         if self.dtype == "grid":
             self.pred_placeholder = tf.placeholder(tf.float32, shape=(self.batch_size, self.decoder_length, self.grid_size, self. grid_size))
         # china attention_inputs
-        self.attention_embedding = tf.Variable([], validate_shape=False, dtype=tf.float32, trainable=False)
+        self.attention_embedding = tf.Variable([], validate_shape=False, dtype=tf.float32, trainable=False, name="attention_embedding")
         self.attention_inputs = tf.placeholder(tf.int32, shape=(self.batch_size, self.attention_length))
-        self.dropout_placeholder = tf.Variable(self.dropout, False, name="dropout", dtype=tf.float32)
+        self.dropout_placeholder = tf.Variable(self.dropout, False, name="dropout", dtype=tf.float32, name="dropout_value")
 
     def inference(self):
         # embedding = tf.Variable(self.datasets, name="Embedding")
@@ -119,10 +119,11 @@ class BaselineModel(object):
                     cnn = self.get_cnn_rep(enc, self.encoder_length, self.encode_vector_size)
                 else:
                     cnn = enc
-                enc_data = tf.unstack(tf.reshape(cnn, [self.batch_size, self.encoder_length, self.grd_cnn]), axis=1)
+                enc_data = tf.reshape(cnn, [self.batch_size, self.encoder_length, self.grd_cnn])
+                # enc_data = tf.unstack(enc_data, axis=1)
             else:
                 enc = tf.reshape(tf.reshape(enc, [-1]), [self.batch_size, self.encoder_length, self.districts * self.encode_vector_size])
-                enc_data = tf.unstack(enc, axis=1)
+                # enc_data = tf.unstack(enc, axis=1)
             # then push through lstm
             _, enc_output = rnn_utils.execute_sequence(enc_data, self.e_params)
             if self.rnn_layers > 1:
@@ -270,11 +271,11 @@ class BaselineModel(object):
 
             feed = {
                 self.embedding: self.datasets,
-                self.attention_embedding: self.attention_vectors,
                 self.encoder_inputs : ct_t,
                 self.decoder_inputs: dec_t,
             }
             if self.use_attention:
+                feed[self.attention_embedding] = self.attention_vectors
                 feed[self.attention_inputs] = ct_t
 
             loss, pred, _= session.run(
