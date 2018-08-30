@@ -5,7 +5,8 @@ import sys
 import time
 import numpy as np
 import tensorflow as tf
-from tensorflow.contrib.rnn import BasicLSTMCell, LayerNormBasicLSTMCell, MultiRNNCell
+from tensorflow.contrib.rnn import BasicLSTMCell, LayerNormBasicLSTMCell, MultiRNNCell, LSTMBlockFusedCell
+from tensorflow.contrib.cudnn_rnn import CudnnLSTM
 
 import properties as prp
 import utils
@@ -14,6 +15,10 @@ import utils
 def get_cell(cell_type, size):
     if cell_type == "layer_norm_basic":
         cell = LayerNormBasicLSTMCell(size)
+    elif cell_type == "lstm_block_fused":
+        cell = LSTMBlockFusedCell(size)
+    elif cell_type == "cudnn_lstm":
+        cell = CudnnLSTM(1, size)
     elif cell_type == "gru":
         cell = GRUCell(size)
     else:

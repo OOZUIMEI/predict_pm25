@@ -5,8 +5,6 @@ import sys
 import time
 import numpy as np
 import tensorflow as tf
-from tensorflow.contrib.rnn import BasicLSTMCell, LayerNormBasicLSTMCell
-
 import properties as prp
 import utils
 import model_utils
@@ -173,6 +171,7 @@ class BaselineModel(object):
     # get cnn representation of input images 
     def get_cnn_rep(self, dec, length, vector_size):
         cnn_inputs = tf.transpose(dec, [0,1,4,2,3])
+        #flatten
         cnn_inputs = tf.reshape(cnn_inputs, [-1])
         # cnn_inputs = tf.reshape(self.decoder_inputs, [-1])
         
@@ -185,7 +184,7 @@ class BaselineModel(object):
             kernel_size=(vector_size,3,3),
             padding="valid"
         )
-        #output should have shape: bs * length, 28, 28, 1
+        #output should have shape: bs * length, 12, 12, 1
         cnn = tf.reshape(tf.squeeze(cnn), [-1])
         return cnn
     
