@@ -5,8 +5,7 @@ import sys
 import time
 import numpy as np
 import tensorflow as tf
-from tensorflow.contrib.rnn import BasicLSTMCell, LayerNormBasicLSTMCell, MultiRNNCell, LSTMBlockFusedCell
-from tensorflow.contrib.cudnn_rnn import CudnnLSTM
+from tf.contrib.rnn import BasicLSTMCell, LayerNormBasicLSTMCell, MultiRNNCell, LSTMBlockFusedCell
 
 import properties as prp
 import utils
@@ -16,9 +15,9 @@ def get_cell(cell_type, size):
     if cell_type == "layer_norm_basic":
         cell = LayerNormBasicLSTMCell(size)
     elif cell_type == "lstm_block_fused":
-        cell = LSTMBlockFusedCell(size)
+        cell = LSTMBlockFusedCell(num_units=size)
     elif cell_type == "cudnn_lstm":
-        cell = CudnnLSTM(1, size)
+        cell = tf.contrib.cudnn_rnn.CudnnLSTM(1, size)
     elif cell_type == "gru":
         cell = GRUCell(size)
     else:
@@ -28,7 +27,7 @@ def get_cell(cell_type, size):
 
 # rnn through each 30', 1h 
 def execute_sequence(inputs, params):
-    # 1 is bidireciton
+# 1 is bidireciton
     # note: state_size of MultiRNNCell must be equal to size input_size
     fw_cell = get_cell(params["fw_cell"], params["fw_cell_size"])
     if "rnn_layer" in params and params["rnn_layer"] > 1:
@@ -47,7 +46,7 @@ def execute_sequence(inputs, params):
         )
     # default is one direction static rnn
     else:
-        outputs, fn_state = fw_cell(inputs, dtype=tf.float32)
+        outputs, fn_state = fw_cell(inputs)
         # exe_inputs = tf.unstack(inputs, axis=1)
         # outputs, fn_state = tf.nn.static_rnn(
         #     fw_cell,
