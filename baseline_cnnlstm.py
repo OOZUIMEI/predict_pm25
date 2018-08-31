@@ -95,7 +95,7 @@ class BaselineModel(object):
         # china attention_inputs
         self.attention_embedding = tf.Variable([], validate_shape=False, dtype=tf.float32, trainable=False, name="attention_embedding")
         self.attention_inputs = tf.placeholder(tf.int32, shape=(self.batch_size, self.attention_length))
-        self.dropout_placeholder = tf.Variable(self.dropout, False, name="dropout", dtype=tf.float32, name="dropout_value")
+        self.dropout_placeholder = tf.Variable(self.dropout, False, name="dropout", dtype=tf.float32)
 
     def inference(self):
         # embedding = tf.Variable(self.datasets, name="Embedding")
