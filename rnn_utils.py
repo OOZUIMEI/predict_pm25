@@ -32,12 +32,14 @@ def execute_sequence(inputs, params):
     # 1 is bidireciton
     # note: state_size of MultiRNNCell must be equal to size input_size
     fw_cell = get_cell(params["fw_cell"], params["fw_cell_size"])
-    if "cudnn" in params["fw_cell"]:
-        outputs, fn_state = fw_cell(inputs)
-        fn_state = fn_state[0]
-    elif params["fw_cell"] == "lstm_block_fused":
-        outputs, fn_state = fw_cell(inputs, dtype=tf.float32)
-        fn_state = fn_state[0]
+    if "cudnn" in params["fw_cell"] or params["fw_cell"] == "lstm_block_fused":
+        inputs = tf.transpose(inputs, [1, 0, 2])
+        if "cudnn" in params["fw_cell"]:
+            outputs, fn_state = fw_cell(inputs)
+        else:
+            outputs, fn_state = fw_cell(inputs, dtype=tf.float32)
+        fn_state = tf.squeeze(fn_state[0])
+        outputs = tf.transpose(outputs, [1, 0, 2])
     else:
         if "rnn_layer" in params and params["rnn_layer"] > 1:
             fw_cell = MultiRNNCell([fw_cell] * params["rnn_layer"])
@@ -123,7 +125,7 @@ def execute_decoder_critic(inputs, init_state, sequence_length, params, attentio
     dec_out = None
     outputs = []
     estimated_values = []
-    cell_dec = get_cell(params["fw_cell"], params["fw_cell_size"])
+    cell_dec = get_cell("basic", params["fw_cell_size"])
     for t in xrange(sequence_length):
         # shape of input_t bs x grid_size x grid_size x hidden_size
         input_t = inputs[:, t]
@@ -160,7 +162,7 @@ def execute_decoder_dis(inputs, init_state, sequence_length, params, gamma, atte
     dec_state = init_state
     dec_out = None
     predictions = []
-    cell_dec = get_cell(params["fw_cell"], params["fw_cell_size"])
+    cell_dec = get_cell("basic", params["fw_cell_size"])
     rewards = []
     for t in xrange(sequence_length):
         # shape of input_t bs x grid_size x grid_size x hidden_size
