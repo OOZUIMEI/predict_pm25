@@ -6,7 +6,7 @@ import time
 import numpy as np
 import tensorflow as tf
 from tensorflow.contrib.rnn import BasicLSTMCell, LayerNormBasicLSTMCell, MultiRNNCell, LSTMBlockFusedCell
-from tensorflow.keras.layers import CuDNNLSTM
+from tensorflow.contrib.cudnn_rnn import CudnnLSTM, CudnnGRU
 import properties as prp
 import utils
 
@@ -15,9 +15,9 @@ def get_cell(cell_type, size):
     if cell_type == "layer_norm_basic":
         cell = LayerNormBasicLSTMCell(size)
     elif cell_type == "lstm_block_fused":
-        cell = LSTMBlockFusedCell(num_units=size)
+        cell = tf.contrib.rnn.LSTMBlockFusedCell(size)
     elif cell_type == "cudnn_lstm":
-        cell = CuDNNLSTM(size)
+        cell = CudnnLSTM(1, size)
     elif cell_type == "gru":
         cell = GRUCell(size)
     else:
@@ -50,7 +50,7 @@ def execute_sequence(inputs, params):
         # exe_inputs = tf.unstack(inputs, axis=1)
         # outputs, fn_state = tf.nn.static_rnn(
         #     fw_cell,
-        #     inputs,
+        #     exe_inputs,
         #     dtype=np.float32
         # )
 
