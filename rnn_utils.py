@@ -38,7 +38,7 @@ def execute_sequence(inputs, params):
             outputs, fn_state = fw_cell(inputs)
         else:
             outputs, fn_state = fw_cell(inputs, dtype=tf.float32)
-        fn_state = tf.squeeze(fn_state[0])
+        fn_state = (tf.squeeze(fn_state[1]), tf.squeeze(fn_state[0]))
         outputs = tf.transpose(outputs, [1, 0, 2])
     else:
         if "rnn_layer" in params and params["rnn_layer"] > 1:
