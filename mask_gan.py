@@ -170,7 +170,8 @@ class MaskGan(BaselineModel):
             gen_train_op = gen_optimizer.apply_gradients(zip(gen_grads_clipped, gen_vars))
             return gen_train_op
 
-    def run_epoch(self, session, data, num_epoch=0, train_writer=None, verbose=True, train=False, shuffle=True):
+    # using stride to reduce the amount of data to loop over time intervals
+    def run_epoch(self, session, data, num_epoch=0, train_writer=None, verbose=True, train=False, shuffle=True, stride=4):
         if not train:
             train_op = tf.no_op()
         dt_length = len(data)
@@ -186,10 +187,10 @@ class MaskGan(BaselineModel):
             ct = ct[r]
         for step in xrange(total_steps):
             index = range(step * self.batch_size,
-                          (step + 1) * self.batch_size)
+                          (step + 1) * self.batch_size * stride, stride)
             # just the starting points of encoding batch_size,
             ct_t = ct[index]
-            # switch batchsize, => batchsize * encoding_length
+            # switch batchsize, => batchsize * encoding_length (x -> x + 24)
             ct_t = np.asarray([range(int(x), int(x) + self.encoder_length) for x in ct_t])
             dec_t = ct_t + self.decoder_length
 

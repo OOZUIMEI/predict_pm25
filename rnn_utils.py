@@ -18,8 +18,8 @@ def get_cell(cell_type, size):
         cell = tf.contrib.rnn.LSTMBlockFusedCell(size)
     elif cell_type == "cudnn_lstm":
         cell = CudnnLSTM(1, size)
-    elif cell_type == "gru":
-        cell = GRUCell(size)
+    elif cell_type == "cudnn_gru":
+        cell = CudnnGru(1, size)
     else:
         cell = BasicLSTMCell(size)
     return cell
@@ -27,34 +27,26 @@ def get_cell(cell_type, size):
 
 # rnn through each 30', 1h 
 def execute_sequence(inputs, params):
-# 1 is bidireciton
+    if prp.device and "gpu" not in prp.device:
+        params["fw_cell"] = "basic"
+    # 1 is bidireciton
     # note: state_size of MultiRNNCell must be equal to size input_size
     fw_cell = get_cell(params["fw_cell"], params["fw_cell_size"])
-    if "rnn_layer" in params and params["rnn_layer"] > 1:
-        fw_cell = MultiRNNCell([fw_cell] * params["rnn_layer"])
-    if "type" in params and params["type"] == 1:
-        bw_cell = get_cell(params["bw_cell"], params["bw_cell_size"])
-        
+    if "cudnn" in params["fw_cell"]:
+        outputs, fn_state = fw_cell(inputs)
+        fn_state = fn_state[0]
+    elif params["fw_cell"] == "lstm_block_fused":
+        outputs, fn_state = fw_cell(inputs, dtype=tf.float32)
+        fn_state = fn_state[0]
+    else:
         if "rnn_layer" in params and params["rnn_layer"] > 1:
-            bw_cell = MultiRNNCell([bw_cell] * params["rnn_layer"])
+            fw_cell = MultiRNNCell([fw_cell] * params["rnn_layer"])
         exe_inputs = tf.unstack(inputs, axis=1)
-        outputs, fn_state  = tf.nn.static_bidirectional_rnn(
+        outputs, fn_state = tf.nn.static_rnn(
             fw_cell,
-            bw_cell,
-            exe_inputs, 
+            exe_inputs,
             dtype=np.float32
         )
-    # default is one direction static rnn
-    else:
-        outputs, fn_state = fw_cell(inputs)
-        # exe_inputs = tf.unstack(inputs, axis=1)
-        # outputs, fn_state = tf.nn.static_rnn(
-        #     fw_cell,
-        #     exe_inputs,
-        #     dtype=np.float32
-        # )
-
-    # new_h, (new_c, new_h)
     return outputs, fn_state
 
 

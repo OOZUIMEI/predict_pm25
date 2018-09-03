@@ -43,7 +43,7 @@ def process_data(dtlength, batch_size, encoder_length, decoder_length=None, is_t
     # ma = heatmap.build_map()
     # maximum = (dtlength - encoder_length - decoder_length) // batch_size * batch_size
     maximum = dtlength - encoder_length - decoder_length
-    end = maximum + encoder_length + decoder_length
+    # end = maximum + encoder_length + decoder_length
     # random from 0 -> maximum_index to separate valid & train set
     indices = np.asarray(range(maximum), dtype=np.int32)
     if not is_test:
@@ -54,7 +54,7 @@ def process_data(dtlength, batch_size, encoder_length, decoder_length=None, is_t
         valid = indices[train_length:]
     else:
         train, valid = indices, None
-    return train, valid, end
+    return train, valid
 
 
 def execute(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None, offset=0):
@@ -64,7 +64,7 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
     if dataset:
         dataset = np.asarray(dataset, dtype=np.float32)
         lt = len(dataset)
-        train, valid, _ = process_data(lt, batch_size, encoder_length, decoder_length, is_test)
+        train, valid = process_data(lt, batch_size, encoder_length, decoder_length, is_test)
         if attention_url:
             attention_data = utils.load_file(attention_url)
         else:
@@ -188,7 +188,7 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
     if dataset:
         dataset = np.asarray(dataset, dtype=np.float32)
         lt = len(dataset)
-        train, valid, _ = process_data(lt, batch_size, encoder_length, decoder_length, True)
+        train, valid = process_data(lt, batch_size, encoder_length, decoder_length, True)
         # in gan, we don't need to validate
         # load attention data
         if attention_url:
