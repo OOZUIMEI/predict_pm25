@@ -71,7 +71,7 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
             attention_data = None
         
         model.set_data(dataset, train, valid, attention_data)
-        model.assign_datasets()
+        model.assign_datasets(session)
         if not is_test:
             best_val_epoch = 0
             best_val_loss = float('inf')
@@ -197,7 +197,7 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
             attention_data = None
         
         model.set_data(dataset, train, valid, attention_data)
-        model.assign_datasets()
+        model.assign_datasets(session)
         if not is_test:
             print('==> starting training')
             train_f, valid_f = train_writer
