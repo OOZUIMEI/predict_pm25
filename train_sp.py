@@ -69,9 +69,10 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
             attention_data = utils.load_file(attention_url)
         else:
             attention_data = None
+        
+        model.set_data(dataset, train, valid, attention_data)
+        model.assign_datasets()
         if not is_test:
-            model.set_data(dataset, train, valid, attention_data)
-
             best_val_epoch = 0
             best_val_loss = float('inf')
             # best_overall_val_loss = float('inf')
@@ -106,7 +107,6 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
             l_fl = "train_loss/train_loss_%s_%s" % (url_weight, tm)
             utils.save_file(l_fl, train_losses)
         else:
-            model.set_data(dataset, train, valid)
             saver.restore(session, url_weight)
             print('==> running model')
             loss, preds = model.run_epoch(session, model.train, shuffle=False)
@@ -195,8 +195,10 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
             attention_data = utils.load_file(attention_url)
         else:
             attention_data = None
+        
+        model.set_data(dataset, train, valid, attention_data)
+        model.assign_datasets()
         if not is_test:
-            model.set_data(dataset, train, valid, attention_data)
             print('==> starting training')
             train_f, valid_f = train_writer
             for epoch in xrange(p.total_iteration):
@@ -211,7 +213,6 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
                 dur = time.time() - start
                 print("Running time: %.2f" % dur)
         else:
-            model.set_data(dataset, train, valid)
             saver.restore(session, url_weight)
             print('==> running model')
             loss, preds = model.run_epoch(session, model.train, shuffle=False)
@@ -255,8 +256,6 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
             suf = time.strftime("%Y.%m.%d_%H.%M")
             train_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_train", session.graph, filename_suffix=suf)
             valid_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_valid", session.graph, filename_suffix=suf)
-        
-        model.assign_datasets(session)
         
         folders = None
         if is_folder:
