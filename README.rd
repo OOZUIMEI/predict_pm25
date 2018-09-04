@@ -52,3 +52,5 @@ python train_sp.py -u vectors/spatiotemporal/sample_sp_grid -au vectors/spatiote
 ng serve --port 3000 --host 0.0.0.0
 
 python train_sp.py -u vectors/sp_china_combined/china -w gan_cuda -f 1 -e 15 -ds 9
+
+tensorboard --logidr path_to_summaries_folder

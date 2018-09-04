@@ -31,7 +31,7 @@ https://github.com/soumith/ganhacks
 
 class MaskGan(BaselineModel):
 
-    def __init__(self, gamma=0.9, dis_learning_rate=0.01, gen_learning_rate=0.01, critic_learning_rate=0.01, *args, **kwargs):
+    def __init__(self, gamma=0.9, dis_learning_rate=0.001, gen_learning_rate=0.001, critic_learning_rate=0.001, *args, **kwargs):
         super(self.__class__, self).__init__(*args, **kwargs)
         self.gen_loss_type = 0
         self.gamma = gamma
@@ -176,7 +176,8 @@ class MaskGan(BaselineModel):
             train_op = tf.no_op()
         dt_length = len(data)
         # print("data_size: ", dt_length)
-        total_steps = dt_length // self.batch_size
+        cons_b = self.batch_size * stride
+        total_steps = dt_length // cons_b
         total_gen_loss = []
         total_dis_loss = []
         total_critic_loss = []
@@ -186,9 +187,8 @@ class MaskGan(BaselineModel):
             r = np.random.permutation(dt_length)
             ct = ct[r]
         for step in xrange(total_steps):
-            index = range(step * self.batch_size,
-                          (step + 1) * self.batch_size * stride, stride)
-            print(len(index))
+            index = range(step * cons_b,
+                          (step + 1) * cons_b, stride)
             # just the starting points of encoding batch_size,
             ct_t = ct[index]
             # switch batchsize, => batchsize * encoding_length (x -> x + 24)
@@ -209,7 +209,7 @@ class MaskGan(BaselineModel):
             total_gen_loss.append(gen_loss) 
             total_dis_loss.append(dis_loss)
             total_critic_loss.append(critic_loss) 
-            if verbose and step % verbose == 0:
+            if verbose:
                 sys.stdout.write('\r{} / {} gen_loss = {} | dis_loss = {} | critic_loss = {}'.format(
                     step, total_steps, np.mean(total_gen_loss), np.mean(total_dis_loss), np.mean(total_critic_loss)))
                 sys.stdout.flush()
