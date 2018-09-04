@@ -188,6 +188,7 @@ class MaskGan(BaselineModel):
         for step in xrange(total_steps):
             index = range(step * self.batch_size,
                           (step + 1) * self.batch_size * stride, stride)
+            print(len(index))
             # just the starting points of encoding batch_size,
             ct_t = ct[index]
             # switch batchsize, => batchsize * encoding_length (x -> x + 24)
@@ -195,8 +196,6 @@ class MaskGan(BaselineModel):
             dec_t = ct_t + self.decoder_length
 
             feed = {
-                self.embedding: self.datasets,
-                self.attention_embedding: self.attention_vectors,
                 self.encoder_inputs : ct_t,
                 self.decoder_inputs: dec_t,
             }

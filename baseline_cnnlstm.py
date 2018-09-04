@@ -244,6 +244,15 @@ class BaselineModel(object):
             res.append(res_t)
         return np.asarray(res, dtype=np.float32)
 
+    # assign datasets to embedding 
+    def assign_datasets(self, session):
+        assign_ops = self.embedding.assign(self.datasets)
+        session.run(assign_ops)
+        if self.use_attention:
+            att_ops = self.attention_embedding.assign(self.attention_vectors)
+            session.run(att_ops)
+    
+    # operation of each epoch
     def run_epoch(self, session, data, num_epoch=0, train_writer=None, train_op=None, verbose=True, train=False, shuffle=True):
         dp = self.dropout
         if train_op is None:
@@ -270,12 +279,10 @@ class BaselineModel(object):
             dec_t = ct_t + self.decoder_length
 
             feed = {
-                self.embedding: self.datasets,
                 self.encoder_inputs : ct_t,
                 self.decoder_inputs: dec_t,
             }
             if self.use_attention:
-                feed[self.attention_embedding] = self.attention_vectors
                 feed[self.attention_inputs] = ct_t
 
             loss, pred, _= session.run(

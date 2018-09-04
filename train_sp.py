@@ -255,7 +255,9 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
             suf = time.strftime("%Y.%m.%d_%H.%M")
             train_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_train", session.graph, filename_suffix=suf)
             valid_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_valid", session.graph, filename_suffix=suf)
-
+        
+        model.assign_datasets(session)
+        
         folders = None
         if is_folder:
             folders = os.listdir(url_feature)
