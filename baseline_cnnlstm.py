@@ -246,10 +246,10 @@ class BaselineModel(object):
 
     # assign datasets to embedding 
     def assign_datasets(self, session):
-        assign_ops = tf.assign(self.embedding.assign, self.datasets, True)
+        assign_ops = tf.assign(self.embedding, self.datasets, False)
         session.run(assign_ops)
         if self.use_attention:
-            att_ops = tf.assign(self.attention_embedding, self.attention_vectors, True)
+            att_ops = tf.assign(self.attention_embedding, self.attention_vectors, False)
             session.run(att_ops)
     
     # operation of each epoch

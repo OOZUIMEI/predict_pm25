@@ -219,11 +219,11 @@ class MaskGan(BaselineModel):
         if verbose:
             sys.stdout.write("\r")
 
-        total_gen_loss, total_dis_loss, total_critic_loss = np.mean(total_gen_loss), np.mean(total_dis_loss), np.mean(total_critic_loss)
         if train_writer is not None:
+            total_gen_loss, total_dis_loss, total_critic_loss = np.mean(total_gen_loss), np.mean(total_dis_loss), np.mean(total_critic_loss)
             summary = tf.Summary()
             summary.value.add(tag= "Generator Loss", simple_value=total_gen_loss)
             summary.value.add(tag= "Discriminator Loss", simple_value=total_dis_loss)
             summary.value.add(tag= "Critic Loss", simple_value=total_critic_loss)
             train_writer.add_summary(summary, num_epoch)
-        return total_gen_loss, total_dis_loss, total_critic_loss, preds
+        return preds

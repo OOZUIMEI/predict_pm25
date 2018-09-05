@@ -152,7 +152,7 @@ def main(url_feature="", attention_url="", url_weight="sp", batch_size=128, enco
             session.run(init)
         else:
             print("==> Reload pre-trained weights")
-            saver.restore(url_weight)
+            saver.restore(session, url_weight)
             url_weight = url_weight.split("/")[-1]
             url_weight = url_weight.rstrip(".weights")
         
@@ -188,7 +188,7 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
     if dataset:
         dataset = np.asarray(dataset, dtype=np.float32)
         lt = len(dataset)
-        train, valid = process_data(lt, batch_size, encoder_length, decoder_length, True)
+        train, _ = process_data(lt, batch_size, encoder_length, decoder_length, True)
         # in gan, we don't need to validate
         # load attention data
         if attention_url:
@@ -196,31 +196,26 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
         else:
             attention_data = None
         
-        model.set_data(dataset, train, valid, attention_data)
+        model.set_data(dataset, train, None, attention_data)
         model.assign_datasets(session)
+
         if not is_test:
             print('==> starting training')
-            train_f, valid_f = train_writer
+            train_f = train_writer
             for epoch in xrange(p.total_iteration):
-                start = time.time()
-                print('Epoch {}'.format(epoch))
-                gen_loss, dis_loss, critic_loss, _ = model.run_epoch(session, train, offset + epoch, train_f, train=True)
+                _ = model.run_epoch(session, train, offset + epoch, train_f, train=True, verbose=False)
                 if epoch % 10 == 0:
-                    print('Train loss: gen_loss = {} | dis_loss = {} | critic_loss = {}'.format(gen_loss, dis_loss, critic_loss))
+                    utils.update_progress(epoch * 1.0 / p.total_iteration)
                     saver.save(session, 'weights/%s.weights' % url_weight)
-                    
-                dur = time.time() - start
-                print("Running time: %.2f" % dur)
+            saver.save(session, 'weights/%s.weights' % url_weight)
         else:
             saver.restore(session, url_weight)
             print('==> running model')
-            loss, preds = model.run_epoch(session, model.train, shuffle=False)
-            l_str = 'Test mae loss: %.4f' % loss
-            print(l_str)
+            preds = model.run_epoch(session, train, train=False, verbose=False, shuffle=False)
+            # l_str = 'Test mae loss: %.4f' % loss
             pt = re.compile("weights/([A-Za-z0-9_.]*).weights")
             name = pt.match(url_weight)
             name_s = name.group(1)
-            utils.save_file("test_sp/%s_loss.txt" % name_s, l_str, use_pickle=False)
             utils.save_file("test_sp/%s" % name_s, preds)
 
 
@@ -240,7 +235,6 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
         os.makedirs(sum_dir)
     
     train_writer = None
-    valid_writer = None
     
     with tf.Session(config=tconfig) as session:       
         if not restore:
@@ -250,11 +244,11 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
             saver.restore(url_weight)
             url_weight = url_weight.split("/")[-1]
             url_weight = url_weight.rstrip(".weights")
+            csn = int(time.time())
 
         if not is_test:
             suf = time.strftime("%Y.%m.%d_%H.%M")
-            train_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_train", session.graph, filename_suffix=suf)
-            valid_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_valid", session.graph, filename_suffix=suf)
+            train_writer = tf.summary.FileWriter("%s/%s_%i" % (sum_dir, url_weight, csn), session.graph, filename_suffix=suf)
         
         folders = None
         if is_folder:
@@ -270,9 +264,9 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
                 else: 
                     x = files
                     print("==> Training set (%i, %s)" % (i + 1, x))
-                execute_gan(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer), i * p.total_iteration)
+                execute_gan(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer, i * p.total_iteration)
         else:
-            execute_gan(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer))
+            execute_gan(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
 
 
 def get_prediction_real_time(sparkEngine, url_weight="", dim=12):
