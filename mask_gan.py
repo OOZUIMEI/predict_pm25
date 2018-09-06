@@ -87,7 +87,7 @@ class MaskGan(BaselineModel):
             # get probability of reality (either fake or real)
             fake_preds, fake_rewards = rnn_utils.execute_decoder_dis(dec_fake, enc_output, self.decoder_length, params, self.gamma, attention)
             real_preds, _ = rnn_utils.execute_decoder_dis(dec_real, enc_output, self.decoder_length, params, self.gamma, attention, True)
-        return tf.squeeze(tf.stack(fake_preds, axis=1)), fake_rewards, tf.squeeze(tf.stack(real_preds, axis=1))
+        return tf.squeeze(tf.stack(fake_preds, axis=1), [2]), fake_rewards, tf.squeeze(tf.stack(real_preds, axis=1), [2])
 
     #perform decoder with critic estimated award
     def exe_decoder_critic(self, dec, enc_output, attention=None):

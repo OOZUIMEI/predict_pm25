@@ -38,16 +38,12 @@ def execute_sequence(inputs, params):
     # note: state_size of MultiRNNCell must be equal to size input_size
     fw_cell = get_cell(params["fw_cell"], params["fw_cell_size"])
     if "cudnn" in params["fw_cell"] or params["fw_cell"] == "lstm_block_fused":
-        shape = inputs.get_shape()
         inputs = tf.transpose(inputs, [1, 0, 2])
         if "cudnn" in params["fw_cell"]:
             outputs, fn_state = fw_cell(inputs)
-            c = tf.squeeze(fn_state[1])
-            h = tf.squeeze(fn_state[0])
-            if shape[0] == 1:
-                fn_state = (tf.reshape(h, [1, h.get_shape()[0]]), tf.reshape(c, c.get_shape()[0]))
-            else:
-                fn_state = (c, h)
+            c = tf.squeeze(fn_state[1], [0])
+            h = tf.squeeze(fn_state[0], [0])
+            fn_state = (c, h)
         else:
             outputs, fn_state = fw_cell(inputs, dtype=tf.float32)
         outputs = tf.transpose(outputs, [1, 0, 2])
