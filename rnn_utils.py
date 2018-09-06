@@ -5,21 +5,23 @@ import sys
 import time
 import numpy as np
 import tensorflow as tf
-from tensorflow.contrib.rnn import BasicLSTMCell, LayerNormBasicLSTMCell, MultiRNNCell, LSTMBlockFusedCell
+from tensorflow.contrib.rnn import BasicLSTMCell, LayerNormBasicLSTMCell, MultiRNNCell, LSTMBlockFusedCell, LSTMBlockCell
 from tensorflow.contrib.cudnn_rnn import CudnnLSTM, CudnnGRU
 import properties as prp
 import utils
 
 
-def get_cell(cell_type, size):
+def get_cell(cell_type, size, layers=1):
     if cell_type == "layer_norm_basic":
         cell = LayerNormBasicLSTMCell(size)
     elif cell_type == "lstm_block_fused":
         cell = tf.contrib.rnn.LSTMBlockFusedCell(size)
     elif cell_type == "cudnn_lstm":
-        cell = CudnnLSTM(1, size)
+        cell = CudnnLSTM(layers, size)
     elif cell_type == "cudnn_gru":
-        cell = CudnnGru(1, size)
+        cell = CudnnGru(layers, size)
+    elif cell_type == "lstm_block":
+        cell = LSTMBlockCell(size)
     else:
         cell = BasicLSTMCell(size)
     return cell
@@ -28,7 +30,10 @@ def get_cell(cell_type, size):
 # rnn through each 30', 1h 
 def execute_sequence(inputs, params):
     if prp.device and "gpu" not in prp.device:
-        params["fw_cell"] = "basic"
+        if "cudnn" in params["fw_cell"]:
+            params["fw_cell"] = "lstm_block_fused"
+        else:
+            params["fw_cell"] = "basic"
     # 1 is bidireciton
     # note: state_size of MultiRNNCell must be equal to size input_size
     fw_cell = get_cell(params["fw_cell"], params["fw_cell_size"])
@@ -37,14 +42,14 @@ def execute_sequence(inputs, params):
         inputs = tf.transpose(inputs, [1, 0, 2])
         if "cudnn" in params["fw_cell"]:
             outputs, fn_state = fw_cell(inputs)
+            c = tf.squeeze(fn_state[1])
+            h = tf.squeeze(fn_state[0])
+            if shape[0] == 1:
+                fn_state = (tf.reshape(h, [1, h.get_shape()[0]]), tf.reshape(c, c.get_shape()[0]))
+            else:
+                fn_state = (c, h)
         else:
             outputs, fn_state = fw_cell(inputs, dtype=tf.float32)
-        h = tf.squeeze(fn_state[1])
-        c = tf.squeeze(fn_state[0])
-        if shape[0] == 1:
-            fn_state = (tf.reshape(h, [1, h.get_shape()[0]]), tf.reshape(c, c.get_shape()[0]))
-        else:
-            fn_state = (h, c)
         outputs = tf.transpose(outputs, [1, 0, 2])
     else:
         if "rnn_layer" in params and params["rnn_layer"] > 1:
