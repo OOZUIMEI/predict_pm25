@@ -241,15 +241,15 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
             session.run(init)
         else:
             print("==> Reload pre-trained weights")
-            saver.restore(url_weight)
-            url_weight = url_weight.split("/")[-1]
-            url_weight = url_weight.rstrip(".weights")
+            saver.restore(session, url_weight)
             csn = int(time.time())
 
         if not is_test:
+            url_weight = url_weight.split("/")[-1]
+            url_weight = url_weight.rstrip(".weights")
             suf = time.strftime("%Y.%m.%d_%H.%M")
             train_writer = tf.summary.FileWriter("%s/%s_%i" % (sum_dir, url_weight, csn), session.graph, filename_suffix=suf)
-        
+
         folders = None
         if is_folder:
             folders = os.listdir(url_feature)

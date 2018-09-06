@@ -47,10 +47,14 @@ python process_sp_vector.py -u ~/Documents/datasets/spatio_temporal_ck/sample_se
 Train Spatiotemporal Seoul-China
 python train_sp.py -u vectors/spatiotemporal/sample_sp_grid -au vectors/spatiotemporal/china_combined/sp_china_test_bin -w "test_gan" -f 1 -e 15 -ds 9
 
-# start server
+# GAN Training and Testing
+Train GAN 
+python train_sp.py -u vectors/sp_china_combined/china -w gan_cuda -f 1 -e 15 -ds 9
+Test GAN
+python train_sp.py -u vectors/sp_china_combined/sp_seoul_test_bin -au vectors/sp_china_combined/sp_china_test_bin -w weights/gan_cuda.weights -e 15 -ds 9 -rs 1 -t 1
 
+# start visualization server
 ng serve --port 3000 --host 0.0.0.0
 
-python train_sp.py -u vectors/sp_china_combined/china -w gan_cuda -f 1 -e 15 -ds 9
-
+# start tensorboard
 tensorboard --logidr path_to_summaries_folder
