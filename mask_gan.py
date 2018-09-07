@@ -183,7 +183,7 @@ class MaskGan(BaselineModel):
                 gen_grads = tf.gradients(-loss, gen_vars)
             else:
                 gen_grads = tf.gradients(loss, gen_vars)
-            # gen_grads_clipped, _ = tf.clip_by_global_norm(gen_grads, 10.)
+            gen_grads_clipped, _ = tf.clip_by_global_norm(gen_grads, 10.)
             gen_train_op = gen_optimizer.apply_gradients(zip(gen_grads_clipped, gen_vars))
             return gen_train_op
 
