@@ -55,7 +55,7 @@ class MaskGan(BaselineModel):
         elif self.gen_loss_type == 1: 
             # use mse of G & labels
             labels = self.pred_placeholder
-            self.gen_loss = self.add_generator_loss(fake_preds, fake_rewards, estimated_values, labels)
+            self.gen_loss = self.add_generator_loss(fake_preds, fake_rewards, estimated_values, outputs, labels)
         else:
             self.gen_loss = self.add_generator_mse_loss(dis_loss_fake, dis_loss_real, fake_rewards, estimated_values)
         if self.use_critic:
@@ -115,7 +115,7 @@ class MaskGan(BaselineModel):
     # add generation loss
     # type 1: regular loss
     # type 2: ||(fake - real)||22
-    def add_generator_loss(self, fake_preds, rewards, estimated_values, labels=None):
+    def add_generator_loss(self, fake_preds, rewards, estimated_values, outputs=None, labels=None):
         r_ = tf.squeeze(tf.stack(rewards, axis=1))
         if self.use_critic:
             e_ = tf.squeeze(tf.stack(estimated_values, axis=1))
@@ -125,7 +125,7 @@ class MaskGan(BaselineModel):
             advantages = r_
         # fake_labels = tf.constant(1, shape=[self.batch_size, self.decoder_length])
         if labels is not None:
-            loss_values = tf.losses.mean_squared_error(labels, fake_preds)
+            loss_values = tf.losses.mean_squared_error(labels, outputs)
         else:
             loss_values = tf.log_sigmoid(fake_preds)
         loss = tf.reduce_mean(tf.multiply(loss_values, tf.stop_gradient(advantages)))

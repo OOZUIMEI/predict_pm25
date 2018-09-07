@@ -135,6 +135,7 @@ class BaselineModel(object):
         enc = tf.nn.embedding_lookup(self.embedding, self.encoder_inputs)
         enc.set_shape((self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.encode_vector_size))
         dec_f = tf.nn.embedding_lookup(self.embedding, self.decoder_inputs)
+        dec_f.set_shape((self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.encode_vector_size))
         if self.dtype == "grid":
             # embedding = tf.Variable(self.datasets, name="embedding")
             dec = dec_f[:,:,:,:,self.df_ele:]
