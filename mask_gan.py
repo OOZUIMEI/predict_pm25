@@ -54,7 +54,7 @@ class MaskGan(BaselineModel):
             self.gen_loss = self.add_generator_loss(fake_preds, fake_rewards, estimated_values)
         elif self.gen_loss_type == 1: 
             # use mse of G & labels
-            labels = self.pred_placeholder
+            labels = tf.reshape(self.pred_placeholder, shape=(self.batch_size, self.decoder_length, self.grid_square))
             self.gen_loss = self.add_generator_loss(fake_preds, fake_rewards, estimated_values, outputs, labels)
         else:
             self.gen_loss = self.add_generator_mse_loss(dis_loss_fake, dis_loss_real, fake_rewards, estimated_values)
@@ -67,7 +67,7 @@ class MaskGan(BaselineModel):
         return outputs
     
     def create_generator(self):
-        with tf.variable_scope("generator_critic", self.initializer, reuse=tf.AUTO_REUSE):
+        with tf.variable_scope("generator", self.initializer, reuse=tf.AUTO_REUSE):
             # shape:  batch_size x decoder_length x grid_size x grid_size
             enc, dec = self.lookup_input()
             enc_output = self.exe_encoder(enc)
@@ -79,6 +79,16 @@ class MaskGan(BaselineModel):
                 attention = self.get_attention_rep(inputs)
             outputs, estimated_values = self.exe_decoder_critic(dec, enc_output, attention)
         return enc_output, dec, outputs, estimated_values, attention
+
+    #perform decoder with critic estimated award
+    def exe_decoder_critic(self, dec, enc_output, attention=None):
+        with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
+            # estimated_values [0, inf], outputs: [0, 1]
+            outputs, estimated_values = rnn_utils.execute_decoder_critic(dec, enc_output, self.decoder_length, self.e_params, attention, use_critic=self.use_critic)
+            # batch_size x decoder_length x grid_size x grid_size
+            outputs = tf.stack(outputs, axis=1)
+            # batch_size x decoder_length
+        return outputs, estimated_values
 
     # inputs is either from generator or from real context
     # enc_output: last hidden layer of encoder
@@ -95,16 +105,6 @@ class MaskGan(BaselineModel):
             fake_preds, fake_rewards = rnn_utils.execute_decoder_dis(dec_fake, enc_output, self.decoder_length, params, self.gamma, attention)
             real_preds, _ = rnn_utils.execute_decoder_dis(dec_real, enc_output, self.decoder_length, params, self.gamma, attention, True)
         return tf.squeeze(tf.stack(fake_preds, axis=1), [2]), fake_rewards, tf.squeeze(tf.stack(real_preds, axis=1), [2])
-
-    #perform decoder with critic estimated award
-    def exe_decoder_critic(self, dec, enc_output, attention=None):
-        with tf.variable_scope("decoder_critic", initializer=self.initializer, reuse=tf.AUTO_REUSE):
-            # estimated_values [0, inf], outputs: [0, 1]
-            outputs, estimated_values = rnn_utils.execute_decoder_critic(dec, enc_output, self.decoder_length, self.e_params, attention, use_critic=self.use_critic)
-            # batch_size x decoder_length x grid_size x grid_size
-            outputs = tf.stack(outputs, axis=1)
-            # batch_size x decoder_length
-        return outputs, estimated_values
 
     # mse training
     def  add_critic_loss(self, rewards, estimated_values):
@@ -178,8 +178,11 @@ class MaskGan(BaselineModel):
             gen_optimizer = tf.train.AdamOptimizer(self.gen_learning_rate)
             gen_vars = [v for v in tf.trainable_variables() if v.op.name.startswith("generator")]
             # gradient ascent , maximum reward 
-            gen_grads = tf.gradients(-loss, gen_vars)
-            gen_grads_clipped, _ = tf.clip_by_global_norm(gen_grads, 10.)
+            if self.gen_loss_type == 0:
+                gen_grads = tf.gradients(-loss, gen_vars)
+            else:
+                gen_grads = tf.gradients(loss, gen_vars)
+            # gen_grads_clipped, _ = tf.clip_by_global_norm(gen_grads, 10.)
             gen_train_op = gen_optimizer.apply_gradients(zip(gen_grads_clipped, gen_vars))
             return gen_train_op
 
