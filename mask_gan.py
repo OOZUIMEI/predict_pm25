@@ -220,6 +220,8 @@ class MaskGan(BaselineModel):
                     [self.gen_loss, self.dis_loss, self.critic_loss, self.outputs, self.gen_op, 
                     self.dis_op, self.critic_op], feed_dict=feed)
                 total_critic_loss.append(critic_loss) 
+            else:
+                gen_loss, dis_loss, pred, _, _= session.run([self.gen_loss, self.dis_loss, self.outputs, self.gen_op, self.dis_op], feed_dict=feed)
             
             total_gen_loss.append(gen_loss) 
             total_dis_loss.append(dis_loss)
