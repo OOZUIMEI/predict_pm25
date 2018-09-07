@@ -31,14 +31,15 @@ https://github.com/soumith/ganhacks
 
 class MaskGan(BaselineModel):
 
-    def __init__(self, gamma=0.9, dis_learning_rate=0.001, gen_learning_rate=0.001, critic_learning_rate=0.001, use_critic=False, *args, **kwargs):
+    def __init__(self, gamma=0.9, dis_learning_rate=0.0002, gen_learning_rate=0.0002, critic_learning_rate=0.001, use_critic=False, *args, **kwargs):
         super(self.__class__, self).__init__(*args, **kwargs)
-        self.gen_loss_type = 0
+        self.gen_loss_type = 1
         self.gamma = gamma
         self.dis_learning_rate = dis_learning_rate
         self.gen_learning_rate = gen_learning_rate
         self.critic_learning_rate = critic_learning_rate
         self.use_critic = use_critic
+        self.beta1 = 0.5
 
     def init_ops(self):
         self.add_placeholders()
@@ -154,7 +155,7 @@ class MaskGan(BaselineModel):
 
     def train_critic(self, loss):
         with tf.name_scope("train_critic"):
-            critic_optimizer = tf.train.AdamOptimizer(self.critic_learning_rate)
+            critic_optimizer = tf.train.AdamOptimizer(self.critic_learning_rate, self.beta1)
             critic_vars = [
                 v for v  in tf.trainable_variables() if ("critic_linear_output" in v.op.name or "decoder_reward" in v.op.name or v.op.name.startswith("discriminator/rnn"))
             ]
@@ -165,7 +166,7 @@ class MaskGan(BaselineModel):
     
     def train_discriminator(self, loss):
         with tf.name_scope("train_discriminator"):
-            dis_optimizer = tf.train.AdamOptimizer(self.dis_learning_rate)
+            dis_optimizer = tf.train.AdamOptimizer(self.dis_learning_rate, self.beta1)
             dis_vars = [v for v in tf.trainable_variables() if v.op.name.startswith("discriminator")]
             dis_grads = tf.gradients(loss, dis_vars)
             dis_grads_clipped, _ = tf.clip_by_global_norm(dis_grads, 10.)
@@ -175,7 +176,7 @@ class MaskGan(BaselineModel):
     # policy gradient
     def train_generator(self, loss):
         with tf.name_scope("train_generator"):
-            gen_optimizer = tf.train.AdamOptimizer(self.gen_learning_rate)
+            gen_optimizer = tf.train.AdamOptimizer(self.gen_learning_rate, self.beta1)
             gen_vars = [v for v in tf.trainable_variables() if v.op.name.startswith("generator")]
             # gradient ascent , maximum reward 
             if self.gen_loss_type == 0:
