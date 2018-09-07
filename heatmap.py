@@ -14,6 +14,7 @@ import scipy.interpolate as inter
 from colour import Color
 from argparse import ArgumentParser
 import os
+import math
 import numpy as np
 import properties as pr
 import district_neighbors as dis
@@ -154,12 +155,12 @@ def draw_color_map(cr=10):
 if __name__ == "__main__":
     # draw_color_map(5)
     map_ = build_map()
-    # colors, bounds = get_color_map(5)
+    colors, bounds = get_color_map(5)
     # print(colors)
     # print(bounds)
-    # fig = plt.figure(figsize=(8, 3))
-    # cmap = ListedColormap(colors)
-    # norm = BoundaryNorm(bounds, cmap.N)
+    fig = plt.figure(figsize=(8, 3))
+    cmap = ListedColormap(colors)
+    norm = BoundaryNorm(bounds, cmap.N)
     # ax2 = fig.add_axes([0.05, 0.15, 0.9, 0.15])
     # cb3 = matplotlib.colorbar.ColorbarBase(ax2, cmap=cmap, norm=norm,
     #                             # to use 'extend', you must
@@ -170,39 +171,39 @@ if __name__ == "__main__":
     #                             spacing='proportional',
     #                             orientation='horizontal')
     # h1 = [19,25,24,16,19,15,12,35,14,26,12,33,11,17,16,16,16,21,14,25,26,22,15,0,18,17]
-    h2 = np.asarray([67,78,74,69,54,63,61,45,73,67,53,57,65,73,89,115,64,66,98,52,63,88,49,71,43,35])
+    # h2 = np.asarray([67,78,74,69,54,63,61,45,73,67,53,57,65,73,89,115,64,66,98,52,63,88,49,71,43,35])
     # seoulmap = mpimg.imread(pr.seoul_map)
     # ax.imshow(seoulmap, cmap=plt.cm.gray)
-    visualize(h2, map_)
+    # visualize(h2, map_)
     # fig = plt.figure(figsize=(100, 100), tight_layout=True)
-    # data = utils.load_file("vectors/test_sp/non_cnn_grid_1")
-    # labels = np.asarray(utils.load_file("vectors/test_sp_grid"))
-    # data = np.asarray(data)
-    # data = data.reshape([-1])
-    # data = np.reshape(data, (82 * 128, 24, 25, 25))
-    # y_s = 400
-    # x = data[y_s,:,:,:]
-    # x = np.where(x >= 0, x, np.zeros(x.shape))
-    # y = labels[y_s+24:(y_s+48),:,:,0]
-    # # x = np.where(x >= 0, x, np.zeros(x.shape))
-    # rows = 6
-    # cols = 4
-    # idx = 0
-    # for i in xrange(0, 11, 2):
-    #     for j in xrange(1, cols + 1):
-    #         ax = fig.add_subplot(rows, cols * 2, i * cols + j)
-    #         ax.set_title("%ih" % (idx + 1))
-    #         plt.imshow(x[idx,:,:], cmap=cmap, norm=norm)
-    #         idx+= 1
+    data = utils.load_file("test_sp/gan_cuda")
+    labels = utils.load_file("vectors/test_sp_grid")
+    labels = np.asarray(labels)
+    grid_sq = int(math.sqrt(data.shape[-1]))
+    data = np.reshape(data, (data.shape[0], data.shape[1], grid_sq, grid_sq))
+    rows = 6
+    cols = 4
     
-    # idx = 0
-    # for i in xrange(1, 12, 2):
-    #     for j in xrange(1, cols + 1):
-    #         ax_y = fig.add_subplot(rows,  cols * 2, i * cols + j)
-    #         ax_y.set_title("real %ih" % (idx + 1))
-    #         plt.imshow(y[idx,:,:], cmap=cmap, norm=norm)
-    #         idx+=1
-    # fig.subplots_adjust(top=1.3)
-    # plt.show()
+    for d_i, d in enumerate(data):
+        idx = 0
+        # x = np.where(d >= 0, d, np.zeros(d.shape))    
+        for i in xrange(0, 12, 2):
+            for j in xrange(1, cols + 1):
+                ax = fig.add_subplot(rows, cols * 2, i * cols + j)
+                # ax.set_title("%ih" % (idx + 1))
+                plt.imshow(d[idx,:,:] * 300, cmap=cmap, norm=norm)
+                idx+= 1
+    
+        idx = 0
+        st = d_i * 4 + 24
+        y = labels[st:st + 24,:,:,-1] * 500
+        for i in xrange(1, 12, 2):
+            for j in xrange(1, cols + 1):
+                ax_y = fig.add_subplot(rows,  cols * 2, i * cols + j)
+                # ax_y.set_title("real %ih" % (idx + 1))
+                plt.imshow(y[idx,:,:], cmap=cmap, norm=norm)
+                idx+=1
+        # fig.subplots_adjust(top=1.3)
+        plt.savefig("figures/gan/%i.png" % d_i, format="png", bbox_inches='tight', dpi=300)
 
 

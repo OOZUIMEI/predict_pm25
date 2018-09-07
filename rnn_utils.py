@@ -125,7 +125,7 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=N
 # perform cnn on pm2_5 output
 # estimated value of critic: 0 - inf
 # outputs: pm2.5 images
-def execute_decoder_critic(inputs, init_state, sequence_length, params, attention=None, dropout=None, mask=None):
+def execute_decoder_critic(inputs, init_state, sequence_length, params, attention=None, dropout=None, mask=None, use_critic=True):
     # push final state of encoder to decoder
     dec_state = init_state
     pm2_5 = np.zeros((params["batch_size"], params["de_output_size"]), dtype=np.float32)
@@ -158,9 +158,10 @@ def execute_decoder_critic(inputs, init_state, sequence_length, params, attentio
         if dropout:
             pm2_5 = tf.nn.dropout(pm2_5, dropout)
         # belong to critic
-        e_value = tf.layers.dense(dec_out, 1, name="critic_linear_output", activation=None)
+        if use_critic:
+            e_value = tf.layers.dense(dec_out, 1, name="critic_linear_output", activation=None)
+            estimated_values.append(e_value)
         outputs.append(pm2_5)
-        estimated_values.append(e_value)
     return outputs, estimated_values
 
 # output: predictions - probability [0, 1], rewards [0, 1]

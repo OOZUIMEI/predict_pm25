@@ -31,13 +31,14 @@ https://github.com/soumith/ganhacks
 
 class MaskGan(BaselineModel):
 
-    def __init__(self, gamma=0.9, dis_learning_rate=0.001, gen_learning_rate=0.001, critic_learning_rate=0.001, *args, **kwargs):
+    def __init__(self, gamma=0.9, dis_learning_rate=0.001, gen_learning_rate=0.001, critic_learning_rate=0.001, use_critic=False, *args, **kwargs):
         super(self.__class__, self).__init__(*args, **kwargs)
         self.gen_loss_type = 0
         self.gamma = gamma
         self.dis_learning_rate = dis_learning_rate
         self.gen_learning_rate = gen_learning_rate
         self.critic_learning_rate = critic_learning_rate
+        self.use_critic = use_critic
 
     def init_ops(self):
         self.add_placeholders()
@@ -48,13 +49,19 @@ class MaskGan(BaselineModel):
         enc_output, dec, outputs, estimated_values, attention = self.create_generator()
         fake_preds, fake_rewards, real_preds = self.create_discriminator(enc_output, dec, outputs, attention)
         self.dis_loss, dis_loss_real, dis_loss_fake = self.add_discriminator_loss(fake_preds, real_preds)
-        if self.gen_loss_type is 0:
+        if self.gen_loss_type == 0:
+            # use log(G)
             self.gen_loss = self.add_generator_loss(fake_preds, fake_rewards, estimated_values)
+        elif self.gen_loss_type == 1: 
+            # use mse of G & labels
+            labels = self.pred_placeholder
+            self.gen_loss = self.add_generator_loss(fake_preds, fake_rewards, estimated_values, labels)
         else:
             self.gen_loss = self.add_generator_mse_loss(dis_loss_fake, dis_loss_real, fake_rewards, estimated_values)
-        self.critic_loss = self.add_critic_loss(fake_rewards, estimated_values)
+        if self.use_critic:
+            self.critic_loss = self.add_critic_loss(fake_rewards, estimated_values)
+            self.critic_op = self.train_critic(self.critic_loss)
         self.gen_op = self.train_generator(self.gen_loss)
-        self.critic_op = self.train_critic(self.critic_loss)
         self.dis_op = self.train_discriminator(self.dis_loss)
         
         return outputs
@@ -93,7 +100,7 @@ class MaskGan(BaselineModel):
     def exe_decoder_critic(self, dec, enc_output, attention=None):
         with tf.variable_scope("decoder_critic", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             # estimated_values [0, inf], outputs: [0, 1]
-            outputs, estimated_values = rnn_utils.execute_decoder_critic(dec, enc_output, self.decoder_length, self.e_params, attention)
+            outputs, estimated_values = rnn_utils.execute_decoder_critic(dec, enc_output, self.decoder_length, self.e_params, attention, use_critic=self.use_critic)
             # batch_size x decoder_length x grid_size x grid_size
             outputs = tf.stack(outputs, axis=1)
             # batch_size x decoder_length
@@ -108,14 +115,20 @@ class MaskGan(BaselineModel):
     # add generation loss
     # type 1: regular loss
     # type 2: ||(fake - real)||22
-    def add_generator_loss(self, fake_preds, rewards, estimated_values):
+    def add_generator_loss(self, fake_preds, rewards, estimated_values, labels=None):
         r_ = tf.squeeze(tf.stack(rewards, axis=1))
-        e_ = tf.squeeze(tf.stack(estimated_values, axis=1))
-        advantages = tf.subtract(r_, e_)
-        advantages = tf.clip_by_value(advantages, -5, 5)
-        fake_labels = tf.constant(1, shape=[self.batch_size, self.decoder_length])
-        log_preds = tf.log_sigmoid(fake_preds)
-        loss = tf.reduce_mean(tf.multiply(log_preds, tf.stop_gradient(advantages)))
+        if self.use_critic:
+            e_ = tf.squeeze(tf.stack(estimated_values, axis=1))
+            advantages = tf.subtract(r_, e_)
+            advantages = tf.clip_by_value(advantages, -5, 5)
+        else:
+            advantages = r_
+        # fake_labels = tf.constant(1, shape=[self.batch_size, self.decoder_length])
+        if labels:
+            loss_values = tf.losses.mean_squared_error(labels, fake_preds)
+        else:
+            loss_values = tf.log_sigmoid(fake_preds)
+        loss = tf.reduce_mean(tf.multiply(loss_values, tf.stop_gradient(advantages)))
         tf.summary.scalar("gen_loss", loss)
         return loss
 
