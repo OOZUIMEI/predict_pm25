@@ -124,7 +124,7 @@ class MaskGan(BaselineModel):
         else:
             advantages = r_
         # fake_labels = tf.constant(1, shape=[self.batch_size, self.decoder_length])
-        if labels:
+        if labels is not None:
             loss_values = tf.losses.mean_squared_error(labels, fake_preds)
         else:
             loss_values = tf.log_sigmoid(fake_preds)
@@ -215,17 +215,25 @@ class MaskGan(BaselineModel):
             if self.use_attention:
                 feed[self.attention_inputs] = ct_t
 
-            gen_loss, dis_loss, critic_loss, pred, _, _, _= session.run(
-                [self.gen_loss, self.dis_loss, self.critic_loss, self.outputs, self.gen_op, 
-                self.dis_op, self.critic_op], feed_dict=feed)
-
+            if self.use_critic:
+                gen_loss, dis_loss, critic_loss, pred, _, _, _= session.run(
+                    [self.gen_loss, self.dis_loss, self.critic_loss, self.outputs, self.gen_op, 
+                    self.dis_op, self.critic_op], feed_dict=feed)
+                total_critic_loss.append(critic_loss) 
+            
             total_gen_loss.append(gen_loss) 
             total_dis_loss.append(dis_loss)
-            total_critic_loss.append(critic_loss) 
+            
             if verbose:
-                sys.stdout.write('\r{} / {} gen_loss = {} | dis_loss = {} | critic_loss = {}'.format(
-                    step, total_steps, np.mean(total_gen_loss), np.mean(total_dis_loss), np.mean(total_critic_loss)))
+                if self.use_critic:
+                    sys.stdout.write('\r{} / {} gen_loss = {} | dis_loss = {} | critic_loss = {}'.format(
+                        step, total_steps, np.mean(total_gen_loss), np.mean(total_dis_loss), np.mean(total_critic_loss)))
+                else:
+                    sys.stdout.write('\r{} / {} gen_loss = {} | dis_loss = {}'.format(
+                        step, total_steps, np.mean(total_gen_loss), np.mean(total_dis_loss)))
+
                 sys.stdout.flush()
+
             if not train:
                 preds.append(pred)
 
@@ -233,10 +241,11 @@ class MaskGan(BaselineModel):
             sys.stdout.write("\r")
 
         if train_writer is not None:
-            total_gen_loss, total_dis_loss, total_critic_loss = np.mean(total_gen_loss), np.mean(total_dis_loss), np.mean(total_critic_loss)
+            total_gen_loss, total_dis_loss = np.mean(total_gen_loss), np.mean(total_dis_loss)
             summary = tf.Summary()
             summary.value.add(tag= "Generator Loss", simple_value=total_gen_loss)
             summary.value.add(tag= "Discriminator Loss", simple_value=total_dis_loss)
-            summary.value.add(tag= "Critic Loss", simple_value=total_critic_loss)
+            if self.use_critic:
+                summary.value.add(tag= "Critic Loss", simple_value=np.mean(total_critic_loss))
             train_writer.add_summary(summary, num_epoch)
         return preds

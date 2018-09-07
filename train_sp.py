@@ -244,7 +244,8 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
         else:
             print("==> Reload pre-trained weights")
             saver.restore(session, url_weight)
-            csn = int(time.time())
+        
+        csn = int(time.time())
 
         if not is_test:
             url_weight = url_weight.split("/")[-1]
