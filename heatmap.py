@@ -176,9 +176,9 @@ if __name__ == "__main__":
     # ax.imshow(seoulmap, cmap=plt.cm.gray)
     # visualize(h2, map_)
     # fig = plt.figure(figsize=(100, 100), tight_layout=True)
-    data = utils.load_file("test_sp/gan_cuda")
-    labels = utils.load_file("vectors/test_sp_grid")
-    labels = np.asarray(labels)
+    data = utils.load_file("test_sp/gan_cuda_m")
+    #labels = utils.load_file("vectors/test_sp_grid")
+    #labels = np.asarray(labels)
     grid_sq = int(math.sqrt(data.shape[-1]))
     data = np.reshape(data, (data.shape[0], data.shape[1], grid_sq, grid_sq))
     rows = 6
@@ -195,7 +195,9 @@ if __name__ == "__main__":
                 idx+= 1
     
         idx = 0
+        """
         st = d_i * 4 + 24
+        
         y = labels[st:st + 24,:,:,-1] * 500
         for i in xrange(1, 12, 2):
             for j in xrange(1, cols + 1):
@@ -204,6 +206,7 @@ if __name__ == "__main__":
                 plt.imshow(y[idx,:,:], cmap=cmap, norm=norm)
                 idx+=1
         # fig.subplots_adjust(top=1.3)
+        """
         plt.savefig("figures/gan/%i.png" % d_i, format="png", bbox_inches='tight', dpi=300)
 
 

@@ -171,24 +171,63 @@ class BaselineModel(object):
         return outputs
 
     # get cnn representation of input images 
-    def get_cnn_rep(self, dec, length, vector_size):
-        cnn_inputs = tf.transpose(dec, [0,1,4,2,3])
-        #flatten
-        cnn_inputs = tf.reshape(cnn_inputs, [-1])
-        # cnn_inputs = tf.reshape(self.decoder_inputs, [-1])
-        
-        cnn_inputs = tf.reshape(cnn_inputs, [self.batch_size * length, vector_size, self.grid_size, self.grid_size])
-        cnn_inputs = tf.expand_dims(cnn_inputs, 4)
-        cnn = tf.layers.conv3d(
-            inputs=cnn_inputs,
-            strides=(1,2,2),
-            filters=1,
-            kernel_size=(vector_size,3,3),
-            padding="valid"
-        )
-        #output should have shape: bs * length, 12, 12, 1
-        cnn = tf.reshape(tf.squeeze(cnn), [-1])
-        return cnn
+    def get_cnn_rep(self, dec, length, vector_size, type=1):
+        if type == 0:
+            cnn_inputs = tf.transpose(dec, [0,1,4,2,3])
+            #flatten
+            # cnn_inputs = tf.reshape(cnn_inputs, [-1])
+            # cnn_inputs = tf.reshape(self.decoder_inputs, [-1])
+            cnn_inputs = tf.reshape(cnn_inputs, [self.batch_size * length, vector_size, self.grid_size, self.grid_size])
+            cnn_inputs = tf.expand_dims(cnn_inputs, 4)
+            cnn_outputs = tf.layers.conv3d(
+                inputs=cnn_inputs,
+                strides=(1,2,2),
+                filters=1,
+                kernel_size=(vector_size,3,3)
+            )
+            #output should have shape: bs * length, 12, 12, 1
+            cnn_outputs = tf.reshape(tf.squeeze(cnn_outputs), [-1])
+        else:
+            """
+            use structure of DCGAN with the mixture of both tranposed convolution and convolution
+            """
+            strides = (2,2)
+            cnn_inputs = tf.transpose(dec, [0,1,2,3,4])
+            cnn_inputs = tf.reshape(cnn_inputs, [self.batch_size * length, self.grid_size, self.grid_size, vector_size])
+            conv1 = tf.layers.conv2d(
+                inputs=cnn_inputs,
+                strides=strides,
+                filters=512,
+                kernel_size=(11,11)
+            )
+            upscale_k = (5, 5)
+            conv2 = tf.layers.conv2d_transpose(
+                inputs=conv1,
+                strides=strides,
+                filters=256,
+                kernel_size=upscale_k
+            )
+            conv3 = tf.layers.conv2d_transpose(
+                inputs=conv2,
+                strides=strides,
+                filters=128,
+                kernel_size=upscale_k
+            )
+            conv4 = tf.layers.conv2d_transpose(
+                inputs=conv3,
+                strides=strides,
+                filters=64,
+                kernel_size=upscale_k
+            )
+            cnn_outputs = tf.layers.conv2d(
+                inputs=conv4,
+                strides=strides,
+                filters=1,
+                kernel_size=(16,16)
+            )
+            cnn_outputs = tf.reshape(tf.squeeze(cnn_outputs), [-1])
+            print(cnn_outputs.get_shape())
+        return cnn_outputs
     
     # china representation
     def get_attention_rep(self, inputs):
