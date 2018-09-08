@@ -205,19 +205,22 @@ class BaselineModel(object):
                 inputs=conv1,
                 strides=strides,
                 filters=256,
-                kernel_size=upscale_k
+                kernel_size=upscale_k,
+                padding="SAME"
             )
             conv3 = tf.layers.conv2d_transpose(
                 inputs=conv2,
                 strides=strides,
                 filters=128,
-                kernel_size=upscale_k
+                kernel_size=upscale_k,
+                padding="SAME"
             )
             conv4 = tf.layers.conv2d_transpose(
                 inputs=conv3,
                 strides=strides,
                 filters=64,
-                kernel_size=upscale_k
+                kernel_size=upscale_k,
+                padding="SAME"
             )
             cnn_outputs = tf.layers.conv2d(
                 inputs=conv4,
