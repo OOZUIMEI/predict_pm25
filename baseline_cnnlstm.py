@@ -220,7 +220,7 @@ class BaselineModel(object):
             cnn_outputs = tf.layers.conv2d_transpose(
                 inputs=conv3,
                 strides=strides,
-                filters=64,
+                filters=1,
                 kernel_size=upscale_k,
                 padding="SAME"
             )
@@ -230,7 +230,7 @@ class BaselineModel(object):
             #     filters=1,
             #     kernel_size=(16,16)
             # )
-            # cnn_outputs = tf.reshape(tf.squeeze(cnn_outputs), [-1])
+            cnn_outputs = tf.squeeze(cnn_outputs, [-1])
         return cnn_outputs
     
     # china representation
