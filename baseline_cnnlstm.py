@@ -119,7 +119,9 @@ class BaselineModel(object):
                     cnn = self.get_cnn_rep(enc, self.encoder_length, self.encode_vector_size)
                 else:
                     cnn = enc
-                enc_data = tf.reshape(cnn, [self.batch_size, self.encoder_length, self.grd_cnn])
+                cnn_shape = cnn.get_shape()
+                last_dim = cnn_shape[-1] * cnn_shape[-2]
+                enc_data = tf.reshape(cnn, [self.batch_size, self.encoder_length, last_dim])
                 # enc_data = tf.unstack(enc_data, axis=1)
             else:
                 enc = tf.reshape(tf.reshape(enc, [-1]), [self.batch_size, self.encoder_length, self.districts * self.encode_vector_size])
@@ -215,21 +217,20 @@ class BaselineModel(object):
                 kernel_size=upscale_k,
                 padding="SAME"
             )
-            conv4 = tf.layers.conv2d_transpose(
+            cnn_outputs = tf.layers.conv2d_transpose(
                 inputs=conv3,
                 strides=strides,
                 filters=64,
                 kernel_size=upscale_k,
                 padding="SAME"
             )
-            cnn_outputs = tf.layers.conv2d(
-                inputs=conv4,
-                strides=strides,
-                filters=1,
-                kernel_size=(16,16)
-            )
-            cnn_outputs = tf.reshape(tf.squeeze(cnn_outputs), [-1])
-            print(cnn_outputs.get_shape())
+            # cnn_outputs = tf.layers.conv2d(
+            #     inputs=conv4,
+            #     strides=strides,
+            #     filters=1,
+            #     kernel_size=(16,16)
+            # )
+            # cnn_outputs = tf.reshape(tf.squeeze(cnn_outputs), [-1])
         return cnn_outputs
     
     # china representation
