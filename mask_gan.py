@@ -123,7 +123,7 @@ class MaskGan(BaselineModel):
             advantages = tf.subtract(r_, e_)
             advantages = tf.clip_by_value(advantages, -5, 5)
         else:
-            advantages = r_
+            advantages = tf.abs(r_)
         # fake_labels = tf.constant(1, shape=[self.batch_size, self.decoder_length])
         if labels is not None:
             loss_values = tf.losses.mean_squared_error(labels, outputs)
