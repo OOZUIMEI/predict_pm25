@@ -210,7 +210,7 @@ def get_cnn_rep(cnn_inputs, type=1):
         conv1 = tf.layers.conv2d(
             inputs=cnn_inputs,
             strides=strides,
-            filters=128,
+            filters=64,
             kernel_size=(11,11),
             name="conv1"
         )
@@ -219,7 +219,7 @@ def get_cnn_rep(cnn_inputs, type=1):
         conv2 = tf.layers.conv2d_transpose(
             inputs=conv1,
             strides=strides,
-            filters=64,
+            filters=32,
             kernel_size=upscale_k,
             padding="SAME",
             name="transpose_conv1"
@@ -228,7 +228,7 @@ def get_cnn_rep(cnn_inputs, type=1):
         conv3 = tf.layers.conv2d_transpose(
             inputs=conv2,
             strides=strides,
-            filters=32,
+            filters=16,
             kernel_size=upscale_k,
             padding="SAME",
             name="transpose_conv2"
@@ -237,27 +237,27 @@ def get_cnn_rep(cnn_inputs, type=1):
         conv4 = tf.layers.conv2d_transpose(
             inputs=conv3,
             strides=strides,
-            filters=32,
+            filters=8,
             kernel_size=upscale_k,
             padding="SAME",
             name="transpose_conv3"
         )
         # # 64x64x64
-        # conv5 = tf.layers.conv2d(
-        #     inputs=conv4,
-        #     strides=strides,
-        #     filters=32,
-        #     kernel_size=upscale_k,
-        #     padding="SAME"
-        # )
-        # 32x32x64
         cnn_outputs = tf.layers.conv2d(
             inputs=conv4,
             strides=strides,
-            filters=1,
+            filters=4,
             kernel_size=upscale_k,
             padding="SAME"
         )
+        # 32x32x64
+        # cnn_outputs = tf.layers.conv2d(
+        #     inputs=conv4,
+        #     strides=strides,
+        #     filters=1,
+        #     kernel_size=upscale_k,
+        #     padding="SAME"
+        # )
         # 16x16x1
         cnn_outputs = tf.squeeze(cnn_outputs, [-1])
     return cnn_outputs
