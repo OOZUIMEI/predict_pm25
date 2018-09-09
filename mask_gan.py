@@ -189,7 +189,7 @@ class MaskGan(BaselineModel):
 
     # using stride to reduce the amount of data to loop over time intervals
     def run_epoch(self, session, data, num_epoch=0, train_writer=None, verbose=True, train=False, shuffle=True, stride=4):
-        st = time()
+        st = time.time()
         if not train:
             train_op = tf.no_op()
         dt_length = len(data)
