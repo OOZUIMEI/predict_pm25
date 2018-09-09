@@ -117,6 +117,7 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=N
 # perform cnn on pm2_5 output
 # estimated value of critic: 0 - inf
 # outputs: pm2.5 images
+# this is for generator
 def execute_decoder_critic(inputs, init_state, sequence_length, params, attention=None, dropout=None, mask=None, use_critic=True):
     # push final state of encoder to decoder
     dec_state = init_state
@@ -149,6 +150,7 @@ def execute_decoder_critic(inputs, init_state, sequence_length, params, attentio
     return outputs, estimated_values
 
 # output: predictions - probability [0, 1], rewards [0, 1]
+# this is for discriminator
 def execute_decoder_dis(inputs, init_state, sequence_length, params, gamma, attention=None, is_fake=True):
     # push final state of encoder to decoder
     dec_state = init_state
@@ -160,7 +162,7 @@ def execute_decoder_dis(inputs, init_state, sequence_length, params, gamma, atte
         # shape of input_t bs x grid_size x grid_size x hidden_size
         input_t = inputs[:, t]
         # need to do cnn here
-        dec_in = get_cnn_rep(input_t)
+        dec_in = get_cnn_rep(input_t, tf.nn.leaky_relu)
         dec_in_shape = dec_in.get_shape()
         dec_in = tf.reshape(dec_in, [dec_in_shape[0], dec_in_shape[1] * dec_in_shape[2]])
         dec_out, dec_state = cell_dec(dec_in, dec_state)
@@ -181,7 +183,7 @@ def execute_decoder_dis(inputs, init_state, sequence_length, params, gamma, atte
     return predictions, rewards
 
 
-def get_cnn_rep(cnn_inputs, type=1):
+def get_cnn_rep(cnn_inputs, type=1, activation=tf.nn.relu):
     inp_shape = cnn_inputs.get_shape()
     inp_length = len(inp_shape) 
     if inp_length == 5:
@@ -196,7 +198,8 @@ def get_cnn_rep(cnn_inputs, type=1):
             inputs=cnn_inputs,
             strides=(2,2),
             filters=1,
-            kernel_size=(inp_shape[4],3,3)
+            kernel_size=(inp_shape[4],3,3),
+            activation=activation
         )
         #output should have shape: bs * length, 12, 12
         cnn_outputs = tf.squeeze(cnn_outputs, [-1])
@@ -212,7 +215,8 @@ def get_cnn_rep(cnn_inputs, type=1):
             strides=strides,
             filters=32,
             kernel_size=(11,11),
-            name="conv1"
+            name="conv1",
+            activation=activation
         )
         upscale_k = (5, 5)
         # 8x8x32
@@ -222,7 +226,8 @@ def get_cnn_rep(cnn_inputs, type=1):
             filters=16,
             kernel_size=upscale_k,
             padding="SAME",
-            name="transpose_conv1"
+            name="transpose_conv1",
+            activation=activation
         )
         # 16x16x16
         conv3 = tf.layers.conv2d_transpose(
@@ -231,7 +236,8 @@ def get_cnn_rep(cnn_inputs, type=1):
             filters=8,
             kernel_size=upscale_k,
             padding="SAME",
-            name="transpose_conv2"
+            name="transpose_conv2",
+            activation=activation
         )
         # 32x32x8
         # conv4 = tf.layers.conv2d_transpose(
@@ -256,7 +262,8 @@ def get_cnn_rep(cnn_inputs, type=1):
             strides=strides,
             filters=1,
             kernel_size=upscale_k,
-            padding="SAME"
+            padding="SAME",
+            activation=activation
         )
         # 16x16x1
         cnn_outputs = tf.squeeze(cnn_outputs, [-1])
