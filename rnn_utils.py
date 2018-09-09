@@ -99,6 +99,8 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=N
         dec_in = tf.concat([input_t, pm2_5_t], axis=3)
         # need to do cnn here
         dec_in = get_cnn_rep(dec_in)
+        dec_in_shape = dec_in.get_shape()
+        dec_in = tf.reshape(dec_in, [dec_in_shape[0], dec_in[1] * dec_in[2]])
         dec_out, dec_state = cell_dec(dec_in, dec_state)
         if attention is not None: 
             dec_out = tf.concat([dec_out, attention], axis=1)
@@ -130,6 +132,8 @@ def execute_decoder_critic(inputs, init_state, sequence_length, params, attentio
         dec_in = tf.concat([input_t, pm2_5_t], axis=3)
         # need to do cnn here
         dec_in = get_cnn_rep(dec_in)
+        dec_in_shape = dec_in.get_shape()
+        dec_in = tf.reshape(dec_in, [dec_in_shape[0], dec_in[1] * dec_in[2]])
         dec_out, dec_state = cell_dec(dec_in, dec_state)
         if attention is not None: 
             dec_out = tf.concat([dec_out, attention], axis=1)
@@ -157,6 +161,8 @@ def execute_decoder_dis(inputs, init_state, sequence_length, params, gamma, atte
         input_t = inputs[:, t]
         # need to do cnn here
         dec_in = get_cnn_rep(input_t)
+        dec_in_shape = dec_in.get_shape()
+        dec_in = tf.reshape(dec_in, [dec_in_shape[0], dec_in[1] * dec_in[2]])
         dec_out, dec_state = cell_dec(dec_in, dec_state)
         if attention is not None: 
             dec_out = tf.concat([dec_out, attention], axis=1)
