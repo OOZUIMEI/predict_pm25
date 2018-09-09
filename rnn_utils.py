@@ -98,17 +98,7 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=N
         pm2_5_t = tf.expand_dims(tf.reshape(pm2_5, [params["batch_size"], params["grid_size"], params["grid_size"]]), 3)
         dec_in = tf.concat([input_t, pm2_5_t], axis=3)
         # need to do cnn here
-        dec_in = tf.transpose(dec_in, [0,3,1,2])
-        dec_in = tf.expand_dims(dec_in, 4)
-        dec_in = tf.layers.conv3d(
-            inputs=dec_in,
-            strides=params["decoder_strides"],
-            filters=params["decoder_filter"],
-            kernel_size=params["decoder_kernel"],
-            padding="valid"
-        )
-        # bs x 12 x 12
-        dec_in = tf.reshape(tf.reshape(tf.squeeze(dec_in), [-1]), [params["batch_size"], 144])
+        dec_in = get_cnn_rep(dec_in)
         dec_out, dec_state = cell_dec(dec_in, dec_state)
         if attention is not None: 
             dec_out = tf.concat([dec_out, attention], axis=1)
@@ -132,24 +122,14 @@ def execute_decoder_critic(inputs, init_state, sequence_length, params, attentio
     dec_out = None
     outputs = []
     estimated_values = []
-    cell_dec = get_cell("basic", params["fw_cell_size"])
+    cell_dec = get_cell("lstm_block", params["fw_cell_size"])
     for t in xrange(sequence_length):
         # shape of input_t bs x grid_size x grid_size x hidden_size
         input_t = inputs[:, t]
         pm2_5_t = tf.expand_dims(tf.reshape(pm2_5, [params["batch_size"], params["grid_size"], params["grid_size"]]), 3)
         dec_in = tf.concat([input_t, pm2_5_t], axis=3)
         # need to do cnn here
-        dec_in = tf.transpose(dec_in, [0,3,1,2])
-        dec_in = tf.expand_dims(dec_in, 4)
-        dec_in = tf.layers.conv3d(
-            inputs=dec_in,
-            strides=params["decoder_strides"],
-            filters=params["decoder_filter"],
-            kernel_size=params["decoder_kernel"],
-            padding="valid"
-        )
-        # bs x 12 x 12
-        dec_in = tf.reshape(tf.reshape(tf.squeeze(dec_in), [-1]), [params["batch_size"], 144])
+        dec_in = get_cnn_rep(dec_in)
         dec_out, dec_state = cell_dec(dec_in, dec_state)
         if attention is not None: 
             dec_out = tf.concat([dec_out, attention], axis=1)
@@ -165,35 +145,23 @@ def execute_decoder_critic(inputs, init_state, sequence_length, params, attentio
     return outputs, estimated_values
 
 # output: predictions - probability [0, 1], rewards [0, 1]
-def execute_decoder_dis(inputs, init_state, sequence_length, params, gamma, attention=None, is_fake=True, dropout=None, mask=None):
+def execute_decoder_dis(inputs, init_state, sequence_length, params, gamma, attention=None, is_fake=True):
     # push final state of encoder to decoder
     dec_state = init_state
     dec_out = None
     predictions = []
-    cell_dec = get_cell("basic", params["fw_cell_size"])
+    cell_dec = get_cell("lstm_block", params["fw_cell_size"])
     rewards = []
     for t in xrange(sequence_length):
         # shape of input_t bs x grid_size x grid_size x hidden_size
         input_t = inputs[:, t]
         # need to do cnn here
-        dec_in = tf.transpose(input_t, [0,3,1,2])
-        dec_in = tf.expand_dims(dec_in, 4)
-        dec_in = tf.layers.conv3d(
-            inputs=dec_in,
-            strides=params["decoder_strides"],
-            filters=params["decoder_filter"],
-            kernel_size=params["decoder_kernel"],
-            padding="valid"
-        )
-        # bs x 12 x 12
-        dec_in = tf.reshape(tf.reshape(tf.squeeze(dec_in), [-1]), [params["batch_size"], 144])
+        dec_in = get_cnn_rep(input_t)
         dec_out, dec_state = cell_dec(dec_in, dec_state)
         if attention is not None: 
             dec_out = tf.concat([dec_out, attention], axis=1)
         # belong to disciminator
         dec_out = tf.layers.dense(dec_out, 1, name="decoder_linear_value", activation=None)
-        if dropout:
-            dec_out = tf.nn.dropout(dec_out, dropout)
         # belong to critic
         pred_value = tf.log_sigmoid(dec_out, name="decoder_reward")
         if is_fake:
@@ -207,17 +175,70 @@ def execute_decoder_dis(inputs, init_state, sequence_length, params, gamma, atte
     return predictions, rewards
 
 
-def execute_decoder_mask(inputs, init_state, sequence_length, is_training=True, masks=None):
-    # push final state of encoder to decoder
-    dec_state = init_state
-    pm2_5 = None
-    dec_out = None
-    for t in xrange(sequence_length):
-        dec_in = inputs[:, t]
-        if is_training and masks:
-            dec_in = tf.where(masks[:, t], dec_in, pm2_5)
-        dec_out, dec_state = cell_dec(dec_in, dec_state)
-        pm2_5 = tf.dense(dec_out, 
-                        name="decoder_output",
-                        activation=None)
-    return dec_out, dec_state
+def get_cnn_rep(cnn_inputs, type=1):
+    inp_shape = cnn_inputs.get_shape()
+    inp_length = len(inp_shape) 
+    if inp_length == 5:
+        length = inp_shape[0] * inp_shape[1]
+    else: 
+        length = inp_shape[0]
+    if type == 0:
+        if inp_length == 5:
+            cnn_inputs = tf.reshape(cnn_inputs, [length, inp_shape[2], inp_shape[2], inp_shape[-1]])
+        cnn_inputs = tf.expand_dims(cnn_inputs, 4)
+        cnn_outputs = tf.layers.conv2d(
+            inputs=cnn_inputs,
+            strides=(2,2),
+            filters=1,
+            kernel_size=(inp_shape[4],3,3)
+        )
+        #output should have shape: bs * length, 12, 12
+        cnn_outputs = tf.squeeze(cnn_outputs, [-1])
+    else:
+        """
+        use structure of DCGAN with the mixture of both tranposed convolution and convolution
+        """
+        strides = (2,2)
+        if inp_length == 5:
+            cnn_inputs = tf.reshape(cnn_inputs, [length, inp_shape[2], inp_shape[2], inp_shape[-1]])
+        conv1 = tf.layers.conv2d(
+            inputs=cnn_inputs,
+            strides=strides,
+            filters=512,
+            kernel_size=(11,11),
+            name="conv1"
+        )
+        upscale_k = (5, 5)
+        conv2 = tf.layers.conv2d_transpose(
+            inputs=conv1,
+            strides=strides,
+            filters=256,
+            kernel_size=upscale_k,
+            padding="SAME",
+            name="transpose_conv1"
+        )
+        conv3 = tf.layers.conv2d_transpose(
+            inputs=conv2,
+            strides=strides,
+            filters=128,
+            kernel_size=upscale_k,
+            padding="SAME",
+            name="transpose_conv2"
+        )
+        cnn_outputs = tf.layers.conv2d_transpose(
+            inputs=conv3,
+            strides=strides,
+            filters=1,
+            kernel_size=upscale_k,
+            padding="SAME",
+            name="transpose_conv3"
+        )
+        # cnn_outputs = tf.layers.conv2d(
+        #     inputs=conv4,
+        #     strides=strides,
+        #     filters=1,
+        #     kernel_size=(16,16)
+        # )
+        # cnn_outputs with shape batch_size x 64 x 64
+        cnn_outputs = tf.squeeze(cnn_outputs, [-1])
+    return cnn_outputs
