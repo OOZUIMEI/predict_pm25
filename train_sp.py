@@ -212,12 +212,13 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
             saver.restore(session, url_weight)
             print('==> running model')
             preds = model.run_epoch(session, train, train=False, verbose=False, shuffle=False)
+            shape = np.shape(preds)
             # l_str = 'Test mae loss: %.4f' % loss
             pt = re.compile("weights/([A-Za-z0-9_.]*).weights")
             name = pt.match(url_weight)
             name_s = name.group(1)
-            pr_s = preds.shape[0] * preds.shape[1]
-            preds = np.reshape(preds, (pr_s, preds.shape[2], preds.shape[3]))
+            pr_s = shape[0] * shape[1]
+            preds = np.reshape(preds, (pr_s, shape[2], shape[3]))
             utils.save_file("test_sp/%s" % name_s, preds)
 
 

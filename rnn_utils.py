@@ -99,8 +99,7 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=N
         dec_in = tf.concat([input_t, pm2_5_t], axis=3)
         # need to do cnn here
         dec_in = get_cnn_rep(dec_in)
-        dec_in_shape = dec_in.get_shape()
-        dec_in = tf.reshape(dec_in, [dec_in_shape[0], dec_in_shape[1] * dec_in_shape[2]])
+        dec_in = tf.flatten(dec_in))
         dec_out, dec_state = cell_dec(dec_in, dec_state)
         if attention is not None: 
             dec_out = tf.concat([dec_out, attention], axis=1)
@@ -118,7 +117,7 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=N
 # estimated value of critic: 0 - inf
 # outputs: pm2.5 images
 # this is for generator
-def execute_decoder_critic(inputs, init_state, sequence_length, params, attention=None, dropout=None, mask=None, use_critic=True):
+def execute_decoder_critic(inputs, init_state, sequence_length, params, attention=None, mask=None, use_critic=True):
     # push final state of encoder to decoder
     dec_state = init_state
     pm2_5 = np.zeros((params["batch_size"], params["de_output_size"]), dtype=np.float32)
@@ -132,16 +131,13 @@ def execute_decoder_critic(inputs, init_state, sequence_length, params, attentio
         pm2_5_t = tf.expand_dims(tf.reshape(pm2_5, [params["batch_size"], params["grid_size"], params["grid_size"]]), 3)
         dec_in = tf.concat([input_t, pm2_5_t], axis=3)
         # need to do cnn here
-        dec_in = get_cnn_rep(dec_in)
-        dec_in_shape = dec_in.get_shape()
-        dec_in = tf.reshape(dec_in, [dec_in_shape[0], dec_in_shape[1] * dec_in_shape[2]])
+        dec_in = get_cnn_rep(dec_in, type=2)
+        dec_in = tf.flatten(dec_in))
         dec_out, dec_state = cell_dec(dec_in, dec_state)
         if attention is not None: 
             dec_out = tf.concat([dec_out, attention], axis=1)
         # belong to generator
         pm2_5 = tf.layers.dense(dec_out, params["de_output_size"], name="decoder_output", activation=tf.nn.sigmoid)
-        if dropout:
-            pm2_5 = tf.nn.dropout(pm2_5, dropout)
         # belong to critic
         if use_critic:
             e_value = tf.layers.dense(dec_out, 1, name="critic_linear_output", activation=None)
@@ -162,9 +158,8 @@ def execute_decoder_dis(inputs, init_state, sequence_length, params, gamma, atte
         # shape of input_t bs x grid_size x grid_size x hidden_size
         input_t = inputs[:, t]
         # need to do cnn here
-        dec_in = get_cnn_rep(input_t, tf.nn.leaky_relu)
-        dec_in_shape = dec_in.get_shape()
-        dec_in = tf.reshape(dec_in, [dec_in_shape[0], dec_in_shape[1] * dec_in_shape[2]])
+        dec_in = get_cnn_rep(input_t, 3, tf.nn.leaky_relu)
+        dec_in = tf.flatten(dec_in)
         dec_out, dec_state = cell_dec(dec_in, dec_state)
         if attention is not None: 
             dec_out = tf.concat([dec_out, attention], axis=1)
@@ -186,6 +181,8 @@ def execute_decoder_dis(inputs, init_state, sequence_length, params, gamma, atte
 def get_cnn_rep(cnn_inputs, type=1, activation=tf.nn.relu):
     inp_shape = cnn_inputs.get_shape()
     inp_length = len(inp_shape) 
+    upscale_k = (5, 5)
+    strides = (2,2)
     if inp_length == 5:
         length = inp_shape[0] * inp_shape[1]
     else: 
@@ -194,77 +191,93 @@ def get_cnn_rep(cnn_inputs, type=1, activation=tf.nn.relu):
         if inp_length == 5:
             cnn_inputs = tf.reshape(cnn_inputs, [length, inp_shape[2], inp_shape[2], inp_shape[-1]])
         cnn_inputs = tf.expand_dims(cnn_inputs, 4)
-        cnn_outputs = tf.layers.conv2d(
+        cnn_outputs = tf.layers.conv3d(
             inputs=cnn_inputs,
-            strides=(2,2),
+            strides=(2,2,1),
             filters=1,
-            kernel_size=(inp_shape[4],3,3),
-            activation=activation
+            kernel_size=(inp_shape[4],3,3)
         )
         #output should have shape: bs * length, 12, 12
         cnn_outputs = tf.squeeze(cnn_outputs, [-1])
-    else:
+    elif type == 1:
         """
-        use structure of DCGAN with the mixture of both tranposed convolution and convolution
+            use structure of DCGAN with the mixture of both tranposed convolution and convolution
         """
-        strides = (2,2)
         if inp_length == 5:
             cnn_inputs = tf.reshape(cnn_inputs, [length, inp_shape[2], inp_shape[2], inp_shape[-1]])
-        conv1 = tf.layers.conv2d(
-            inputs=cnn_inputs,
-            strides=strides,
-            filters=32,
-            kernel_size=(11,11),
-            name="conv1",
-            activation=activation
-        )
-        upscale_k = (5, 5)
-        # 8x8x32
-        conv2 = tf.layers.conv2d_transpose(
-            inputs=conv1,
-            strides=strides,
-            filters=16,
-            kernel_size=upscale_k,
-            padding="SAME",
-            name="transpose_conv1",
-            activation=activation
-        )
-        # 16x16x16
-        conv3 = tf.layers.conv2d_transpose(
-            inputs=conv2,
-            strides=strides,
-            filters=8,
-            kernel_size=upscale_k,
-            padding="SAME",
-            name="transpose_conv2",
-            activation=activation
-        )
-        # 32x32x8
-        # conv4 = tf.layers.conv2d_transpose(
-        #     inputs=conv3,
-        #     strides=strides,
-        #     filters=1,
-        #     kernel_size=upscale_k,
-        #     padding="SAME",
-        #     name="transpose_conv3"
-        # )
-        # # 64x64x64
-        # cnn_outputs = tf.layers.conv2d(
-        #     inputs=conv4,
-        #     strides=strides,
-        #     filters=1,
-        #     kernel_size=upscale_k,
-        #     padding="SAME"
-        # )
-        # 32x32x64
-        cnn_outputs = tf.layers.conv2d(
-            inputs=conv3,
-            strides=strides,
-            filters=1,
-            kernel_size=upscale_k,
-            padding="SAME",
-            activation=activation
-        )
-        # 16x16x1
+        # 25 x 25 x H => 8x8x32 => 16x16x16 => 16x16x1
+        conv1 = get_cnn_unit(cnn_inputs, 32, (11,11), None, "VALID", "conv1")
+        conv2 = get_cnn_transpose_unit(conv1, 16, upscale_k, None, "SAME", "transpose_conv1")
+        conv3 = get_cnn_transpose_unit(conv2, 8, upscale_k, None, "SAME", "transpose_conv2")
+        cnn_outputs = get_cnn_unit(conv3, 1, upscale_k, None, "SAME", "")
         cnn_outputs = tf.squeeze(cnn_outputs, [-1])
+    elif type == 2:
+        """
+            use structure of DCGAN with the mixture of both tranposed convolution and convolution for Generator output
+        """
+        if inp_length == 5:
+            cnn_inputs = tf.reshape(cnn_inputs, [length, inp_shape[2], inp_shape[2], inp_shape[-1]])
+        # normalize input to [-1, 1] in generator
+        cnn_inputs = tf.tanh(cnn_inputs)
+        # input should be 4 * 4 * 32 => 8 x 8 x 32 => 16 x 16 x 16 => 32 x 32 x 8 => 25x25x1
+        conv1 = get_cnn_transpose_unit(cnn_inputs, 32, upscale_k, activation, "SAME", "transpose_conv1", True, 0.5)
+        conv2 = get_cnn_transpose_unit(conv1, 16, upscale_k, activation, "SAME", "transpose_conv2", True, 0.5)
+        conv3 = get_cnn_transpose_unit(conv2, 8, upscale_k, activation, "SAME", "transpose_conv3", True, 0.5)
+        cnn_outputs = get_cnn_unit(conv3, 1, (8, 8), activation, "SAME", "cnn_gen_output", True, 0.5)
+        cnn_outputs = tf.squeeze(cnn_outputs, [-1])
+     elif type == 3:
+        """
+            use structure of DCGAN with the mixture of both tranposed convolution and convolution for discriminator
+            use dropout and batch_normalization
+        """
+        if inp_length == 5:
+            cnn_inputs = tf.reshape(cnn_inputs, [length, inp_shape[2], inp_shape[2], inp_shape[-1]])
+        # normalize input to [-1, 1] in generator
+        cnn_inputs = tf.tanh(cnn_inputs)
+        # 25 x 25 x H => 8x8x32 => 4x4x32
+        conv1 = get_cnn_unit(cnn_inputs, 32, (11,11), activation, "VALID", "rep_conv1", True, 0.5)
+        cnn_outputs = get_cnn_unit(conv1, 32, upscale_k, activation, "SAME", "rep_conv2", True, 0.5)
+    else:
+        """
+            Use for representation steps of both encoder and decoder
+            provide the cnn representation of input images from 25 x 25 => 4 * 4 * 64 dimension
+        """
+        if inp_length == 5:
+            cnn_inputs = tf.reshape(cnn_inputs, [length, inp_shape[2], inp_shape[2], inp_shape[-1]])
+        # 25 x 25 x H => 8x8x32 => 4x4x32
+        conv1 = get_cnn_unit(cnn_inputs, 32, (11,11), activation, "VALID", "rep_conv1")
+        cnn_outputs = get_cnn_unit(conv1, 32, upscale_k, activation, "SAME", "rep_conv2")
+    return cnn_outputs
+
+
+def get_cnn_unit(cnn_inputs, filter, kernel, activation=tf.nn.relu, padding="VALID", name="", use_batch_norm=False, dropout=0.0, strides=(2,2)):
+    cnn_outputs = tf.layers.conv2d(
+        inputs=cnn_inputs,
+        strides=strides,
+        filters=1,
+        kernel_size=kernel,
+        padding=padding,
+        activation=activation
+    )
+    if dropout != 0.0:
+        cnn_outputs = tf.layers.dropout(cnn_outputs)
+    if use_batch_norm:
+        cnn_outputs = tf.layers.batch_normalization(cnn_outputs, name=name)
+    return cnn_outputs
+
+
+def get_cnn_transpose_unit(cnn_inputs, filter, kernel, activation=tf.nn.relu, padding="SAME", name="", use_batch_norm=False, dropout=0.0, strides=(2,2)):
+    cnn_outputs = tf.layers.conv2d_transpose(
+        inputs=cnn_inputs,
+        strides=strides,
+        filters=1,
+        kernel_size=kernel,
+        padding=padding,
+        activation=activation,
+        name=name
+    )
+    if dropout != 0.0:
+        cnn_outputs = tf.layers.dropout(cnn_outputs)
+    if use_batch_norm:
+        cnn_outputs = tf.layers.batch_normalization(cnn_outputs, name=name + "_bn")
     return cnn_outputs

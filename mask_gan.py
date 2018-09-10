@@ -39,6 +39,7 @@ class MaskGan(BaselineModel):
         self.gen_learning_rate = gen_learning_rate
         self.critic_learning_rate = critic_learning_rate
         self.use_critic = use_critic
+        self.is_clip = True
         self.beta1 = 0.5
 
     def init_ops(self):
@@ -94,7 +95,7 @@ class MaskGan(BaselineModel):
     # inputs is either from generator or from real context
     # enc_output: last hidden layer of encoder
     # dec: decoder vectors without pm2.5
-    # output: fake prediction pm2.5 
+    # output: fake_preds: fake prediction pm2.5 (logits value): this is D value before performing sigmoid
     def create_discriminator(self, enc_output, dec, outputs, attention=None):
         outputs_ = tf.expand_dims(tf.reshape(outputs, [self.batch_size, self.decoder_length, self.grid_size, self.grid_size]), axis=4)
         params = copy.deepcopy(self.e_params)
@@ -114,7 +115,7 @@ class MaskGan(BaselineModel):
         return loss
 
     # add generation loss
-    # type 1: regular loss
+    # type 1: regular loss log(D(G))
     # type 2: ||(fake - real)||22
     def add_generator_loss(self, fake_preds, rewards, estimated_values, outputs=None, labels=None):
         r_ = tf.squeeze(tf.stack(rewards, axis=1))
@@ -130,16 +131,6 @@ class MaskGan(BaselineModel):
         else:
             loss_values = tf.log_sigmoid(fake_preds)
         loss = tf.reduce_mean(tf.multiply(loss_values, tf.stop_gradient(advantages)))
-        tf.summary.scalar("gen_loss", loss)
-        return loss
-
-    def add_generator_mse_loss(self, fake_loss, real_loss, rewards, estimated_values):
-        r_ = tf.squeeze(tf.stack(rewards, axis=1))
-        e_ = tf.squeeze(tf.stack(estimated_values, axis=1))
-        advantages = tf.subtract(r_, e_)
-        advantages = tf.clip_by_value(advantages, -5, 5)
-        loss = tf.losses.mean_squared_error(real_loss, fake_loss)
-        loss = tf.reduce_mean(tf.multiply(loss, tf.stop_gradient(advantages)))
         tf.summary.scalar("gen_loss", loss)
         return loss
 
@@ -160,8 +151,9 @@ class MaskGan(BaselineModel):
                 v for v  in tf.trainable_variables() if ("critic_linear_output" in v.op.name or "decoder_reward" in v.op.name or v.op.name.startswith("discriminator/rnn"))
             ]
             critic_grads = tf.gradients(loss, critic_vars)
-            critic_grads_clipped, _ = tf.clip_by_global_norm(critic_grads, 10.)
-            critic_train_op = critic_optimizer.apply_gradients(zip(critic_grads_clipped, critic_vars))        
+            if self.is_clip:
+                critic_grads, _ = tf.clip_by_global_norm(critic_grads, 10.)
+            critic_train_op = critic_optimizer.apply_gradients(zip(critic_grads, critic_vars))        
         return critic_train_op
     
     def train_discriminator(self, loss):
@@ -169,8 +161,10 @@ class MaskGan(BaselineModel):
             dis_optimizer = tf.train.AdamOptimizer(self.dis_learning_rate, self.beta1)
             dis_vars = [v for v in tf.trainable_variables() if v.op.name.startswith("discriminator")]
             dis_grads = tf.gradients(loss, dis_vars)
-            dis_grads_clipped, _ = tf.clip_by_global_norm(dis_grads, 10.)
-            dis_train_op = dis_optimizer.apply_gradients(zip(dis_grads_clipped, dis_vars))
+
+            if self.is_clip:
+                dis_grads, _ = tf.clip_by_global_norm(dis_grads, 10.)
+            dis_train_op = dis_optimizer.apply_gradients(zip(dis_grads, dis_vars))
             return dis_train_op
 
     # policy gradient
@@ -182,9 +176,13 @@ class MaskGan(BaselineModel):
             if self.gen_loss_type == 0:
                 gen_grads = tf.gradients(-loss, gen_vars)
             else:
+                # using mse without critic
                 gen_grads = tf.gradients(loss, gen_vars)
-            gen_grads_clipped, _ = tf.clip_by_global_norm(gen_grads, 10.)
-            gen_train_op = gen_optimizer.apply_gradients(zip(gen_grads_clipped, gen_vars))
+            # if self.use_l1:
+            #     gen_grads = tf.contrib.layers.l1_regularizer()
+            if self.is_clip:
+                gen_grads, _ = tf.clip_by_global_norm(gen_grads, 10.)
+            gen_train_op = gen_optimizer.apply_gradients(zip(gen_grads, gen_vars))
             return gen_train_op
 
     # using stride to reduce the amount of data to loop over time intervals
