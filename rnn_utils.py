@@ -182,7 +182,6 @@ def get_cnn_rep(cnn_inputs, type=1, activation=tf.nn.relu):
     inp_shape = cnn_inputs.get_shape()
     inp_length = len(inp_shape) 
     upscale_k = (5, 5)
-    strides = (2,2)
     if inp_length == 5:
         length = inp_shape[0] * inp_shape[1]
     else: 
@@ -254,7 +253,7 @@ def get_cnn_unit(cnn_inputs, filter, kernel, activation=tf.nn.relu, padding="VAL
     cnn_outputs = tf.layers.conv2d(
         inputs=cnn_inputs,
         strides=strides,
-        filters=1,
+        filters=filter,
         kernel_size=kernel,
         padding=padding,
         activation=activation
@@ -270,7 +269,7 @@ def get_cnn_transpose_unit(cnn_inputs, filter, kernel, activation=tf.nn.relu, pa
     cnn_outputs = tf.layers.conv2d_transpose(
         inputs=cnn_inputs,
         strides=strides,
-        filters=1,
+        filters=filter,
         kernel_size=kernel,
         padding=padding,
         activation=activation,
