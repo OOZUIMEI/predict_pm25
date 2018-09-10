@@ -99,7 +99,7 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=N
         dec_in = tf.concat([input_t, pm2_5_t], axis=3)
         # need to do cnn here
         dec_in = get_cnn_rep(dec_in)
-        dec_in = tf.flatten(dec_in))
+        dec_in = tf.flatten(dec_in)
         dec_out, dec_state = cell_dec(dec_in, dec_state)
         if attention is not None: 
             dec_out = tf.concat([dec_out, attention], axis=1)
