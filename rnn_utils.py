@@ -99,7 +99,7 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=N
         dec_in = tf.concat([input_t, pm2_5_t], axis=3)
         # need to do cnn here
         dec_in = get_cnn_rep(dec_in)
-        dec_in = tf.flatten(dec_in)
+        dec_in = tf.layers.flatten(dec_in)
         dec_out, dec_state = cell_dec(dec_in, dec_state)
         if attention is not None: 
             dec_out = tf.concat([dec_out, attention], axis=1)
@@ -132,7 +132,7 @@ def execute_decoder_critic(inputs, init_state, sequence_length, params, attentio
         dec_in = tf.concat([input_t, pm2_5_t], axis=3)
         # need to do cnn here
         dec_in = get_cnn_rep(dec_in, type=2)
-        dec_in = tf.flatten(dec_in)
+        dec_in = tf.layers.flatten(dec_in)
         dec_out, dec_state = cell_dec(dec_in, dec_state)
         if attention is not None: 
             dec_out = tf.concat([dec_out, attention], axis=1)
@@ -159,7 +159,7 @@ def execute_decoder_dis(inputs, init_state, sequence_length, params, gamma, atte
         input_t = inputs[:, t]
         # need to do cnn here
         dec_in = get_cnn_rep(input_t, 3, tf.nn.leaky_relu)
-        dec_in = tf.flatten(dec_in)
+        dec_in = tf.layers.flatten(dec_in)
         dec_out, dec_state = cell_dec(dec_in, dec_state)
         if attention is not None: 
             dec_out = tf.concat([dec_out, attention], axis=1)
@@ -225,7 +225,7 @@ def get_cnn_rep(cnn_inputs, type=1, activation=tf.nn.relu):
         conv3 = get_cnn_transpose_unit(conv2, 8, upscale_k, activation, "SAME", "transpose_conv3", True, 0.5)
         cnn_outputs = get_cnn_unit(conv3, 1, (8, 8), activation, "SAME", "cnn_gen_output", True, 0.5)
         cnn_outputs = tf.squeeze(cnn_outputs, [-1])
-     elif type == 3:
+    elif type == 3:
         """
             use structure of DCGAN with the mixture of both tranposed convolution and convolution for discriminator
             use dropout and batch_normalization
