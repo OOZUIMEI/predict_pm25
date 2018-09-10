@@ -119,9 +119,10 @@ class BaselineModel(object):
                     cnn = rnn_utils.get_cnn_rep(enc)
                 else:
                     cnn = enc
+                cnn = tf.layers.flatten(cnn)
                 cnn_shape = cnn.get_shape()
-                last_dim = cnn_shape[-1] * cnn_shape[-2]
-                enc_data = tf.reshape(cnn, [self.batch_size, self.encoder_length, last_dim])
+                # last_dim = cnn_shape[-1] * cnn_shape[-2]
+                enc_data = tf.reshape(cnn, [self.batch_size, self.encoder_length, cnn_shape[-1]])
                 # enc_data = tf.unstack(enc_data, axis=1)
             else:
                 enc = tf.reshape(tf.reshape(enc, [-1]), [self.batch_size, self.encoder_length, self.districts * self.encode_vector_size])
