@@ -43,7 +43,7 @@ class BaselineModel(object):
         self.initializer = tf.contrib.layers.xavier_initializer()
         self.e_params = {
             "fw_cell_size" : self.rnn_hidden_units,
-            "fw_cell": "cudnn_lstm",
+            "fw_cell": "cudnn_gru",
             "batch_size" : self.batch_size,
             "type": 0,
             "rnn_layer": self.rnn_layers,
