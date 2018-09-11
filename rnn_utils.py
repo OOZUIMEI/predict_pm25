@@ -131,7 +131,7 @@ def execute_decoder_critic(inputs, init_state, sequence_length, params, attentio
         pm2_5_t = tf.expand_dims(tf.reshape(pm2_5, [params["batch_size"], params["grid_size"], params["grid_size"]]), 3)
         dec_in = tf.concat([input_t, pm2_5_t], axis=3)
         # need to do cnn here
-        dec_in = get_cnn_rep(dec_in, type=2)
+        dec_in = get_cnn_rep(dec_in, mtype=2)
         dec_in = tf.layers.flatten(dec_in)
         dec_out, dec_state = cell_dec(dec_in, dec_state)
         if attention is not None: 
@@ -178,7 +178,7 @@ def execute_decoder_dis(inputs, init_state, sequence_length, params, gamma, atte
     return predictions, rewards
 
 
-def get_cnn_rep(cnn_inputs, type=1, activation=tf.nn.relu):
+def get_cnn_rep(cnn_inputs, mtype=3, activation=tf.nn.relu):
     inp_shape = cnn_inputs.get_shape()
     inp_length = len(inp_shape) 
     upscale_k = (5, 5)
@@ -186,7 +186,7 @@ def get_cnn_rep(cnn_inputs, type=1, activation=tf.nn.relu):
         length = inp_shape[0] * inp_shape[1]
     else: 
         length = inp_shape[0]
-    if type == 0:
+    if mtype == 0:
         if inp_length == 5:
             cnn_inputs = tf.reshape(cnn_inputs, [length, inp_shape[2], inp_shape[2], inp_shape[-1]])
         cnn_inputs = tf.expand_dims(cnn_inputs, 4)
@@ -198,7 +198,7 @@ def get_cnn_rep(cnn_inputs, type=1, activation=tf.nn.relu):
         )
         #output should have shape: bs * length, 12, 12
         cnn_outputs = tf.squeeze(cnn_outputs, [-1])
-    elif type == 1:
+    elif mtype == 1:
         """
             use structure of DCGAN with the mixture of both tranposed convolution and convolution
         """
@@ -210,7 +210,7 @@ def get_cnn_rep(cnn_inputs, type=1, activation=tf.nn.relu):
         conv3 = get_cnn_transpose_unit(conv2, 8, upscale_k, None, "SAME", "transpose_conv2")
         cnn_outputs = get_cnn_unit(conv3, 1, upscale_k, None, "SAME", "")
         cnn_outputs = tf.squeeze(cnn_outputs, [-1])
-    elif type == 2:
+    elif mtype == 2:
         """
             use structure of DCGAN with the mixture of both tranposed convolution and convolution for Generator output
         """
@@ -224,7 +224,7 @@ def get_cnn_rep(cnn_inputs, type=1, activation=tf.nn.relu):
         conv3 = get_cnn_transpose_unit(conv2, 8, upscale_k, activation, "SAME", "transpose_conv3", True, 0.5)
         cnn_outputs = get_cnn_unit(conv3, 1, (8, 8), activation, "SAME", "cnn_gen_output", True, 0.5)
         cnn_outputs = tf.squeeze(cnn_outputs, [-1])
-    elif type == 3:
+    elif mtype == 3:
         """
             use structure of DCGAN with the mixture of both tranposed convolution and convolution for discriminator
             use dropout and batch_normalization
@@ -249,27 +249,28 @@ def get_cnn_rep(cnn_inputs, type=1, activation=tf.nn.relu):
     return cnn_outputs
 
 
-def get_cnn_unit(cnn_inputs, filter, kernel, activation=tf.nn.relu, padding="VALID", name="", use_batch_norm=False, dropout=0.0, strides=(2,2)):
+def get_cnn_unit(cnn_inputs, filters, kernel, activation=tf.nn.relu, padding="VALID", name="", use_batch_norm=False, dropout=0.0, strides=(2,2)):
     cnn_outputs = tf.layers.conv2d(
         inputs=cnn_inputs,
         strides=strides,
-        filters=filter,
+        filters=filters,
         kernel_size=kernel,
         padding=padding,
-        activation=activation
+        activation=activation,
+        name=name
     )
     if dropout != 0.0:
         cnn_outputs = tf.layers.dropout(cnn_outputs)
     if use_batch_norm:
-        cnn_outputs = tf.layers.batch_normalization(cnn_outputs, name=name)
+        cnn_outputs = tf.layers.batch_normalization(cnn_outputs, name=name + "_bn")
     return cnn_outputs
 
 
-def get_cnn_transpose_unit(cnn_inputs, filter, kernel, activation=tf.nn.relu, padding="SAME", name="", use_batch_norm=False, dropout=0.0, strides=(2,2)):
+def get_cnn_transpose_unit(cnn_inputs, filters, kernel, activation=tf.nn.relu, padding="SAME", name="", use_batch_norm=False, dropout=0.0, strides=(2,2)):
     cnn_outputs = tf.layers.conv2d_transpose(
         inputs=cnn_inputs,
         strides=strides,
-        filters=filter,
+        filters=filters,
         kernel_size=kernel,
         padding=padding,
         activation=activation,
