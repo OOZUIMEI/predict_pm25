@@ -182,6 +182,7 @@ def get_cnn_rep(cnn_inputs, mtype=3, activation=tf.nn.relu):
     inp_shape = cnn_inputs.get_shape()
     inp_length = len(inp_shape) 
     upscale_k = (5, 5)
+    max_filters = 16
     if inp_length == 5:
         length = inp_shape[0] * inp_shape[1]
     else: 
@@ -205,9 +206,9 @@ def get_cnn_rep(cnn_inputs, mtype=3, activation=tf.nn.relu):
         if inp_length == 5:
             cnn_inputs = tf.reshape(cnn_inputs, [length, inp_shape[2], inp_shape[2], inp_shape[-1]])
         # 25 x 25 x H => 8x8x32 => 16x16x16 => 16x16x1
-        conv1 = get_cnn_unit(cnn_inputs, 32, (11,11), None, "VALID", "conv1")
-        conv2 = get_cnn_transpose_unit(conv1, 16, upscale_k, None, "SAME", "transpose_conv1")
-        conv3 = get_cnn_transpose_unit(conv2, 8, upscale_k, None, "SAME", "transpose_conv2")
+        conv1 = get_cnn_unit(cnn_inputs, max_filters, (11,11), None, "VALID", "conv1")
+        conv2 = get_cnn_transpose_unit(conv1, max_filters / 2, upscale_k, None, "SAME", "transpose_conv1")
+        conv3 = get_cnn_transpose_unit(conv2, max_filters / 4, upscale_k, None, "SAME", "transpose_conv2")
         cnn_outputs = get_cnn_unit(conv3, 1, upscale_k, None, "SAME", "")
         cnn_outputs = tf.squeeze(cnn_outputs, [-1])
     elif mtype == 2:
@@ -219,9 +220,9 @@ def get_cnn_rep(cnn_inputs, mtype=3, activation=tf.nn.relu):
         # normalize input to [-1, 1] in generator
         cnn_inputs = tf.tanh(cnn_inputs)
         # input should be 4 * 4 * 32 => 8 x 8 x 32 => 16 x 16 x 16 => 32 x 32 x 8 => 25x25x1
-        conv1 = get_cnn_transpose_unit(cnn_inputs, 32, upscale_k, activation, "SAME", "transpose_conv1", True, 0.5)
-        conv2 = get_cnn_transpose_unit(conv1, 16, upscale_k, activation, "SAME", "transpose_conv2", True, 0.5)
-        conv3 = get_cnn_transpose_unit(conv2, 8, upscale_k, activation, "SAME", "transpose_conv3", True, 0.5)
+        conv1 = get_cnn_transpose_unit(cnn_inputs, max_filters, upscale_k, activation, "SAME", "transpose_conv1", True, 0.5)
+        conv2 = get_cnn_transpose_unit(conv1, max_filters / 2, upscale_k, activation, "SAME", "transpose_conv2", True, 0.5)
+        conv3 = get_cnn_transpose_unit(conv2, max_filters / 4, upscale_k, activation, "SAME", "transpose_conv3", True, 0.5)
         cnn_outputs = get_cnn_unit(conv3, 1, (8, 8), activation, "SAME", "cnn_gen_output", True, 0.5)
         cnn_outputs = tf.squeeze(cnn_outputs, [-1])
     elif mtype == 3:
@@ -234,8 +235,8 @@ def get_cnn_rep(cnn_inputs, mtype=3, activation=tf.nn.relu):
         # normalize input to [-1, 1] in generator
         cnn_inputs = tf.tanh(cnn_inputs)
         # 25 x 25 x H => 8x8x32 => 4x4x32
-        conv1 = get_cnn_unit(cnn_inputs, 32, (11,11), activation, "VALID", "rep_conv1", True, 0.5)
-        cnn_outputs = get_cnn_unit(conv1, 32, upscale_k, activation, "SAME", "rep_conv2", True, 0.5)
+        conv1 = get_cnn_unit(cnn_inputs, max_filters, (11,11), activation, "VALID", "rep_conv1", True, 0.5)
+        cnn_outputs = get_cnn_unit(conv1, max_filters, upscale_k, activation, "SAME", "rep_conv2", True, 0.5)
     else:
         """
             Use for representation steps of both encoder and decoder
@@ -244,8 +245,8 @@ def get_cnn_rep(cnn_inputs, mtype=3, activation=tf.nn.relu):
         if inp_length == 5:
             cnn_inputs = tf.reshape(cnn_inputs, [length, inp_shape[2], inp_shape[2], inp_shape[-1]])
         # 25 x 25 x H => 8x8x32 => 4x4x32
-        conv1 = get_cnn_unit(cnn_inputs, 32, (11,11), activation, "VALID", "rep_conv1")
-        cnn_outputs = get_cnn_unit(conv1, 32, upscale_k, activation, "SAME", "rep_conv2")
+        conv1 = get_cnn_unit(cnn_inputs, max_filters, (11,11), activation, "VALID", "rep_conv1")
+        cnn_outputs = get_cnn_unit(conv1, max_filters, upscale_k, activation, "SAME", "rep_conv2")
     return cnn_outputs
 
 
