@@ -178,7 +178,7 @@ def execute_decoder_dis(inputs, init_state, sequence_length, params, gamma, atte
     return predictions, rewards
 
 
-def get_cnn_rep(cnn_inputs, mtype=3, activation=tf.nn.relu, max_filters=8):
+def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8):
     inp_shape = cnn_inputs.get_shape()
     inp_length = len(inp_shape) 
     upscale_k = (5, 5)
@@ -243,6 +243,7 @@ def get_cnn_rep(cnn_inputs, mtype=3, activation=tf.nn.relu, max_filters=8):
         """
         if inp_length == 5:
             cnn_inputs = tf.reshape(cnn_inputs, [length, inp_shape[2], inp_shape[2], inp_shape[-1]])
+        cnn_inputs = tf.tanh(cnn_inputs)
         # 25 x 25 x H => 8x8x32 => 4x4x32
         conv1 = get_cnn_unit(cnn_inputs, max_filters, (11,11), activation, "VALID", "rep_conv1")
         cnn_outputs = get_cnn_unit(conv1, max_filters, upscale_k, activation, "SAME", "rep_conv2")
@@ -253,7 +254,7 @@ def get_cnn_unit(cnn_inputs, filters, kernel, activation=tf.nn.relu, padding="VA
     cnn_outputs = tf.layers.conv2d(
         inputs=cnn_inputs,
         strides=strides,
-        filters=filters,
+        filters=int(filters),
         kernel_size=kernel,
         padding=padding,
         activation=activation,
@@ -262,7 +263,7 @@ def get_cnn_unit(cnn_inputs, filters, kernel, activation=tf.nn.relu, padding="VA
     if dropout != 0.0:
         cnn_outputs = tf.layers.dropout(cnn_outputs)
     if use_batch_norm:
-        cnn_outputs = tf.layers.batch_normalization(cnn_outputs, name=name + "_bn")
+        cnn_outputs = tf.layers.batch_normalization(cnn_outputs, name=name + "_bn", fused=True)
     return cnn_outputs
 
 
@@ -270,7 +271,7 @@ def get_cnn_transpose_unit(cnn_inputs, filters, kernel, activation=tf.nn.relu, p
     cnn_outputs = tf.layers.conv2d_transpose(
         inputs=cnn_inputs,
         strides=strides,
-        filters=filters,
+        filters=int(filters),
         kernel_size=kernel,
         padding=padding,
         activation=activation,
@@ -279,5 +280,5 @@ def get_cnn_transpose_unit(cnn_inputs, filters, kernel, activation=tf.nn.relu, p
     if dropout != 0.0:
         cnn_outputs = tf.layers.dropout(cnn_outputs)
     if use_batch_norm:
-        cnn_outputs = tf.layers.batch_normalization(cnn_outputs, name=name + "_bn")
+        cnn_outputs = tf.layers.batch_normalization(cnn_outputs, name=name + "_bn", fused=True)
     return cnn_outputs
