@@ -131,7 +131,7 @@ def execute_decoder_critic(inputs, init_state, sequence_length, params, attentio
         pm2_5_t = tf.expand_dims(tf.reshape(pm2_5, [params["batch_size"], params["grid_size"], params["grid_size"]]), 3)
         dec_in = tf.concat([input_t, pm2_5_t], axis=3)
         # need to do cnn here
-        dec_in = get_cnn_rep(dec_in, mtype=2)
+        dec_in = get_cnn_rep(dec_in, mtype=2, max_filters=16)
         dec_in = tf.layers.flatten(dec_in)
         dec_out, dec_state = cell_dec(dec_in, dec_state)
         if attention is not None: 
@@ -178,11 +178,10 @@ def execute_decoder_dis(inputs, init_state, sequence_length, params, gamma, atte
     return predictions, rewards
 
 
-def get_cnn_rep(cnn_inputs, mtype=3, activation=tf.nn.relu):
+def get_cnn_rep(cnn_inputs, mtype=3, activation=tf.nn.relu, max_filters=8):
     inp_shape = cnn_inputs.get_shape()
     inp_length = len(inp_shape) 
     upscale_k = (5, 5)
-    max_filters = 16
     if inp_length == 5:
         length = inp_shape[0] * inp_shape[1]
     else: 
