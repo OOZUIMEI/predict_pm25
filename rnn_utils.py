@@ -19,11 +19,10 @@ def get_cell(cell_type, size, layers=1):
     elif cell_type == "cudnn_lstm":
         cell = CudnnLSTM(layers, size)
     elif cell_type == "cudnn_gru":
-        cell = CudnnGru(layers, size)
+        cell = CudnnGRU(layers, size)
     elif cell_type == "lstm_block":
         cell = LSTMBlockCell(size)
-    elif:
-        cell_type == "gru_block":
+    elif cell_type == "gru_block":
         cell = GRUBlockCell(size)
     else:
         cell = BasicLSTMCell(size)
@@ -44,9 +43,10 @@ def execute_sequence(inputs, params):
         inputs = tf.transpose(inputs, [1, 0, 2])
         if "cudnn" in params["fw_cell"]:
             outputs, fn_state = fw_cell(inputs)
-            c = tf.squeeze(fn_state[1], [0])
-            h = tf.squeeze(fn_state[0], [0])
-            fn_state = (c, h)
+            if params["fw_cell"] == "cudnn_lstm":
+                c = tf.squeeze(fn_state[1], [0])
+                h = tf.squeeze(fn_state[0], [0])
+                fn_state = (c, h)
         else:
             outputs, fn_state = fw_cell(inputs, dtype=tf.float32)
         outputs = tf.transpose(outputs, [1, 0, 2])
@@ -122,12 +122,15 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=N
 # this is for generator
 def execute_decoder_critic(inputs, init_state, sequence_length, params, attention=None, use_critic=True, cnn_gen=True):
     # push final state of encoder to decoder
-    dec_state = init_state
+    if params["fw_cell"] == "gru_block":
+        dec_state = tf.squeeze(init_state[0], [0])
+    else:
+        dec_state = init_state
     pm2_5 = np.zeros((params["batch_size"], params["de_output_size"]), dtype=np.float32)
     dec_out = None
     outputs = []
     estimated_values = []
-    cell_dec = get_cell("gru_block", params["fw_cell_size"])
+    cell_dec = get_cell(params["fw_cell"], params["fw_cell_size"])
     for t in xrange(sequence_length):
         # shape of input_t bs x grid_size x grid_size x hidden_size
         input_t = inputs[:, t]
@@ -157,10 +160,13 @@ def execute_decoder_critic(inputs, init_state, sequence_length, params, attentio
 # this is for discriminator
 def execute_decoder_dis(inputs, init_state, sequence_length, params, gamma, attention=None, is_fake=True):
     # push final state of encoder to decoder
-    dec_state = init_state
+    if params["fw_cell"] == "gru_block":
+        dec_state = tf.squeeze(init_state[0], [0])
+    else:
+        dec_state = init_state
     dec_out = None
     predictions = []
-    cell_dec = get_cell("gru_block", params["fw_cell_size"])
+    cell_dec = get_cell(params["fw_cell"], params["fw_cell_size"])
     rewards = []
     for t in xrange(sequence_length):
         # shape of input_t bs x grid_size x grid_size x hidden_size
@@ -226,7 +232,6 @@ def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8):
             cnn_inputs = tf.reshape(cnn_inputs, [length, inp_shape[2], inp_shape[2], inp_shape[-1]])
         # normalize input to [-1, 1] in generator
         cnn_inputs = tf.tanh(cnn_inputs)
-        print("input_generator", cnn_inputs.get_shape())
         # input should be 4 * 4 * 8 => 8 x 8 x 8 => 16 x 16 x 4 => 32 x 32 x 2 => 25x25x1
         conv1 = get_cnn_transpose_unit(cnn_inputs, max_filters, upscale_k, activation, "SAME", "transpose_conv1", True, 0.5)
         conv2 = get_cnn_transpose_unit(conv1, max_filters / 2, upscale_k, activation, "SAME", "transpose_conv2", True, 0.5)

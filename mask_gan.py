@@ -86,7 +86,9 @@ class MaskGan(BaselineModel):
     def exe_decoder_critic(self, dec, enc_output, attention=None):
         with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             # estimated_values [0, inf], outputs: [0, 1]
-            outputs, estimated_values = rnn_utils.execute_decoder_critic(dec, enc_output, self.decoder_length, self.e_params, attention, use_critic=self.use_critic)
+            params = copy.deepcopy(self.e_params)
+            params["fw_cell"] = "gru_block"
+            outputs, estimated_values = rnn_utils.execute_decoder_critic(dec, enc_output, self.decoder_length, params, attention, use_critic=self.use_critic)
             # batch_size x decoder_length x grid_size x grid_size
             outputs = tf.stack(outputs, axis=1)
             # batch_size x decoder_length
@@ -100,6 +102,7 @@ class MaskGan(BaselineModel):
         outputs_ = tf.expand_dims(tf.reshape(outputs, [self.batch_size, self.decoder_length, self.grid_size, self.grid_size]), axis=4)
         params = copy.deepcopy(self.e_params)
         params["de_output_size"] = 1
+        params["fw_cell"] = "gru_block"
         dec_real = tf.concat([dec, tf.expand_dims(self.pred_placeholder, axis=4)], axis=4)
         dec_fake = tf.concat([dec, outputs_], axis=4)
         with tf.variable_scope("discriminator", self.initializer, reuse=tf.AUTO_REUSE):
