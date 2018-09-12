@@ -356,7 +356,6 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--is_test", default=0, help="is testing", type=int)
     parser.add_argument("-cnn", "--use_cnn", default=1, help="using cnn or not", type=int)
     parser.add_argument("-r", "--rnn_layers", default=1, help="number of rnn layers", type=int)
-    parser.add_argument("-a", "--adversarial", default=1, help="Using adversarial networks", type=int)
     parser.add_argument("-m", "--model", default="GAN")
     parser.add_argument("-rs", "--restore", default=0, help="Restore pre-trained models", type=int)
 

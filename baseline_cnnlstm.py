@@ -152,6 +152,8 @@ class BaselineModel(object):
 
     #perform decoder
     def exe_decoder(self, dec, enc_output, attention=None):
+        params = copy.deepcopy(self.e_params)
+        params["fw_cell"] = "gru_block"
         with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             if self.dtype == "grid":
                 if self.no_cnn_decoder:
@@ -165,12 +167,12 @@ class BaselineModel(object):
                     cnn_shape = cnn.get_shape()
                     dec_data = tf.reshape(cnn, [self.batch_size, self.decoder_length, cnn_shape[-1]])
                 else:
-                    outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, self.e_params, attention)
+                    outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, params, attention)
             else:
                 dec_data = tf.reshape(tf.reshape(dec, [-1]), [self.batch_size, self.decoder_length, self.districts * self.decode_vector_size])
             #finally push -> decoder
             if self.no_cnn_decoder:
-                outputs = rnn_utils.execute_decoder(dec_data, enc_output, self.decoder_length, self.e_params, attention, self.dropout_placeholder)
+                outputs = rnn_utils.execute_decoder(dec_data, enc_output, self.decoder_length, params, attention, self.dropout_placeholder)
             else:
                 outputs = tf.stack(outputs, axis=1)
         return outputs
