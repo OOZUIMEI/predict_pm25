@@ -145,7 +145,7 @@ class BaselineModel(object):
             # embedding = tf.Variable(self.datasets, name="embedding")
             dec = dec_f[:,:,:,:,self.df_ele:]
             dec.set_shape((self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.decode_vector_size))
-            self.pred_placeholder = dec_f[:,:,:,0]
+            self.pred_placeholder = dec_f[:,:,:,:,0]
         else:
             dec = dec_f[:,:,:,self.df_ele:]
             dec.set_shape((self.batch_size, self.encoder_length, 25, self.decode_vector_size))

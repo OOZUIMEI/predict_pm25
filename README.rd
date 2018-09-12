@@ -51,7 +51,7 @@ python train_sp.py -u vectors/spatiotemporal/sample_sp_grid -au vectors/spatiote
 Train GAN 
 python train_sp.py -u vectors/sp_china_combined/seoul_0 -au vectors/sp_china_combined/china_0 -w gan_cuda_transcnn -f 1 -e 15 -ds 9
 Test GAN
-python train_sp.py -u vectors/sp_china_combined/sp_seoul_test_bin -au vectors/sp_china_combined/sp_china_test_bin -w weights/gan_cuda.weights -e 15 -ds 9 -rs 1 -t 1
+python train_sp.py -u vectors/sp_china_combined/sp_seoul_test_grid -au vectors/sp_china_combined/sp_china_test_bin -w weights/gan_cuda.weights -e 15 -ds 9 -rs 1 -t 1
 
 # start visualization server
 ng serve --port 3000 --host 0.0.0.0

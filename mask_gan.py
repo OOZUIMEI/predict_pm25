@@ -58,7 +58,7 @@ class MaskGan(BaselineModel):
         self.is_clip = True
         self.beta1 = 0.5
         self.lamda = 100
-        self.mtype=3
+        self.gmtype = 3
 
     def init_ops(self):
         self.add_placeholders()
@@ -107,7 +107,7 @@ class MaskGan(BaselineModel):
             # estimated_values [0, inf], outputs: [0, 1]
             params = copy.deepcopy(self.e_params)
             params["fw_cell"] = "gru_block"
-            outputs, estimated_values = rnn_utils.execute_decoder_critic(dec, enc_output, self.decoder_length, params, attention, use_critic=self.use_critic, cnn_gen=self.use_gen_cnn, mtype=self.mtype)
+            outputs, estimated_values = rnn_utils.execute_decoder_critic(dec, enc_output, self.decoder_length, params, attention, use_critic=self.use_critic, cnn_gen=self.use_gen_cnn, mtype=self.gmtype)
             # batch_size x decoder_length x grid_size x grid_size
             outputs = tf.stack(outputs, axis=1)
             # batch_size x decoder_length
@@ -126,8 +126,8 @@ class MaskGan(BaselineModel):
         dec_fake = tf.concat([dec, outputs_], axis=4)
         with tf.variable_scope("discriminator", self.initializer, reuse=tf.AUTO_REUSE):
             # get probability of reality (either fake or real)
-            fake_preds, fake_rewards = rnn_utils.execute_decoder_dis(dec_fake, enc_output, self.decoder_length, params, self.gamma, attention, mtype=self.mtype)
-            real_preds, _ = rnn_utils.execute_decoder_dis(dec_real, enc_output, self.decoder_length, params, self.gamma, attention, False, mtype=self.mtype)
+            fake_preds, fake_rewards = rnn_utils.execute_decoder_dis(dec_fake, enc_output, self.decoder_length, params, self.gamma, attention, mtype=self.gmtype)
+            real_preds, _ = rnn_utils.execute_decoder_dis(dec_real, enc_output, self.decoder_length, params, self.gamma, attention, False, mtype=self.gmtype)
         return tf.squeeze(tf.stack(fake_preds, axis=1), [2]), fake_rewards, tf.squeeze(tf.stack(real_preds, axis=1), [2])
 
     # mse training
