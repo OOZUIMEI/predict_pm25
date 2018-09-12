@@ -3,6 +3,7 @@ from __future__ import division
 
 import sys
 import time
+import copy
 import numpy as np
 import tensorflow as tf
 import properties as prp
