@@ -69,14 +69,12 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
             attention_data = utils.load_file(attention_url)
         else:
             attention_data = None
-        
         model.set_data(dataset, train, valid, attention_data)
         model.assign_datasets(session)
         if not is_test:
             best_val_epoch = 0
             best_val_loss = float('inf')
             # best_overall_val_loss = float('inf')
-
             print('==> starting training')
             train_losses = []
             train_f, valid_f = train_writer
@@ -107,7 +105,7 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
             l_fl = "train_loss/train_loss_%s_%s" % (url_weight, tm)
             utils.save_file(l_fl, train_losses)
         else:
-            saver.restore(session, url_weight)
+            # saver.restore(session, url_weight)
             print('==> running model')
             loss, preds = model.run_epoch(session, model.train, shuffle=False)
             l_str = 'Test mae loss: %.4f' % loss
@@ -179,7 +177,7 @@ def main(url_feature="", attention_url="", url_weight="sp", batch_size=128, enco
                     print("==> Training set (%i, %s)" % (i + 1, x))
                 last_epoch = execute(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer), last_epoch)
         else:
-            execute(url_feature, att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer))
+            execute(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer))
 
 
 def execute_gan(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None, offset=0):
@@ -209,7 +207,7 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
                     saver.save(session, 'weights/%s.weights' % url_weight)
             saver.save(session, 'weights/%s.weights' % url_weight)
         else:
-            saver.restore(session, url_weight)
+            # saver.restore(session, url_weight)
             print('==> running model')
             preds = model.run_epoch(session, train, train=False, verbose=False, shuffle=False)
             shape = np.shape(preds)

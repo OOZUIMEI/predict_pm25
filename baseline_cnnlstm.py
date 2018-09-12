@@ -17,7 +17,7 @@ class BaselineModel(object):
 
     
     def __init__(self, encoder_length=24, decoder_length=24, grid_size=25, rnn_hidden_units=128, 
-                encode_vector_size=12, decode_vector_size=6, learning_rate=0.01, batch_size=64, loss="mae", 
+                encode_vector_size=12, decode_vector_size=6, learning_rate=0.01, batch_size=64, loss="mse", 
                 df_ele=6, rnn_layers=1, dtype="grid", attention_length=24, atttention_hidden_size=17,
                 use_attention=True, use_cnn=False, no_cnn_decoder=False):
         self.encoder_length = encoder_length
@@ -69,6 +69,7 @@ class BaselineModel(object):
             self.e_params["de_output_size"] = self.districts
             if self.rnn_layers > 1:
                 self.e_params["fw_cell_size"] = self.districts
+        self.mtype = 4
     
     def set_training(self, training):
         self.is_training = training
@@ -117,7 +118,7 @@ class BaselineModel(object):
             if self.dtype == "grid":
                 if self.use_cnn:
                     # add one cnn layer here
-                    cnn = rnn_utils.get_cnn_rep(enc)
+                    cnn = rnn_utils.get_cnn_rep(enc, mtype=self.mtype)
                 else:
                     cnn = enc
                 cnn = tf.layers.flatten(cnn)
@@ -144,7 +145,7 @@ class BaselineModel(object):
             # embedding = tf.Variable(self.datasets, name="embedding")
             dec = dec_f[:,:,:,:,self.df_ele:]
             dec.set_shape((self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.decode_vector_size))
-            self.pred_placeholder = dec_f[:,:,:,:,0]
+            self.pred_placeholder = dec_f[:,:,:,0]
         else:
             dec = dec_f[:,:,:,self.df_ele:]
             dec.set_shape((self.batch_size, self.encoder_length, 25, self.decode_vector_size))

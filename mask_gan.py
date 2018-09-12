@@ -19,10 +19,10 @@ import rnn_utils
 
 CNNs-LSTM models
 
-case 0: CNN-32 + 1LSTM + Regular training method
-case 10: 2 CNNs + 1LSTM + Regular training method + dropout + batchnorm + l1
+# case 0: CNN-32 + 1LSTM + Regular training method
+# case 2: 2 CNNs + 1LSTM + Regular training method
 case 11: 2 CNNs + 1LSTM + Regular training method + dropout + batchnorm
-case 2: 2 CNNs + 1LSTM + Regular training method
+case 10: 2 CNNs + 1LSTM + Regular training method + dropout + batchnorm + l1
 
 # GAN Models
 # case 1: 1CNN + 1LSTM + GAN + MSE                                                     26.609738679949896
@@ -59,6 +59,7 @@ class MaskGan(BaselineModel):
         self.is_clip = True
         self.beta1 = 0.5
         self.lamda = 100
+        self.mtype=3
 
     def init_ops(self):
         self.add_placeholders()
@@ -107,7 +108,7 @@ class MaskGan(BaselineModel):
             # estimated_values [0, inf], outputs: [0, 1]
             params = copy.deepcopy(self.e_params)
             params["fw_cell"] = "gru_block"
-            outputs, estimated_values = rnn_utils.execute_decoder_critic(dec, enc_output, self.decoder_length, params, attention, use_critic=self.use_critic, cnn_gen=self.use_gen_cnn)
+            outputs, estimated_values = rnn_utils.execute_decoder_critic(dec, enc_output, self.decoder_length, params, attention, use_critic=self.use_critic, cnn_gen=self.use_gen_cnn, mtype=self.mtype)
             # batch_size x decoder_length x grid_size x grid_size
             outputs = tf.stack(outputs, axis=1)
             # batch_size x decoder_length
@@ -126,8 +127,8 @@ class MaskGan(BaselineModel):
         dec_fake = tf.concat([dec, outputs_], axis=4)
         with tf.variable_scope("discriminator", self.initializer, reuse=tf.AUTO_REUSE):
             # get probability of reality (either fake or real)
-            fake_preds, fake_rewards = rnn_utils.execute_decoder_dis(dec_fake, enc_output, self.decoder_length, params, self.gamma, attention)
-            real_preds, _ = rnn_utils.execute_decoder_dis(dec_real, enc_output, self.decoder_length, params, self.gamma, attention, False)
+            fake_preds, fake_rewards = rnn_utils.execute_decoder_dis(dec_fake, enc_output, self.decoder_length, params, self.gamma, attention, mtype=self.mtype)
+            real_preds, _ = rnn_utils.execute_decoder_dis(dec_real, enc_output, self.decoder_length, params, self.gamma, attention, False, mtype=self.mtype)
         return tf.squeeze(tf.stack(fake_preds, axis=1), [2]), fake_rewards, tf.squeeze(tf.stack(real_preds, axis=1), [2])
 
     # mse training

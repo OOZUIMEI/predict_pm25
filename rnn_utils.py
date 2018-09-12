@@ -88,7 +88,7 @@ def execute_decoder(inputs, init_state, sequence_length, params, attention=None,
 
 
 # perform cnn on pm2_5 output
-def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=None, dropout=None, mask=None):
+def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=None, dropout=None, mtype=4):
     # push final state of encoder to decoder
     if params["fw_cell"] == "gru_block":
         dec_state = tf.squeeze(init_state[0], [0])
@@ -104,7 +104,7 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=N
         pm2_5_t = tf.expand_dims(tf.reshape(pm2_5, [params["batch_size"], params["grid_size"], params["grid_size"]]), 3)
         dec_in = tf.concat([input_t, pm2_5_t], axis=3)
         # need to do cnn here
-        dec_in = get_cnn_rep(dec_in)
+        dec_in = get_cnn_rep(dec_in, mtype=mtype)
         dec_in = tf.layers.flatten(dec_in)
         dec_out, dec_state = cell_dec(dec_in, dec_state)
         if attention is not None: 
@@ -123,7 +123,7 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=N
 # estimated value of critic: 0 - inf
 # outputs: pm2.5 images
 # this is for generator
-def execute_decoder_critic(inputs, init_state, sequence_length, params, attention=None, use_critic=True, cnn_gen=True):
+def execute_decoder_critic(inputs, init_state, sequence_length, params, attention=None, use_critic=True, cnn_gen=True, mtype=3):
     # push final state of encoder to decoder
     if params["fw_cell"] == "gru_block":
         dec_state = tf.squeeze(init_state[0], [0])
@@ -140,7 +140,7 @@ def execute_decoder_critic(inputs, init_state, sequence_length, params, attentio
         pm2_5_t = tf.expand_dims(tf.reshape(pm2_5, [params["batch_size"], params["grid_size"], params["grid_size"]]), 3)
         dec_in = tf.concat([input_t, pm2_5_t], axis=3)
         # need to do cnn here
-        dec_in = get_cnn_rep(dec_in, mtype=3)
+        dec_in = get_cnn_rep(dec_in, mtype=mtype)
         dec_in = tf.layers.flatten(dec_in)
         dec_out, dec_state = cell_dec(dec_in, dec_state)
         if attention is not None: 
@@ -162,7 +162,7 @@ def execute_decoder_critic(inputs, init_state, sequence_length, params, attentio
 
 # output: predictions - probability [0, 1], rewards [0, 1]
 # this is for discriminator
-def execute_decoder_dis(inputs, init_state, sequence_length, params, gamma, attention=None, is_fake=True):
+def execute_decoder_dis(inputs, init_state, sequence_length, params, gamma, attention=None, is_fake=True, mtype=3):
     # push final state of encoder to decoder
     if params["fw_cell"] == "gru_block":
         dec_state = tf.squeeze(init_state[0], [0])
@@ -176,7 +176,7 @@ def execute_decoder_dis(inputs, init_state, sequence_length, params, gamma, atte
         # shape of input_t bs x grid_size x grid_size x hidden_size
         input_t = inputs[:, t]
         # need to do cnn here
-        dec_in = get_cnn_rep(input_t, 3, tf.nn.leaky_relu)
+        dec_in = get_cnn_rep(input_t, mtype, tf.nn.leaky_relu)
         dec_in = tf.layers.flatten(dec_in)
         dec_out, dec_state = cell_dec(dec_in, dec_state)
         if attention is not None: 
