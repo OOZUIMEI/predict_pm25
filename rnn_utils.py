@@ -90,7 +90,10 @@ def execute_decoder(inputs, init_state, sequence_length, params, attention=None,
 # perform cnn on pm2_5 output
 def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=None, dropout=None, mask=None):
     # push final state of encoder to decoder
-    dec_state = init_state
+    if params["fw_cell"] == "gru_block":
+        dec_state = tf.squeeze(init_state[0], [0])
+    else:
+        dec_state = init_state
     pm2_5 = np.zeros((params["batch_size"], params["de_output_size"]), dtype=np.float32)
     dec_out = None
     outputs = []
