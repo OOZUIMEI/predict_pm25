@@ -194,8 +194,9 @@ class MaskGan(BaselineModel):
             gen_optimizer = tf.train.AdamOptimizer(self.gen_learning_rate, self.beta1)
             gen_vars = [v for v in tf.trainable_variables() if v.op.name.startswith("generator")]
             if self.use_l1:
-                l1_norm = tf.contrib.layers.l1_regularizer(scale=self.lamada, gen_vars)
-                loss += l1_norm
+                l1_norm = tf.contrib.layers.l1_regularizer(scale=self.lamda)
+                l1_loss = tf.contrib.layers.apply_regularization(l1_norm, gen_vars)
+                loss += l1_loss
             
             if self.gen_loss_type == 0:
                 # gradient ascent, maximum reward  => descent with minimizing the loss
