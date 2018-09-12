@@ -213,7 +213,10 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
             # l_str = 'Test mae loss: %.4f' % loss
             pt = re.compile("weights/([A-Za-z0-9_.]*).weights")
             name = pt.match(url_weight)
-            name_s = name.group(1)
+            if name:
+                name_s = name.group(1)
+            else: 
+                name_s = url_weight
             pr_s = shape[0] * shape[1]
             preds = np.reshape(preds, (pr_s, shape[2], shape[3]))
             utils.save_file("test_sp/%s" % name_s, preds)
