@@ -202,9 +202,8 @@ class BaselineModel(object):
     # output will be loss scalar    
     def add_loss(self, output):
         if self.dtype == "grid":
-            matrix_size = [self.batch_size, self.decoder_length * self.grid_square]
-            y = tf.reshape(tf.reshape(output, [-1]), matrix_size)
-            pred = tf.reshape(self.pred_placeholder, matrix_size)
+            y = tf.layers.flatten(output)
+            pred = tf.layers.flatten(self.pred_placeholder)
         else:
             y = output
             pred = self.pred_placeholder
@@ -219,9 +218,6 @@ class BaselineModel(object):
         for v in tf.trainable_variables():
              if not 'bias' in v.name.lower():
                  loss += 0.0001 * tf.nn.l2_loss(v)
-
-        tf.summary.scalar('loss', loss)
-
         return loss
 
     def map_to_grid(self, ct):

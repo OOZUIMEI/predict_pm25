@@ -21,8 +21,7 @@ CNNs-LSTM models
 
 # case 0: CNN-32 + 1LSTM + Regular training method
 # case 2: 2 CNNs + 1LSTM + Regular training method
-case 11: 2 CNNs + 1LSTM + Regular training method + dropout + batchnorm
-case 10: 2 CNNs + 1LSTM + Regular training method + dropout + batchnorm + l1
+case 11: 2 CNNs + 1LSTM + Regular training method + dropout + batchnorm 
 
 # GAN Models
 # case 1: 1CNN + 1LSTM + GAN + MSE                                                     26.609738679949896

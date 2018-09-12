@@ -60,7 +60,7 @@ def process_data(dtlength, batch_size, encoder_length, decoder_length=None, is_t
 def execute(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None, offset=0):
     print("==> Loading dataset")
     dataset = utils.load_file(path)
-    last_epoch = 0
+    global_t = offset
     if dataset:
         dataset = np.asarray(dataset, dtype=np.float32)
         lt = len(dataset)
@@ -81,12 +81,12 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
             for epoch in xrange(p.total_iteration):
                 print('Epoch {}'.format(epoch))
                 start = time.time()
-
-                train_loss, _ = model.run_epoch(session, train, offset + epoch, train_f,train_op=model.train_op, train=True)
+                global_t = offset + epoch
+                train_loss, _ = model.run_epoch(session, train, global_t, train_f,train_op=model.train_op, train=True)
                 train_losses.append(train_loss)
                 print('Training loss: {}'.format(train_loss))
 
-                valid_loss, _ = model.run_epoch(session, valid, offset + epoch, train_writer=valid_f)
+                valid_loss, _ = model.run_epoch(session, valid, global_t, train_writer=valid_f)
                 print('Validation loss: {}'.format(valid_loss))
 
                 if valid_loss < best_val_loss:
@@ -98,7 +98,6 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
                     saver.save(session, 'weights/%s.weights' % url_weight)
 
                 if (epoch - best_val_epoch) > p.early_stopping:
-                    last_epoch += epoch + 1
                     break
                 print('Total time: {}'.format(time.time() - start))
             tm = utils.clear_datetime(datetime.strftime(utils.get_datetime_now(), "%Y-%m-%d %H:%M:%S"))
@@ -115,7 +114,7 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
             name_s = name.group(1)
             utils.save_file("test_sp/%s_loss.txt" % name_s, l_str, use_pickle=False)
             utils.save_file("test_sp/%s" % name_s, preds)
-    return last_epoch
+    return global_t
 
 
 def get_gpu_options():
@@ -177,7 +176,7 @@ def main(url_feature="", attention_url="", url_weight="sp", batch_size=128, enco
                     print("==> Training set (%i, %s)" % (i + 1, x))
                 last_epoch = execute(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer), last_epoch)
         else:
-            execute(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer))
+            _ = execute(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer))
 
 
 def execute_gan(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None, offset=0):
