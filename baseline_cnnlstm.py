@@ -161,7 +161,7 @@ class BaselineModel(object):
                 if self.no_cnn_decoder:
                     if self.use_cnn:
                         # add one cnn layer before decoding using lstm
-                        cnn = rnn_utils.get_cnn_rep(dec)
+                        cnn = rnn_utils.get_cnn_rep(dec, mtype=self.mtype)
                     else:
                         cnn = dec
                         grd_cnn = self.grid_square * self.decode_vector_size
