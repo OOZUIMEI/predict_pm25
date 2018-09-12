@@ -242,14 +242,15 @@ class BaselineModel(object):
             session.run(att_ops)
     
     # operation of each epoch
-    def run_epoch(self, session, data, num_epoch=0, train_writer=None, train_op=None, verbose=True, train=False, shuffle=True):
+    def run_epoch(self, session, data, num_epoch=0, train_writer=None, train_op=None, verbose=True, train=False, shuffle=True, stride=4):
         dp = self.dropout
         if train_op is None:
             train_op = tf.no_op()
             dp = 1
         dt_length = len(data)
         # print("data_size: ", dt_length)
-        total_steps = dt_length // self.batch_size
+        cons_b = self.batch_size * stride
+        total_steps = dt_length // cons_b
         total_loss = []
         ct = np.asarray(data, dtype=np.float32)
         if shuffle:
@@ -257,8 +258,8 @@ class BaselineModel(object):
             ct = ct[r]
         preds = []
         for step in range(total_steps):
-            index = range(step * self.batch_size,
-                          (step + 1) * self.batch_size)
+            index = range(step * cons_b,
+                          (step + 1) * cons_b, stride)
             # just the starting points of encoding batch_size,
             ct_t = ct[index]
             # switch batchsize, => batchsize * encoding_length
