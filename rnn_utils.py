@@ -88,7 +88,7 @@ def execute_decoder(inputs, init_state, sequence_length, params, attention=None,
 
 
 # perform cnn on pm2_5 output
-def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=None, mtype=4):
+def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=None, cnn_gen=False, mtype=4):
     # push final state of encoder to decoder
     if params["fw_cell"] == "gru_block":
         dec_state = tf.squeeze(init_state[0], [0])
@@ -109,7 +109,15 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=N
         dec_out, dec_state = cell_dec(dec_in, dec_state)
         if attention is not None: 
             dec_out = tf.concat([dec_out, attention], axis=1)
-        pm2_5 = tf.layers.dense(dec_out, 
+        
+        if cnn_gen:
+            pm2_5_input = tf.layers.dense(dec_out, 256, name="decoder_output_cnn")
+            pm2_5_input = tf.reshape(pm2_5_input, [params["batch_size"], 4, 4, 16])
+            pm2_5_cnn = get_cnn_rep(pm2_5_input, 2, max_filters=16)
+            pm2_5_cnn = tf.tanh(pm2_5_cnn)
+            pm2_5 = tf.layers.flatten(pm2_5_cnn)
+        else:
+            pm2_5 = tf.layers.dense(dec_out, 
                         params["de_output_size"],
                         name="decoder_output",
                         activation=tf.nn.sigmoid)

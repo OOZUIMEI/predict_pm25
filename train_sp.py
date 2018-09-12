@@ -111,7 +111,10 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
             print(l_str)
             pt = re.compile("weights/([A-Za-z0-9_.]*).weights")
             name = pt.match(url_weight)
-            name_s = name.group(1)
+            if name:
+                name_s = name.group(1)
+            else:
+                name_s = url_weight
             utils.save_file("test_sp/%s_loss.txt" % name_s, l_str, use_pickle=False)
             utils.save_file("test_sp/%s" % name_s, preds)
     return global_t

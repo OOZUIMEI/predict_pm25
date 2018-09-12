@@ -69,6 +69,7 @@ class BaselineModel(object):
             self.e_params["de_output_size"] = self.districts
             if self.rnn_layers > 1:
                 self.e_params["fw_cell_size"] = self.districts
+        self.use_gen_cnn = False
         self.mtype = 4
     
     def set_training(self, training):
@@ -169,7 +170,7 @@ class BaselineModel(object):
                     cnn_shape = cnn.get_shape()
                     dec_data = tf.reshape(cnn, [self.batch_size, self.decoder_length, cnn_shape[-1]])
                 else:
-                    outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, params, attention, mtype=self.mtype)
+                    outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, params, attention, cnn_gen=self.use_gen_cnn, mtype=self.mtype)
             else:
                 dec_data = tf.reshape(tf.reshape(dec, [-1]), [self.batch_size, self.decoder_length, self.districts * self.decode_vector_size])
             #finally push -> decoder

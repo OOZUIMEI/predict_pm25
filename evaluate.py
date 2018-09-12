@@ -54,8 +54,14 @@ if __name__ == "__main__":
     #             preds.append(int(x_[0]))
     # evaluate(preds, labs, args.range, args.classify)
     map_ = heatmap.build_map()
-    data = utils.load_file("test_sp/gan_cuda_m")
-    data = np.reshape(data, (data.shape[0], data.shape[1], 25, 25))
+    data = utils.load_file("test_sp/gan_gru_cnn1_lstm")
+    if type(data) is list:
+        data = np.asarray(data)
+    if len(data.shape) == 4:
+        lt = data.shape[0] * data.shape[1]
+    else:
+        lt = data.shape[0]
+    data = np.reshape(data, (lt, data.shape[-2], 25, 25))
     labels = utils.load_file("vectors/sp_seoul_test_bin")
     labels = np.asarray(labels)
     dtl = len(data)

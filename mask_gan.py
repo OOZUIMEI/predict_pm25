@@ -18,10 +18,10 @@ import rnn_utils
 # case -1: LSTM + Regular training method
 
 CNNs-LSTM models
-
-# case 0: CNN-32 + 1LSTM + Regular training method
-# case 2: 2 CNNs + 1LSTM + Regular training method
-case 11: 2 CNNs + 1LSTM + Regular training method + dropout + batchnorm 
+ 
+# case 0: CNN-32 + 1LSTM + Regular training method                                     10.924795863322162
+# case 2: 2 CNNs + 1LSTM + Regular training method                                     10.814500091143062
+# case 11: 2 CNNs + 1LSTM + Regular training method + dropout + batchnorm              10.877427656329758
 
 # GAN Models
 # case 1: 1CNN + 1LSTM + GAN + MSE                                                     26.609738679949896
