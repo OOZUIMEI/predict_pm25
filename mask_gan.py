@@ -14,14 +14,26 @@ import rnn_utils
 
 """
 
-case -1: LSTM + Regular training method
-case 0: 1CNN + 1LSTM + Regular training method
-case 1: 1CNN + 1LSTM + Masked + Regular training method
-case 2: 1CNN + 1LSTM + GAN + Policy gradient with Actor - critic (Like all decoding steps are masked)
-case 2: 1CNN + 1LSTM + Masked GAN + Policy gradient with Actor - critic 
-case 3: Multiple CNNs + 1LSTM + Regular training method
-case 4: Multiple CNNs + 1LSTM + Masked + Regular training method
-case 5: Multiple CNNs + 1LSTM + Masked + Policy gradient with Actor - critic
+# case -2: CNN + 1LSTM + GAN + Policy gradient with Actor - critic (worst)
+# case -1: LSTM + Regular training method
+
+CNNs-LSTM models
+
+case 0: CNN-32 + 1LSTM + Regular training method
+case 10: 2 CNNs + 1LSTM + Regular training method + dropout + batchnorm + l1
+case 11: 2 CNNs + 1LSTM + Regular training method + dropout + batchnorm
+case 2: 2 CNNs + 1LSTM + Regular training method
+
+# GAN Models
+# case 1: 1CNN + 1LSTM + GAN + MSE                                                     26.609738679949896
+# case 3: 4 CNNs + 1LSTM + GAN + MSE                                                     28.384105546904856
+# case 4: 2 CNNs + 1LSTM + GAN + MSE + dropout & batchnorm                               25.417205501456465
+# case 5: 2 CNNs + 1LSTM + GEN CNNs + GAN + MSE + dropout & batchnorm     
+
+case 6: 2 CNNs + 1LSTM + GEN CNNs + GAN + MSE + dropout + batchnorm + l1 
+case 7: 2 CNNs + 1LSTM + GEN CNNs + GAN + MSE
+
+
 Instance noice, a trick for stabilizing gan
 https://www.inference.vc/instance-noise-a-trick-for-stabilising-gan-training/
 https://medium.com/@utk.is.here/keep-calm-and-train-a-gan-pitfalls-and-tips-on-training-generative-adversarial-networks-edd529764aa9
@@ -38,9 +50,15 @@ class MaskGan(BaselineModel):
         self.dis_learning_rate = dis_learning_rate
         self.gen_learning_rate = gen_learning_rate
         self.critic_learning_rate = critic_learning_rate
+        # critic loss
         self.use_critic = use_critic
+        # set up multiple cnns layers to generate outputs
+        self.use_gen_cnn = True
+        # add l1 norm to loss
+        self.use_l1 = False
         self.is_clip = True
         self.beta1 = 0.5
+        self.lamda = 100
 
     def init_ops(self):
         self.add_placeholders()
@@ -51,15 +69,16 @@ class MaskGan(BaselineModel):
         enc_output, dec, outputs, estimated_values, attention = self.create_generator()
         fake_preds, fake_rewards, real_preds = self.create_discriminator(enc_output, dec, outputs, attention)
         self.dis_loss, dis_loss_real, dis_loss_fake = self.add_discriminator_loss(fake_preds, real_preds)
+        # use tanh on generator output or not. because y = tanh(x) if x > 0 then y always belongs to [0, 1]
+        if self.use_gen_cnn:
+            outputs = tf.tanh(outputs)
         if self.gen_loss_type == 0:
             # use log(G)
             self.gen_loss = self.add_generator_loss(fake_preds, fake_rewards, estimated_values)
-        elif self.gen_loss_type == 1: 
+        else: 
             # use mse of G & labels
             labels = tf.reshape(self.pred_placeholder, shape=(self.batch_size, self.decoder_length, self.grid_square))
             self.gen_loss = self.add_generator_loss(fake_preds, fake_rewards, estimated_values, outputs, labels)
-        else:
-            self.gen_loss = self.add_generator_mse_loss(dis_loss_fake, dis_loss_real, fake_rewards, estimated_values)
         if self.use_critic:
             self.critic_loss = self.add_critic_loss(fake_rewards, estimated_values)
             self.critic_op = self.train_critic(self.critic_loss)
@@ -88,7 +107,7 @@ class MaskGan(BaselineModel):
             # estimated_values [0, inf], outputs: [0, 1]
             params = copy.deepcopy(self.e_params)
             params["fw_cell"] = "gru_block"
-            outputs, estimated_values = rnn_utils.execute_decoder_critic(dec, enc_output, self.decoder_length, params, attention, use_critic=self.use_critic)
+            outputs, estimated_values = rnn_utils.execute_decoder_critic(dec, enc_output, self.decoder_length, params, attention, use_critic=self.use_critic, cnn_gen=self.use_gen_cnn)
             # batch_size x decoder_length x grid_size x grid_size
             outputs = tf.stack(outputs, axis=1)
             # batch_size x decoder_length
@@ -164,7 +183,6 @@ class MaskGan(BaselineModel):
             dis_optimizer = tf.train.AdamOptimizer(self.dis_learning_rate, self.beta1)
             dis_vars = [v for v in tf.trainable_variables() if v.op.name.startswith("discriminator")]
             dis_grads = tf.gradients(loss, dis_vars)
-
             if self.is_clip:
                 dis_grads, _ = tf.clip_by_global_norm(dis_grads, 10.)
             dis_train_op = dis_optimizer.apply_gradients(zip(dis_grads, dis_vars))
@@ -175,14 +193,17 @@ class MaskGan(BaselineModel):
         with tf.name_scope("train_generator"):
             gen_optimizer = tf.train.AdamOptimizer(self.gen_learning_rate, self.beta1)
             gen_vars = [v for v in tf.trainable_variables() if v.op.name.startswith("generator")]
-            # gradient ascent , maximum reward 
+            if self.use_l1:
+                l1_norm = tf.contrib.layers.l1_regularizer(scale=self.lamada, gen_vars)
+                loss += l1_norm
+            
             if self.gen_loss_type == 0:
+                # gradient ascent, maximum reward  => descent with minimizing the loss
                 gen_grads = tf.gradients(-loss, gen_vars)
             else:
                 # using mse without critic
                 gen_grads = tf.gradients(loss, gen_vars)
-            # if self.use_l1:
-            #     gen_grads = tf.contrib.layers.l1_regularizer()
+
             if self.is_clip:
                 gen_grads, _ = tf.clip_by_global_norm(gen_grads, 10.)
             gen_train_op = gen_optimizer.apply_gradients(zip(gen_grads, gen_vars))

@@ -143,12 +143,12 @@ if __name__ == "__main__":
     # 10110 -> 10080 -> 126 batch 
     # python train.py -pr "vectors/labels" -f "vectors/full_data" -fl "vectors/full_data_len" -p "train_basic_64b_tanh_12h_" -fw "basic" -dc 1 -l mae -r 10 -usp 1 -e 13 -bs 126 -sl 24 -ir 0 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-f", "--feature_path", help="prefix to save weighted files")
-    parser.add_argument("-pr", "--pred_path", help="prefix to save weighted files")
-    parser.add_argument("-fl", "--feature_len_path", help="prefix to save weighted files")
-    parser.add_argument("-f1", "--feature_path1", help="prefix to save weighted files")
-    parser.add_argument("-pr1", "--pred_path1", help="prefix to save weighted files")
-    parser.add_argument("-fl1", "--feature_len_path1", help="prefix to save weighted files")
+    parser.add_argument("-f", "--feature_path", help="Path of training dataset")
+    parser.add_argument("-pr", "--pred_path", help="Path of labels")
+    parser.add_argument("-fl", "--feature_len_path", help="Don't use")
+    parser.add_argument("-f1", "--feature_path1", help="Don't use")
+    parser.add_argument("-pr1", "--pred_path1", help="Don't use")
+    parser.add_argument("-fl1", "--feature_len_path1", help="Don't use")
     parser.add_argument("-p", "--prefix", help="prefix to save weighted files")
     parser.add_argument("-fw", "--forward_cell", default='basic')
     parser.add_argument("-bw", "--backward_cell", default='basic')

@@ -161,7 +161,9 @@ class BaselineModel(object):
                     else:
                         cnn = dec
                         grd_cnn = self.grid_square * self.decode_vector_size
-                    dec_data = tf.reshape(cnn, [self.batch_size, self.decoder_length, grd_cnn])
+                    cnn = tf.layers.flatten(cnn)
+                    cnn_shape = cnn.get_shape()
+                    dec_data = tf.reshape(cnn, [self.batch_size, self.decoder_length, cnn_shape[-1]])
                 else:
                     outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, self.e_params, attention)
             else:

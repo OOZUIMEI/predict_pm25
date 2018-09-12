@@ -144,9 +144,10 @@ def execute_decoder_critic(inputs, init_state, sequence_length, params, attentio
             dec_out = tf.concat([dec_out, attention], axis=1)
         # belong to generator
         if cnn_gen:
-            pm2_5_input = tf.layers.dense(dec_out, 128, name="decoder_output_cnn")
-            pm2_5_input = tf.reshape(pm2_5_input, [params["batch_size"], 4, 4, 8])
-            pm2_5_cnn = get_cnn_rep(pm2_5_input, 2)
+            pm2_5_input = tf.layers.dense(dec_out, 256, name="decoder_output_cnn")
+            pm2_5_input = tf.reshape(pm2_5_input, [params["batch_size"], 4, 4, 16])
+            pm2_5_cnn = get_cnn_rep(pm2_5_input, 2, max_filters=16)
+            pm2_5 = tf.layers.flatten(pm2_5_cnn)
         else:
             pm2_5 = tf.layers.dense(dec_out, params["de_output_size"], name="decoder_output", activation=tf.nn.sigmoid)
         # belong to critic
@@ -200,24 +201,17 @@ def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8):
         length = inp_shape[0] * inp_shape[1]
     else: 
         length = inp_shape[0]
+    
+    if inp_length == 5:
+        cnn_inputs = tf.reshape(cnn_inputs, [length, inp_shape[2], inp_shape[2], inp_shape[-1]])
+
     if mtype == 0:
-        if inp_length == 5:
-            cnn_inputs = tf.reshape(cnn_inputs, [length, inp_shape[2], inp_shape[2], inp_shape[-1]])
         # cnn_inputs = tf.expand_dims(cnn_inputs, 4)
-        cnn_outputs = tf.layers.conv2d(
-            inputs=cnn_inputs,
-            strides=(2,2),
-            filters=32,
-            kernel_size=(3,3)
-        )
-        #output should have shape: bs * length, 12, 12
-        cnn_outputs = tf.squeeze(cnn_outputs, [-1])
+        cnn_outputs = get_cnn_unit(cnn_inputs, 32, upscale_k, name="basic_conv")
     elif mtype == 1:
         """
             use structure of DCGAN with the mixture of both tranposed convolution and convolution (for original GAN with mse)
         """
-        if inp_length == 5:
-            cnn_inputs = tf.reshape(cnn_inputs, [length, inp_shape[2], inp_shape[2], inp_shape[-1]])
         # 25 x 25 x H => 8x8x32 => 16x16x16 => 32x32x8 => 16x16x1
         conv1 = get_cnn_unit(cnn_inputs, 32, (11,11), None, "VALID", "conv1")
         conv2 = get_cnn_transpose_unit(conv1, 16, upscale_k, None, "SAME", "transpose_conv1")
@@ -228,8 +222,6 @@ def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8):
         """
             use structure of DCGAN with the mixture of both tranposed convolution and convolution for Generator output
         """
-        if inp_length == 5:
-            cnn_inputs = tf.reshape(cnn_inputs, [length, inp_shape[2], inp_shape[2], inp_shape[-1]])
         # normalize input to [-1, 1] in generator
         cnn_inputs = tf.tanh(cnn_inputs)
         # input should be 4 * 4 * 8 => 8 x 8 x 8 => 16 x 16 x 4 => 32 x 32 x 2 => 25x25x1
@@ -243,11 +235,9 @@ def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8):
             use structure of DCGAN with the mixture of both tranposed convolution and convolution for discriminator
             use dropout and batch_normalization
         """
-        if inp_length == 5:
-            cnn_inputs = tf.reshape(cnn_inputs, [length, inp_shape[2], inp_shape[2], inp_shape[-1]])
         # normalize input to [-1, 1] in generator
         cnn_inputs = tf.tanh(cnn_inputs)
-        # 25 x 25 x H => 8x8x32 => 4x4x32
+        # 25 x 25 x H => 8x8x8 => 4x4x8
         conv1 = get_cnn_unit(cnn_inputs, max_filters, (11,11), activation, "VALID", "rep_conv1", True, 0.5)
         cnn_outputs = get_cnn_unit(conv1, max_filters, upscale_k, activation, "SAME", "rep_conv2", True, 0.5)
     else:
@@ -255,10 +245,8 @@ def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8):
             Use for representation steps of both encoder and decoder
             provide the cnn representation of input images from 25 x 25 => 4 * 4 * 64 dimension
         """
-        if inp_length == 5:
-            cnn_inputs = tf.reshape(cnn_inputs, [length, inp_shape[2], inp_shape[2], inp_shape[-1]])
         cnn_inputs = tf.tanh(cnn_inputs)
-        # 25 x 25 x H => 8x8x32 => 4x4x32
+        # 25 x 25 x H => 8x8x8 => 4x4x8
         conv1 = get_cnn_unit(cnn_inputs, max_filters, (11,11), activation, "VALID", "rep_conv1")
         cnn_outputs = get_cnn_unit(conv1, max_filters, upscale_k, activation, "SAME", "rep_conv2")
     return cnn_outputs

@@ -60,12 +60,17 @@ def interpolate(grid):
 
 
 # clear bound of seoul to zeros
-def clear_interpolate_bound(grid, m):
-    for i, y in enumerate(m):
-        j = 0
-        for j, c2 in enumerate(y):
-            if c2 == 0:
-                grid[i][j] = 0
+def clear_interpolate_bound(grid, m, shape=(pr.grid_size, pr.grid_size)):
+    # for i, y in enumerate(m):
+    #     j = 0
+    #     for j, c2 in enumerate(y):
+    #         if c2 == 0:
+    #             grid[i][j] = 0
+    res = np.zeros(shape)
+    for dis in m:
+        for p_x, p_y in dis:
+            res[p_y, p_x] = grid[p_y, p_x]
+    return res
 
 
 # fill map with normalized pm2.5 value of 25 district
@@ -152,7 +157,50 @@ def draw_color_map(cr=10):
     plt.savefig("figures/color_bar.png", format="png", bbox_inches='tight', dpi=300)
 
 
+def visualize_real_fake(data, labels, map_):
+    # print(np.shape(labels))
+    grid_sq = int(math.sqrt(data.shape[-1]))
+    data = np.reshape(data, (data.shape[0], data.shape[1], grid_sq, grid_sq))
+    rows = 6
+    cols = 4
+    # print(labels[0,:,0])
+    for d_i, d in enumerate(data):
+        idx = 0
+        # x = np.where(d >= 0, d, np.zeros(d.shape))    
+        for i in xrange(0, 12, 2):
+            for j in xrange(1, cols + 1):
+                ax = fig.add_subplot(rows, cols * 2, i * cols + j)
+                # ax.set_title("%ih" % (idx + 1))
+                pred_t = d[idx,:,:] * 300
+                pred_t = clear_interpolate_bound(pred_t, map_)
+                plt.imshow(pred_t, cmap=cmap, norm=norm)
+                idx+= 1
+    
+        idx = 0
+        st = d_i * 4 + 24
+        y = labels[st:st + 24,:,0] * 300
+        y = np.asarray(y)
+        for i in xrange(1, 12, 2):
+            for j in xrange(1, cols + 1):
+                ax_y = fig.add_subplot(rows,  cols * 2, i * cols + j)
+                # ax_y.set_title("real %ih" % (idx + 1))
+                lb_t = y[idx,:]
+                grd = fill_map(lb_t, map_)
+                plt.imshow(grd, cmap=cmap, norm=norm)
+                idx+=1
+        fig.subplots_adjust(top=1.3)
+        
+        plt.savefig("figures/gan_m/%i.png" % d_i, format="png", bbox_inches='tight', dpi=300)
+        if idx == 1000:
+            break
+
+
 if __name__ == "__main__":
+    font = {
+        'family' : 'normal',
+        'size': 5
+    }
+    matplotlib.rc('font', **font)
     # draw_color_map(5)
     map_ = build_map()
     colors, bounds = get_color_map(5)
@@ -177,36 +225,8 @@ if __name__ == "__main__":
     # visualize(h2, map_)
     # fig = plt.figure(figsize=(100, 100), tight_layout=True)
     data = utils.load_file("test_sp/gan_cuda_m")
-    #labels = utils.load_file("vectors/test_sp_grid")
-    #labels = np.asarray(labels)
-    grid_sq = int(math.sqrt(data.shape[-1]))
-    data = np.reshape(data, (data.shape[0], data.shape[1], grid_sq, grid_sq))
-    rows = 6
-    cols = 4
-    
-    for d_i, d in enumerate(data):
-        idx = 0
-        # x = np.where(d >= 0, d, np.zeros(d.shape))    
-        for i in xrange(0, 12, 2):
-            for j in xrange(1, cols + 1):
-                ax = fig.add_subplot(rows, cols * 2, i * cols + j)
-                # ax.set_title("%ih" % (idx + 1))
-                plt.imshow(d[idx,:,:] * 300, cmap=cmap, norm=norm)
-                idx+= 1
-    
-        idx = 0
-        """
-        st = d_i * 4 + 24
-        
-        y = labels[st:st + 24,:,:,-1] * 500
-        for i in xrange(1, 12, 2):
-            for j in xrange(1, cols + 1):
-                ax_y = fig.add_subplot(rows,  cols * 2, i * cols + j)
-                # ax_y.set_title("real %ih" % (idx + 1))
-                plt.imshow(y[idx,:,:], cmap=cmap, norm=norm)
-                idx+=1
-        # fig.subplots_adjust(top=1.3)
-        """
-        plt.savefig("figures/gan/%i.png" % d_i, format="png", bbox_inches='tight', dpi=300)
+    labels = utils.load_file("vectors/sp_seoul_test_bin")
+    labels = np.asarray(labels)
+    visualize_real_fake(data, labels, map_)
 
 
