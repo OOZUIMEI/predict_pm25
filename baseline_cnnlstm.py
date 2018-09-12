@@ -169,7 +169,7 @@ class BaselineModel(object):
                     cnn_shape = cnn.get_shape()
                     dec_data = tf.reshape(cnn, [self.batch_size, self.decoder_length, cnn_shape[-1]])
                 else:
-                    outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, params, attention)
+                    outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, params, attention, mtype=self.mtype)
             else:
                 dec_data = tf.reshape(tf.reshape(dec, [-1]), [self.batch_size, self.decoder_length, self.districts * self.decode_vector_size])
             #finally push -> decoder
