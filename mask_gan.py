@@ -19,18 +19,19 @@ import rnn_utils
 
 CNNs-LSTM models
  
-# case 0: CNN-32 + 1LSTM + Regular training method                                     10.924795863322162
+# case 1: CNN-32 + 1LSTM + Regular training method                                     10.924795863322162
 # case 2: 2 CNNs + 1LSTM + Regular training method                                     10.814500091143062
-# case 11: 2 CNNs + 1LSTM + Regular training method + dropout + batchnorm              10.877427656329758
+# case 3: 2 CNNs + 1LSTM + Regular training method + dropout + batchnorm               10.877427656329758
+# case 4: 2 CNNs + 1LSTM + Regular training method + Gen with CNNs + DP + BN           14.06973230155157    
 
 # GAN Models
-# case 1: 1CNN + 1LSTM + GAN + MSE                                                     26.609738679949896
-# case 3: 4 CNNs + 1LSTM + GAN + MSE                                                     28.384105546904856
-# case 4: 2 CNNs + 1LSTM + GAN + MSE + dropout & batchnorm                               25.417205501456465
-# case 5: 2 CNNs + 1LSTM + GEN CNNs + GAN + MSE + dropout & batchnorm     
+case 1: 2 CNNs + 1LSTM + MSE
+case 2: 2 CNNs + 1LSTM + GEN CNNs + MSE
+# case 3: 2 CNNs + 1LSTM +  MSE + dropout & batchnorm                                  11.401404469056558
+# case 4: 2 CNNs + 1LSTM + GEN CNNs + MSE + dropout & batchnorm                        11.280975725838095
+ 
+case 5: 2 CNNs + 1LSTM + GEN CNNs + GAN + MSE + dropout + batchnorm + l1 
 
-case 6: 2 CNNs + 1LSTM + GEN CNNs + GAN + MSE + dropout + batchnorm + l1 
-case 7: 2 CNNs + 1LSTM + GEN CNNs + GAN + MSE
 
 
 Instance noice, a trick for stabilizing gan

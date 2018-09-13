@@ -213,9 +213,15 @@ def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8):
     
     if inp_length == 5:
         cnn_inputs = tf.reshape(cnn_inputs, [length, inp_shape[2], inp_shape[2], inp_shape[-1]])
-
     if mtype == 0:
-        # cnn_inputs = tf.expand_dims(cnn_inputs, 4)
+        # cnn_inputs = tf.transpose(cnn_inputs, [0,2,3,1])
+        # cnn_inputs = tf.expand_dims(cnn_inputs,4)
+        # cnn_outputs = tf.layers.conv3d(
+        #         inputs=cnn_inputs,                
+        #         strides=(1,2,2),
+        #         filters=1,
+        #         kernel_size=(inp_shape[-1],3,3)
+        # )
         cnn_outputs = get_cnn_unit(cnn_inputs, 32, upscale_k, name="basic_conv")
     elif mtype == 1:
         """
