@@ -119,7 +119,7 @@ class BaselineModel(object):
             if self.dtype == "grid":
                 if self.use_cnn:
                     # add one cnn layer here
-                    cnn = rnn_utils.get_cnn_rep(enc, mtype=self.mtype)
+                    cnn = rnn_utils.get_cnn_rep(enc, mtype=self.mtype, use_batch_norm=self.use_batch_norm, dropout=self.dropout)
                 else:
                     cnn = enc
                 cnn = tf.layers.flatten(cnn)

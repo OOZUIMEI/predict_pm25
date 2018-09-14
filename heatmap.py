@@ -204,27 +204,15 @@ if __name__ == "__main__":
     # draw_color_map(5)
     map_ = build_map()
     colors, bounds = get_color_map(5)
-    # print(colors)
-    # print(bounds)
     fig = plt.figure(figsize=(8, 3))
     cmap = ListedColormap(colors)
     norm = BoundaryNorm(bounds, cmap.N)
-    # ax2 = fig.add_axes([0.05, 0.15, 0.9, 0.15])
-    # cb3 = matplotlib.colorbar.ColorbarBase(ax2, cmap=cmap, norm=norm,
-    #                             # to use 'extend', you must
-    #                             # specify two extra boundaries:
-    #                             boundaries=bounds + [500],
-    #                             extend='both',
-    #                             ticks=bounds,  # optional
-    #                             spacing='proportional',
-    #                             orientation='horizontal')
     # h1 = [19,25,24,16,19,15,12,35,14,26,12,33,11,17,16,16,16,21,14,25,26,22,15,0,18,17]
     # h2 = np.asarray([67,78,74,69,54,63,61,45,73,67,53,57,65,73,89,115,64,66,98,52,63,88,49,71,43,35])
     # seoulmap = mpimg.imread(pr.seoul_map)
     # ax.imshow(seoulmap, cmap=plt.cm.gray)
-    # visualize(h2, map_)
     # fig = plt.figure(figsize=(100, 100), tight_layout=True)
-    data = utils.load_file("test_sp/gan_cuda_m")
+    data = utils.load_file("test_sp/gan_case4")
     labels = utils.load_file("vectors/sp_seoul_test_bin")
     labels = np.asarray(labels)
     visualize_real_fake(data, labels, map_)

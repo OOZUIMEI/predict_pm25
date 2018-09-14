@@ -21,16 +21,17 @@ CNNs-LSTM models
  
 # case 1: CNN-32 + 1LSTM + Regular training method                                     10.924795863322162
 # case 2: 2 CNNs + 1LSTM + Regular training method                                     10.814500091143062
-# case 3: 2 CNNs + 1LSTM + Regular training method + dropout + batchnorm               10.877427656329758
-# case 4: 2 CNNs + 1LSTM + Regular training method + Gen with CNNs + DP + BN           14.06973230155157    
+# case 3: 2 CNNs + 1LSTM + Regular training method + dropout                           10.94596252670948
+# case 4: 2 CNNs + 1LSTM + Regular training method + dropout + batchnorm               10.877427656329758
+# case 5: 2 CNNs + 1LSTM + Regular training method + Gen with CNNs + DP + BN           14.06973230155157    
 
 # GAN Models
-case 1: 2 CNNs + 1LSTM + MSE
-case 2: 2 CNNs + 1LSTM + GEN CNNs + MSE
-# case 3: 2 CNNs + 1LSTM +  MSE + dropout & batchnorm                                  11.401404469056558
-# case 4: 2 CNNs + 1LSTM + GEN CNNs + MSE + dropout & batchnorm                        11.280975725838095
- 
-case 5: 2 CNNs + 1LSTM + GEN CNNs + GAN + MSE + dropout + batchnorm + l1 
+#case 1: 2 CNNs + 1LSTM + MSE                                                           11.115757976757626
+case 2: 2 CNNs + 1LSTM + MSE + dp                                                      
+#case 3: 2 CNNs + 1LSTM + MSE + dp & batchnorm                                          11.401404469056558
+#case 4: 2 CNNs + 1LSTM + GEN CNNs + MSE + dp                                           11.212858479217973
+#case 5: 2 CNNs + 1LSTM + GEN CNNs + MSE + dp & batchnorm                               11.280975725838095
+
 
 
 

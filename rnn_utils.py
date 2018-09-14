@@ -88,7 +88,7 @@ def execute_decoder(inputs, init_state, sequence_length, params, attention=None,
 
 
 # perform cnn on pm2_5 output
-def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=None, cnn_gen=False, mtype=4):
+def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=None, cnn_gen=False, mtype=4, use_batch_norm=True, dropout=0.5):
     # push final state of encoder to decoder
     if params["fw_cell"] == "gru_block":
         dec_state = tf.squeeze(init_state[0], [0])
@@ -113,7 +113,7 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=N
         if cnn_gen:
             pm2_5_input = tf.layers.dense(dec_out, 256, name="decoder_output_cnn")
             pm2_5_input = tf.reshape(pm2_5_input, [params["batch_size"], 4, 4, 16])
-            pm2_5_cnn = get_cnn_rep(pm2_5_input, 2, max_filters=16)
+            pm2_5_cnn = get_cnn_rep(pm2_5_input, 2, max_filters=16, use_batch_norm=use_batch_norm, dropout=dropout)
             pm2_5_cnn = tf.tanh(pm2_5_cnn)
             pm2_5 = tf.layers.flatten(pm2_5_cnn)
         else:
@@ -129,7 +129,7 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=N
 # estimated value of critic: 0 - inf
 # outputs: pm2.5 images
 # this is for generator
-def execute_decoder_critic(inputs, init_state, sequence_length, params, attention=None, use_critic=True, cnn_gen=True, mtype=3):
+def execute_decoder_critic(inputs, init_state, sequence_length, params, attention=None, use_critic=True, cnn_gen=True, mtype=3, use_batch_norm=True, dropout=0.5):
     # push final state of encoder to decoder
     if params["fw_cell"] == "gru_block":
         dec_state = tf.squeeze(init_state[0], [0])
@@ -155,7 +155,7 @@ def execute_decoder_critic(inputs, init_state, sequence_length, params, attentio
         if cnn_gen:
             pm2_5_input = tf.layers.dense(dec_out, 256, name="decoder_output_cnn")
             pm2_5_input = tf.reshape(pm2_5_input, [params["batch_size"], 4, 4, 16])
-            pm2_5_cnn = get_cnn_rep(pm2_5_input, 2, max_filters=16)
+            pm2_5_cnn = get_cnn_rep(pm2_5_input, 2, max_filters=16, use_batch_norm=use_batch_norm, dropout=dropout)
             pm2_5 = tf.layers.flatten(pm2_5_cnn)
         else:
             pm2_5 = tf.layers.dense(dec_out, params["de_output_size"], name="decoder_output", activation=tf.nn.sigmoid)
@@ -168,7 +168,7 @@ def execute_decoder_critic(inputs, init_state, sequence_length, params, attentio
 
 # output: predictions - probability [0, 1], rewards [0, 1]
 # this is for discriminator
-def execute_decoder_dis(inputs, init_state, sequence_length, params, gamma, attention=None, is_fake=True, mtype=3):
+def execute_decoder_dis(inputs, init_state, sequence_length, params, gamma, attention=None, is_fake=True, mtype=3, use_batch_norm=True, dropout=0.5):
     # push final state of encoder to decoder
     if params["fw_cell"] == "gru_block":
         dec_state = tf.squeeze(init_state[0], [0])
@@ -182,7 +182,7 @@ def execute_decoder_dis(inputs, init_state, sequence_length, params, gamma, atte
         # shape of input_t bs x grid_size x grid_size x hidden_size
         input_t = inputs[:, t]
         # need to do cnn here
-        dec_in = get_cnn_rep(input_t, mtype, tf.nn.leaky_relu)
+        dec_in = get_cnn_rep(input_t, mtype, tf.nn.leaky_relu, use_batch_norm=use_batch_norm, dropout=dropout)
         dec_in = tf.layers.flatten(dec_in)
         dec_out, dec_state = cell_dec(dec_in, dec_state)
         if attention is not None: 
@@ -202,7 +202,7 @@ def execute_decoder_dis(inputs, init_state, sequence_length, params, gamma, atte
     return predictions, rewards
 
 
-def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8):
+def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8, use_batch_norm=True, dropout=0.5):
     inp_shape = cnn_inputs.get_shape()
     inp_length = len(inp_shape) 
     upscale_k = (5, 5)
@@ -229,8 +229,8 @@ def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8):
         """
         # 25 x 25 x H => 8x8x32 => 16x16x16 => 32x32x8 => 16x16x1
         conv1 = get_cnn_unit(cnn_inputs, 32, (11,11), None, "VALID", "conv1")
-        conv2 = get_cnn_transpose_unit(conv1, 16, upscale_k, None, "SAME", "transpose_conv1")
-        conv3 = get_cnn_transpose_unit(conv2, 8, upscale_k, None, "SAME", "transpose_conv2")
+        conv2 = get_cnn_transpose_unit(conv1, 16, upscale_k, None, "SAME", "transpose_conv1", use_batch_norm, dropout)
+        conv3 = get_cnn_transpose_unit(conv2, 8, upscale_k, None, "SAME", "transpose_conv2", use_batch_norm, dropout)
         cnn_outputs = get_cnn_unit(conv3, 1, upscale_k, None, "SAME", "")
         cnn_outputs = tf.squeeze(cnn_outputs, [-1])
     elif mtype == 2:
@@ -240,12 +240,12 @@ def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8):
         # normalize input to [-1, 1] in generator
         cnn_inputs = tf.tanh(cnn_inputs)
         # input should be 4 * 4 * 8 => 8 x 8 x 8 => 16 x 16 x 4 => 32 x 32 x 2 => 25x25x1
-        conv1 = get_cnn_transpose_unit(cnn_inputs, max_filters, upscale_k, activation, "SAME", "transpose_conv1", True, 0.5)
-        conv2 = get_cnn_transpose_unit(conv1, max_filters / 2, upscale_k, activation, "SAME", "transpose_conv2", True, 0.5)
-        conv3 = get_cnn_transpose_unit(conv2, max_filters / 4, upscale_k, activation, "SAME", "transpose_conv3", True, 0.5)
-        cnn_outputs = get_cnn_unit(conv3, 1, (8, 8), activation, "VALID", "cnn_gen_output", True, 0.5, strides=(1,1))
+        conv1 = get_cnn_transpose_unit(cnn_inputs, max_filters, upscale_k, activation, "SAME", "transpose_conv1", use_batch_norm, dropout)
+        conv2 = get_cnn_transpose_unit(conv1, max_filters / 2, upscale_k, activation, "SAME", "transpose_conv2", use_batch_norm, dropout)
+        conv3 = get_cnn_transpose_unit(conv2, max_filters / 4, upscale_k, activation, "SAME", "transpose_conv3", use_batch_norm, dropout)
+        cnn_outputs = get_cnn_unit(conv3, 1, (8, 8), activation, "VALID", "cnn_gen_output", use_batch_norm, dropout, strides=(1,1))
         cnn_outputs = tf.squeeze(cnn_outputs, [-1])
-    elif mtype == 3:
+    else:
         """
             use structure of DCGAN with the mixture of both tranposed convolution and convolution for discriminator
             use dropout and batch_normalization
@@ -253,17 +253,17 @@ def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8):
         # normalize input to [-1, 1] in generator
         cnn_inputs = tf.tanh(cnn_inputs)
         # 25 x 25 x H => 8x8x8 => 4x4x8
-        conv1 = get_cnn_unit(cnn_inputs, max_filters, (11,11), activation, "VALID", "rep_conv1", True, 0.5)
-        cnn_outputs = get_cnn_unit(conv1, max_filters, upscale_k, activation, "SAME", "rep_conv2", True, 0.5)
-    else:
-        """
-            Use for representation steps of both encoder and decoder
-            provide the cnn representation of input images from 25 x 25 => 4 * 4 * 64 dimension
-        """
-        cnn_inputs = tf.tanh(cnn_inputs)
-        # 25 x 25 x H => 8x8x8 => 4x4x8
-        conv1 = get_cnn_unit(cnn_inputs, max_filters, (11,11), activation, "VALID", "rep_conv1")
-        cnn_outputs = get_cnn_unit(conv1, max_filters, upscale_k, activation, "SAME", "rep_conv2")
+        conv1 = get_cnn_unit(cnn_inputs, max_filters, (11,11), activation, "VALID", "rep_conv1", use_batch_norm, dropout)
+        cnn_outputs = get_cnn_unit(conv1, max_filters, upscale_k, activation, "SAME", "rep_conv2", use_batch_norm, dropout)
+    # else:
+    #     """
+    #         Use for representation steps of both encoder and decoder
+    #         provide the cnn representation of input images from 25 x 25 => 4 * 4 * 64 dimension
+    #     """
+    #     cnn_inputs = tf.tanh(cnn_inputs)
+    #     # 25 x 25 x H => 8x8x8 => 4x4x8
+    #     conv1 = get_cnn_unit(cnn_inputs, max_filters, (11,11), activation, "VALID", "rep_conv1")
+    #     cnn_outputs = get_cnn_unit(conv1, max_filters, upscale_k, activation, "SAME", "rep_conv2")
     return cnn_outputs
 
 

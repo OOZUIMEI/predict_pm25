@@ -54,7 +54,7 @@ if __name__ == "__main__":
     #             preds.append(int(x_[0]))
     # evaluate(preds, labs, args.range, args.classify)
     map_ = heatmap.build_map()
-    data = utils.load_file("test_sp/gan_cuda_gru_ngencnn")
+    data = utils.load_file("test_sp/gan_2cnn_dp")
     if type(data) is list:
         data = np.asarray(data)
     if len(data.shape) == 4:
