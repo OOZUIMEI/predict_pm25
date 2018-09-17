@@ -1,7 +1,11 @@
 bs4
 requests
-tensorflow
-tensorflow-gpu
 lxml
 cherrypy
 pyspark
+matplotlib
+sklearn
+scipy
+colour
+# tensorflow
+# tensorflow-gpu

@@ -54,7 +54,7 @@ if __name__ == "__main__":
     #             preds.append(int(x_[0]))
     # evaluate(preds, labs, args.range, args.classify)
     map_ = heatmap.build_map()
-    data = utils.load_file("test_sp/gan_2cnn_dp")
+    data = utils.load_file("test_sp/gan_case4")
     if type(data) is list:
         data = np.asarray(data)
     if len(data.shape) == 4:
@@ -81,7 +81,7 @@ if __name__ == "__main__":
             pred_t.append(d_t)
         pred_t = np.asarray(pred_t)
         pred_t = pred_t.flatten()
-        loss += mean_absolute_error(lbg, pred_t)
+        loss += mean_squared_error(lbg, pred_t)
         # utils.update_progress(i * 1.0 / dtl)
     loss = loss / dtl * 300
     print(loss)
