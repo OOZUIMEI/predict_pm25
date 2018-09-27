@@ -71,6 +71,7 @@ class BaselineModel(object):
                 self.e_params["fw_cell_size"] = self.districts
         self.use_gen_cnn = False
         self.mtype = 4
+        self.use_batch_norm = True
     
     def set_training(self, training):
         self.is_training = training
@@ -100,10 +101,11 @@ class BaselineModel(object):
         self.attention_inputs = tf.placeholder(tf.int32, shape=(self.batch_size, self.attention_length))
         self.dropout_placeholder = tf.Variable(self.dropout, False, name="dropout", dtype=tf.float32)
 
+
     def inference(self):
         # embedding = tf.Variable(self.datasets, name="Embedding")
         # check if dtype is grid then just look up index from the datasets 
-        enc, dec = self.lookup_input()
+        enc, dec = self.lookup_input(self.encoder_inputs, self.decoder_inputs)
         enc_output = self.exe_encoder(enc)
         attention = None
         if self.use_attention:
@@ -114,12 +116,12 @@ class BaselineModel(object):
         return outputs
 
     # perform encoder
-    def exe_encoder(self, enc):
+    def exe_encoder(self, enc, use_batch_norm=self.use_batch_norm, dropout=self.dropout):
         with tf.variable_scope("encoder", initializer=self.initializer):
             if self.dtype == "grid":
                 if self.use_cnn:
                     # add one cnn layer here
-                    cnn = rnn_utils.get_cnn_rep(enc, mtype=self.mtype, use_batch_norm=self.use_batch_norm, dropout=self.dropout)
+                    cnn = rnn_utils.get_cnn_rep(enc, mtype=self.mtype, use_batch_norm=use_batch_norm, dropout=dropout)
                 else:
                     cnn = enc
                 cnn = tf.layers.flatten(cnn)
@@ -137,10 +139,10 @@ class BaselineModel(object):
         return enc_output
 
     # mapping input indices to dataset
-    def lookup_input(self):
-        enc = tf.nn.embedding_lookup(self.embedding, self.encoder_inputs)
+    def lookup_input(self, enc, dec):
+        enc = tf.nn.embedding_lookup(self.embedding, enc)
         enc.set_shape((self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.encode_vector_size))
-        dec_f = tf.nn.embedding_lookup(self.embedding, self.decoder_inputs)
+        dec_f = tf.nn.embedding_lookup(self.embedding, dec)
         dec_f.set_shape((self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.encode_vector_size))
         if self.dtype == "grid":
             # embedding = tf.Variable(self.datasets, name="embedding")

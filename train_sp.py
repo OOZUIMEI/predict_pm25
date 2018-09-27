@@ -182,7 +182,20 @@ def main(url_feature="", attention_url="", url_weight="sp", batch_size=128, enco
             _ = execute(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer))
 
 
-def execute_gan(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None, offset=0):
+def save_gan_preds(url_weight, preds):
+    shape = np.shape(preds)
+    pt = re.compile("weights/([A-Za-z0-9_.]*).weights")
+    name = pt.match(url_weight)
+    if name:
+        name_s = name.group(1)
+    else: 
+        name_s = url_weight
+    pr_s = shape[0] * shape[1]
+    preds = np.reshape(preds, (pr_s, shape[2], shape[3]))
+    utils.save_file("test_sp/%s" % name_s, preds)
+
+
+def execute_gan(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None, offset=0, gpu_nums=1):
     print("==> Loading dataset")
     dataset = utils.load_file(path)
     if dataset:
@@ -198,82 +211,107 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
         
         model.set_data(dataset, train, None, attention_data)
         model.assign_datasets(session)
-
-        if not is_test:
-            print('==> starting training')
-            train_f = train_writer
-            for epoch in xrange(p.total_iteration):
-                _ = model.run_epoch(session, train, offset + epoch, train_f, train=True, verbose=True)
-                if epoch % 10 == 0:
-                    utils.update_progress(epoch * 1.0 / p.total_iteration)
-                    saver.save(session, 'weights/%s.weights' % url_weight)
-            saver.save(session, 'weights/%s.weights' % url_weight)
+        if gpu_nums > 1:
+            if not is_test:
+                print('==> starting training')
+                _ = model.run_multiple_gpu(session, saver, train, url_weight, train_writer, offset, train=True, gpu_nums=gpu_nums)
+            else:
+                # saver.restore(session, url_weight)
+                print('==> running model')
+                preds = model.run_multiple_gpu(session, train, url_weight, train=False, shuffle=False, gpu_nums=gpu_nums)
+                save_gan_preds(preds, url_weight)
         else:
-            # saver.restore(session, url_weight)
-            print('==> running model')
-            preds = model.run_epoch(session, train, train=False, verbose=False, shuffle=False)
-            shape = np.shape(preds)
-            # l_str = 'Test mae loss: %.4f' % loss
-            pt = re.compile("weights/([A-Za-z0-9_.]*).weights")
-            name = pt.match(url_weight)
-            if name:
-                name_s = name.group(1)
-            else: 
-                name_s = url_weight
-            pr_s = shape[0] * shape[1]
-            preds = np.reshape(preds, (pr_s, shape[2], shape[3]))
-            utils.save_file("test_sp/%s" % name_s, preds)
+            if not is_test:
+                print('==> starting training')
+                train_f = train_writer
+                for epoch in xrange(p.total_iteration):
+                    _ = model.run_epoch(session, train, offset + epoch, train_f, train=True, verbose=True)
+                    if epoch % 10 == 0:
+                        utils.update_progress((epoch + 1) * 1.0 / p.total_iteration)
+                        saver.save(session, 'weights/%s.weights' % url_weight)
+                saver.save(session, 'weights/%s.weights' % url_weight)
+            else:
+                # saver.restore(session, url_weight)
+                print('==> running model')
+                preds = model.run_epoch(session, train, train=False, verbose=False, shuffle=False)
+                save_gan_preds(preds, url_weight)
 
 
 def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, rnn_layers=1, 
             dtype="grid", is_folder=False, is_test=False, restore=False):
     model = MaskGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, rnn_layers=rnn_layers, grid_size=grid_size, use_cnn=1)
-    print('==> initializing models')
-    with tf.device('/%s' % p.device):
-        model.init_ops()
-        init = tf.global_variables_initializer()
-        saver = tf.train.Saver()
-    utils.assert_url(url_feature)
-
-    tconfig = get_gpu_options()
-    sum_dir = 'summaries'
-    if not utils.check_file(sum_dir):
-        os.makedirs(sum_dir)
-    
-    train_writer = None
-    
-    with tf.Session(config=tconfig) as session:       
-        if not restore:
-            session.run(init)
-        else:
-            print("==> Reload pre-trained weights")
-            saver.restore(session, url_weight)
-        
-        csn = int(time.time())
-
-        if not is_test:
-            url_weight = url_weight.split("/")[-1]
-            url_weight = url_weight.rstrip(".weights")
-            suf = time.strftime("%Y.%m.%d_%H.%M")
-            train_writer = tf.summary.FileWriter("%s/%s_%i" % (sum_dir, url_weight, csn), session.graph, filename_suffix=suf)
-
-        folders = None
-        if is_folder:
-            folders = os.listdir(url_feature)
-            if attention_url:
-                a_folders = os.listdir(attention_url)
-                folders = zip(folders, a_folders)
-            for i, files in enumerate(folders):
+    dv = p.gpu_devices.split(",")
+    if "gpu" in p.device and len(dv) > 1:
+        model.add_placeholders()
+        with tf.Session(config=tconfig) as session:       
+            csn = int(time.time())
+            if not is_test:
+                url_weight = url_weight.split("/")[-1]
+                url_weight = url_weight.rstrip(".weights")
+                suf = time.strftime("%Y.%m.%d_%H.%M")
+                train_writer = tf.summary.FileWriter("%s/%s_%i" % (sum_dir, url_weight, csn), session.graph, filename_suffix=suf)
+            folders = None
+            if is_folder:
+                folders = os.listdir(url_feature)
                 if attention_url:
-                    x, y = files
-                    att_url = os.path.join(attention_url, y)
-                    print("==> Training set (%i, %s, %s)" % (i + 1, x, y))
-                else: 
-                    x = files
-                    print("==> Training set (%i, %s)" % (i + 1, x))
-                execute_gan(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer, i * p.total_iteration)
-        else:
-            execute_gan(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
+                    a_folders = os.listdir(attention_url)
+                    folders = zip(folders, a_folders)
+                for i, files in enumerate(folders):
+                    if attention_url:
+                        x, y = files
+                        att_url = os.path.join(attention_url, y)
+                        print("==> Training set (%i, %s, %s)" % (i + 1, x, y))
+                    else: 
+                        x = files
+                        print("==> Training set (%i, %s)" % (i + 1, x))
+                    execute_gan(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer, i * p.total_iteration, gpu_nums=len(dv))
+            else:
+                execute_gan(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer, gpu_nums=len(dv))
+        model.run_multiple_gpu(session, data)
+    else:
+        print('==> initializing models')
+        with tf.device('/%s' % p.device):
+            model.init_ops()
+            init = tf.global_variables_initializer()
+            saver = tf.train.Saver()
+        utils.assert_url(url_feature)
+
+        tconfig = get_gpu_options()
+        sum_dir = 'summaries'
+        if not utils.check_file(sum_dir):
+            os.makedirs(sum_dir)
+        
+        train_writer = None
+        
+        with tf.Session(config=tconfig) as session:       
+            if not restore:
+                session.run(init)
+            else:
+                print("==> Reload pre-trained weights")
+                saver.restore(session, url_weight)
+            csn = int(time.time())
+            if not is_test:
+                url_weight = url_weight.split("/")[-1]
+                url_weight = url_weight.rstrip(".weights")
+                suf = time.strftime("%Y.%m.%d_%H.%M")
+                train_writer = tf.summary.FileWriter("%s/%s_%i" % (sum_dir, url_weight, csn), session.graph, filename_suffix=suf)
+            folders = None
+            if is_folder:
+                folders = os.listdir(url_feature)
+                if attention_url:
+                    a_folders = os.listdir(attention_url)
+                    folders = zip(folders, a_folders)
+                for i, files in enumerate(folders):
+                    if attention_url:
+                        x, y = files
+                        att_url = os.path.join(attention_url, y)
+                        print("==> Training set (%i, %s, %s)" % (i + 1, x, y))
+                    else: 
+                        x = files
+                        print("==> Training set (%i, %s)" % (i + 1, x))
+                    execute_gan(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer, i * p.total_iteration)
+            else:
+                execute_gan(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
 
 
 def get_prediction_real_time(sparkEngine, url_weight="", dim=12):
