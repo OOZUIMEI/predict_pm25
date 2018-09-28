@@ -301,11 +301,9 @@ class MaskGan(BaselineModel):
             grad = tf.concat(axis=0, values=grads)
             grad = tf.reduce_mean(grad, 0)
             v = grad_and_vars[0][1]
-            var_.append(v)
+            vars_.append(v)
             average_grads.append(grad)
-        print(len(average_grads))
-        average_grads = tf.clip_by_global_norm(average_grads, 10.)
-        print(len(average_grads))
+        average_grads, _ = tf.clip_by_global_norm(average_grads, 10.)
         average_grads = zip(average_grads, vars_)
         return average_grads
 
@@ -361,12 +359,12 @@ class MaskGan(BaselineModel):
         print("Loading dataset")
         datasets = utils.load_file(url_data)
         if url_attention:
+            att_attention = utils.load_file(url_attention)
         lt = len(datasets)
         data, _ = utils.process_data_grid(lt, self.batch_size, self.encoder_length, self.decoder_length, True)
         self.set_data(datasets, data, None, att_data)
         self.assign_datasets(session)
         dt_length = len(data)
-        # print("data_size: ", dt_length)
         cons_b = self.batch_size * stride
         total_steps = dt_length // cons_b
         preds = []
@@ -375,7 +373,7 @@ class MaskGan(BaselineModel):
         if shuffle:
             r = np.random.permutation(dt_length)
             ct = ct[r]
-        self.prefetch_queue(session, enqueue, data, total_steps, 0, max_load)
+        self.prefetch_queue(sess, enqueue, data, total_steps, 0, max_load)
         # for i in xrange(max_steps):
         #     for b in xrange(total_steps):
         #         if b and b % max_load == 0:
