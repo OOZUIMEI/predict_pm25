@@ -178,10 +178,8 @@ def save_gan_preds(url_weight, preds):
 def execute_gan(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None, offset=0, gpu_nums=1):
     if gpu_nums > 1:
         if not is_test:
-            print('==> starting training')
             _ = model.run_multiple_gpu(session, path, attention_url, url_weight, train_writer, offset, train=True, gpu_nums=gpu_nums)
         else:
-            print('==> running model')
             preds = model.run_multiple_gpu(session, path, attention_url, url_weight, train=False, shuffle=False, gpu_nums=gpu_nums)
             save_gan_preds(preds, url_weight)
     else:

@@ -188,7 +188,8 @@ class MaskGan(BaselineModel):
     
     def train_discriminator(self, loss):
         with tf.name_scope("train_discriminator"):
-            dis_grads, dis_vars = self.get_dis_opt(loss, "discriminator")
+            dis_grads, dis_vars = self.get_optimization(loss, "discriminator")
+            dis_grads = tf.clip_by_global_norm(dis_grads, 10.)
             dis_train_op = self.optimizer.apply_gradients(zip(dis_grads, dis_vars))
             return dis_train_op
     
@@ -200,6 +201,8 @@ class MaskGan(BaselineModel):
                 l1_loss = tf.contrib.layers.apply_regularization(l1_norm, gen_vars)
                 loss += l1_loss
             gen_grads, gen_vars = self.get_optimization(loss, "generator")
+            if self.is_clip:
+                gen_grads = tf.clip_by_global_norm(gen_grads, 10.)
             # if self.gen_loss_type == 0:
             #     # gradient ascent, maximum reward  => descent with minimizing the loss
             #     gen_grads = tf.gradients(-loss, gen_vars)
@@ -212,8 +215,6 @@ class MaskGan(BaselineModel):
     def get_optimization(self, loss, name_scope):
         vars_ = [v for v in tf.trainable_variables() if v.op.name.startswith(name_scope)]
         grads = tf.gradients(loss, vars_)
-        if self.is_clip:
-            grads, _ = tf.clip_by_global_norm(grads, 10.)
         return grads, vars_
 
     # using stride to reduce the amount of data to loop over time intervals
@@ -344,6 +345,9 @@ class MaskGan(BaselineModel):
                         tf.get_variable_scope().reuse_variables()
         gen_grads = self.average_gradients(tower_gen_grads)   
         dis_grads = self.average_gradients(tower_dis_grads)
+        if self.is_clip:
+            gen_grads, _ = tf.clip_by_global_norm(gen_grads, 10.)
+            dis_grads, _ = tf.clip_by_global_norm(dis_grads, 10.)
         gen_train_op = self.optimizer.apply_gradients(zip(gen_grads, gen_vars))        
         dis_train_op = self.optimizer.apply_gradients(zip(dis_grads, dis_vars))
         init = tf.global_variables_initializer()
@@ -356,7 +360,6 @@ class MaskGan(BaselineModel):
         if url_attention:
             att_data = utils.load_file(url_attention)
         lt = len(datasets)
-        data, _ = utils.process_data_grid(lt, self.batch_size, self.encoder_length, self.decoder_length, True)
         self.set_data(datasets, data, None, att_data)
         self.assign_datasets(session)
         dt_length = len(data)
