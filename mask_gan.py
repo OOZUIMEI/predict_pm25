@@ -297,10 +297,8 @@ class MaskGan(BaselineModel):
             for g, _ in grad_and_vars:
                 expanded_g = tf.expand_dims(g, 0)
                 grads.append(expanded_g)
-            print(grad_and_vars[0].get_shape())
             grad = tf.concat(axis=0, values=grads)
             grad = tf.reduce_mean(grad, 0)
-            print(grad.get_shape())
             v = grad_and_vars[0][1]
             grad_and_var = (grad, v)
             average_grads.append(grad_and_var)
@@ -341,8 +339,8 @@ class MaskGan(BaselineModel):
                         fake_preds, fake_rewards, real_preds = self.create_discriminator(enc_output, dec, outputs, attention)
                         dis_loss = self.add_discriminator_loss(fake_preds, real_preds)
                         gen_loss = self.get_generator_loss(fake_preds, fake_rewards, estimated_values, tanh_inputs)
-                        dis_grads, dis_vars = self.get_optimization(dis_loss, "discriminator")
-                        gen_grads, gen_vars = self.get_optimization(gen_loss, "generator")
+                        dis_grads, _ = self.get_optimization(dis_loss, "discriminator")
+                        gen_grads, _ = self.get_optimization(gen_loss, "generator")
                         tower_gen_grads.append(gen_grads)
                         tower_dis_grads.append(dis_grads)
                         tf.get_variable_scope().reuse_variables()
@@ -351,8 +349,8 @@ class MaskGan(BaselineModel):
         if self.is_clip:
             gen_grads, _ = tf.clip_by_global_norm(gen_grads, 10.)
             dis_grads, _ = tf.clip_by_global_norm(dis_grads, 10.)
-        gen_train_op = self.optimizer.apply_gradients(zip(gen_grads, gen_vars))        
-        dis_train_op = self.optimizer.apply_gradients(zip(dis_grads, dis_vars))
+        gen_train_op = self.optimizer.apply_gradients(gen_grads)        
+        dis_train_op = self.optimizer.apply_gradients(dis_grads)
         init = tf.global_variables_initializer()
         sess.run(init)
         saver = tf.train.Saver()
