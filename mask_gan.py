@@ -303,7 +303,9 @@ class MaskGan(BaselineModel):
             v = grad_and_vars[0][1]
             var_.append(v)
             average_grads.append(grad)
+        print(len(average_grads))
         average_grads = tf.clip_by_global_norm(average_grads, 10.)
+        print(len(average_grads))
         average_grads = zip(average_grads, vars_)
         return average_grads
 
@@ -322,7 +324,7 @@ class MaskGan(BaselineModel):
                 }
                 session.run(enqueue, feed_dict=q_dc)
 
-    def run_multiple_gpu(self, session, url_data, url_attention, url_weight, train_writer=None, offset=0, train=False, shuffle=True, stride=4, gpu_nums=2, max_steps=1200):
+    def run_multiple_gpu(self, sess, url_data, url_attention, url_weight, train_writer=None, offset=0, train=False, shuffle=True, stride=4, gpu_nums=2, max_steps=1200):
         if not train:
             train_op = tf.no_op()
         max_load = gpu_nums * 2
@@ -359,8 +361,8 @@ class MaskGan(BaselineModel):
         print("Loading dataset")
         datasets = utils.load_file(url_data)
         if url_attention:
-            att_data = utils.load_file(url_attention)
         lt = len(datasets)
+        data, _ = utils.process_data_grid(lt, self.batch_size, self.encoder_length, self.decoder_length, True)
         self.set_data(datasets, data, None, att_data)
         self.assign_datasets(session)
         dt_length = len(data)
@@ -374,20 +376,20 @@ class MaskGan(BaselineModel):
             r = np.random.permutation(dt_length)
             ct = ct[r]
         self.prefetch_queue(session, enqueue, data, total_steps, 0, max_load)
-        for i in xrange(max_steps):
-            for b in xrange(total_steps):
-                if b and b % max_load == 0:
-                    self.prefetch_queue(session, enqueue, data, total_steps, b, max_load)
-                if train:
-                    d_loss, g_loss, _, _ = sess.run([gen_loss, dis_loss, gen_train_op, dis_train_op])
-                    if train_writer is not None:
-                        summary.value.add(tag= "Generator Loss", simple_value=d_loss)
-                        summary.value.add(tag= "Discriminator Loss", simple_value=g_loss)
-                        train_writer.add_summary(summary, offset + i)
-                    if epoch % 10 == 0 or (epoch + 1) == max_steps:
-                        utils.update_progress((i + 1.0) / p.total_iteration)
-                        saver.save(session, 'weights/%s.weights' % url_weight)
-                else:
-                    pred = sess.run([outputs])
-                    preds.append(pred)
+        # for i in xrange(max_steps):
+        #     for b in xrange(total_steps):
+        #         if b and b % max_load == 0:
+        #             self.prefetch_queue(session, enqueue, data, total_steps, b, max_load)
+        #         if train:
+        #             d_loss, g_loss, _, _ = sess.run([gen_loss, dis_loss, gen_train_op, dis_train_op])
+        #             if train_writer is not None:
+        #                 summary.value.add(tag= "Generator Loss", simple_value=d_loss)
+        #                 summary.value.add(tag= "Discriminator Loss", simple_value=g_loss)
+        #                 train_writer.add_summary(summary, offset + i)
+        #             if epoch % 10 == 0 or (epoch + 1) == max_steps:
+        #                 utils.update_progress((i + 1.0) / p.total_iteration)
+        #                 saver.save(session, 'weights/%s.weights' % url_weight)
+        #         else:
+        #             pred = sess.run([outputs])
+        #             preds.append(pred)
         return preds
