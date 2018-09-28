@@ -11,6 +11,7 @@ from baseline_cnnlstm import BaselineModel
 import properties as pr
 import utils
 import rnn_utils
+from train_sp import process_data
 
 """
 
@@ -317,19 +318,9 @@ class MaskGan(BaselineModel):
                 }
                 session.run(enqueue, feed_dict=q_dc)
 
-    def run_multiple_gpu(self, session, data, url_weight, train_writer=None, offset=0, train=False, shuffle=True, stride=4, gpu_nums=2, max_steps=1200):
+    def run_multiple_gpu(self, session, url_data, url_attention, url_weight, train_writer=None, offset=0, train=False, shuffle=True, stride=4, gpu_nums=2, max_steps=1200):
         if not train:
             train_op = tf.no_op()
-        dt_length = len(data)
-        # print("data_size: ", dt_length)
-        cons_b = self.batch_size * stride
-        total_steps = dt_length // cons_b
-        preds = []
-        summary = tf.Summary()
-        ct = np.asarray(data, dtype=np.float32)
-        if shuffle:
-            r = np.random.permutation(dt_length)
-            ct = ct[r]
         max_load = gpu_nums * 2
         queue = tf.FIFOQueue(max_load, dtypes=[tf.int32, tf.int32, tf.int32], name="data_lookup")
         enqueue = queue.enqueue([self.encoder_inputs, self.decoder_inputs, self.attention_inputs])
@@ -352,13 +343,33 @@ class MaskGan(BaselineModel):
                         tower_gen_grads.append(gen_grads)
                         tower_dis_grads.append(dis_grads)
                         tf.get_variable_scope().reuse_variables()
-        gen_grads = average_gradients(tower_gen_grads)   
-        dis_grads = average_gradients(tower_dis_grads)
+        gen_grads = self.average_gradients(tower_gen_grads)   
+        dis_grads = self.average_gradients(tower_dis_grads)
         gen_train_op = self.optimizer.apply_gradients(zip(gen_grads, gen_vars))        
         dis_train_op = self.optimizer.apply_gradients(zip(dis_grads, dis_vars))
         init = tf.global_variables_initializer()
         sess.run(init)
         saver = tf.train.Saver()
+
+        # load data
+        print("Loading dataset")
+        datasets = utils.load_file(url_data)
+        if url_attention:
+            att_data = utils.load_file(url_attention)
+        lt = len(datasets)
+        data, _ = process_data(lt, self.batch_size, self.encoder_length, self.decoder_length, True)
+        self.set_data(datasets, data, None, att_data)
+        self.assign_datasets(session)
+        dt_length = len(data)
+        # print("data_size: ", dt_length)
+        cons_b = self.batch_size * stride
+        total_steps = dt_length // cons_b
+        preds = []
+        summary = tf.Summary()
+        ct = np.asarray(data, dtype=np.float32)
+        if shuffle:
+            r = np.random.permutation(dt_length)
+            ct = ct[r]
         self.prefetch_queue(session, enqueue, data, total_steps, 0, max_load)
         for i in xrange(max_steps):
             for b in xrange(total_steps):

@@ -196,44 +196,40 @@ def save_gan_preds(url_weight, preds):
 
 
 def execute_gan(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None, offset=0, gpu_nums=1):
-    print("==> Loading dataset")
-    dataset = utils.load_file(path)
-    if dataset:
-        dataset = np.asarray(dataset, dtype=np.float32)
-        lt = len(dataset)
-        train, _ = process_data(lt, batch_size, encoder_length, decoder_length, True)
-        # in gan, we don't need to validate
-        # load attention data
+    if gpu_nums > 1:
+        if not is_test:
+            print('==> starting training')
+            _ = model.run_multiple_gpu(session, path, attention_url, url_weight, train_writer, offset, train=True, gpu_nums=gpu_nums)
+        else:
+            print('==> running model')
+            preds = model.run_multiple_gpu(session, path, attention_url, url_weight, train=False, shuffle=False, gpu_nums=gpu_nums)
+            save_gan_preds(preds, url_weight)
+    else:
+        print("==> Loading dataset")
+        dataset = utils.load_file(path)
+        if dataset:
+            dataset = np.asarray(dataset, dtype=np.float32)
+            lt = len(dataset)
+            train, _ = process_data(lt, batch_size, encoder_length, decoder_length, True)
+        attention_data = None
         if attention_url:
             attention_data = utils.load_file(attention_url)
-        else:
-            attention_data = None
-        
         model.set_data(dataset, train, None, attention_data)
         model.assign_datasets(session)
-        if gpu_nums > 1:
-            if not is_test:
-                print('==> starting training')
-                _ = model.run_multiple_gpu(session, train, url_weight, train_writer, offset, train=True, gpu_nums=gpu_nums)
-            else:
-                print('==> running model')
-                preds = model.run_multiple_gpu(session, train, url_weight, train=False, shuffle=False, gpu_nums=gpu_nums)
-                save_gan_preds(preds, url_weight)
+        if not is_test:
+            print('==> starting training')
+            train_f = train_writer
+            for epoch in xrange(p.total_iteration):
+                _ = model.run_epoch(session, train, offset + epoch, train_f, train=True, verbose=True)
+                if epoch % 10 == 0:
+                    utils.update_progress((epoch + 1) * 1.0 / p.total_iteration)
+                    saver.save(session, 'weights/%s.weights' % url_weight)
+            saver.save(session, 'weights/%s.weights' % url_weight)
         else:
-            if not is_test:
-                print('==> starting training')
-                train_f = train_writer
-                for epoch in xrange(p.total_iteration):
-                    _ = model.run_epoch(session, train, offset + epoch, train_f, train=True, verbose=True)
-                    if epoch % 10 == 0:
-                        utils.update_progress((epoch + 1) * 1.0 / p.total_iteration)
-                        saver.save(session, 'weights/%s.weights' % url_weight)
-                saver.save(session, 'weights/%s.weights' % url_weight)
-            else:
-                # saver.restore(session, url_weight)
-                print('==> running model')
-                preds = model.run_epoch(session, train, train=False, verbose=False, shuffle=False)
-                save_gan_preds(preds, url_weight)
+            # saver.restore(session, url_weight)
+            print('==> running model')
+            preds = model.run_epoch(session, train, train=False, verbose=False, shuffle=False)
+            save_gan_preds(preds, url_weight)
 
 
 def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, rnn_layers=1, 
