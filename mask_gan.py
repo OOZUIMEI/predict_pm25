@@ -300,6 +300,8 @@ class MaskGan(BaselineModel):
             grad = tf.concat(axis=0, values=grads)
             grad = tf.reduce_mean(grad, 0)
             v = grad_and_vars[0][1]
+            if self.is_clip:
+                grad = tf.clip_by_globall_norm(grad, 10.)
             grad_and_var = (grad, v)
             average_grads.append(grad_and_var)
         return average_grads
@@ -346,9 +348,6 @@ class MaskGan(BaselineModel):
                         tf.get_variable_scope().reuse_variables()
         gen_grads = self.average_gradients(tower_gen_grads)   
         dis_grads = self.average_gradients(tower_dis_grads)
-        if self.is_clip:
-            gen_grads, _ = tf.clip_by_global_norm(gen_grads, 10.)
-            dis_grads, _ = tf.clip_by_global_norm(dis_grads, 10.)
         gen_train_op = self.optimizer.apply_gradients(gen_grads)        
         dis_train_op = self.optimizer.apply_gradients(dis_grads)
         init = tf.global_variables_initializer()
