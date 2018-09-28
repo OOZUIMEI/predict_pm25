@@ -37,26 +37,6 @@ def convert_element_to_grid(self, context):
     return np.asarray(res, dtype=np.float)
 
 
-# pre-process data for training 
-# convert 1-d data to grid-data
-def process_data(dtlength, batch_size, encoder_length, decoder_length=None, is_test=False):
-    # ma = heatmap.build_map()
-    # maximum = (dtlength - encoder_length - decoder_length) // batch_size * batch_size
-    maximum = dtlength - encoder_length - decoder_length
-    # end = maximum + encoder_length + decoder_length
-    # random from 0 -> maximum_index to separate valid & train set
-    indices = np.asarray(range(maximum), dtype=np.int32)
-    if not is_test:
-        train_length = int((maximum * 0.8) // batch_size * batch_size)
-        r = np.random.permutation(maximum)
-        indices = indices[r]
-        train = indices[:train_length]
-        valid = indices[train_length:]
-    else:
-        train, valid = indices, None
-    return train, valid
-
-
 def execute(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None, offset=0):
     print("==> Loading dataset")
     dataset = utils.load_file(path)
@@ -64,7 +44,7 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
     if dataset:
         dataset = np.asarray(dataset, dtype=np.float32)
         lt = len(dataset)
-        train, valid = process_data(lt, batch_size, encoder_length, decoder_length, is_test)
+        train, valid = utils.process_data_grid(lt, batch_size, encoder_length, decoder_length, is_test)
         if attention_url:
             attention_data = utils.load_file(attention_url)
         else:
@@ -210,7 +190,7 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
         if dataset:
             dataset = np.asarray(dataset, dtype=np.float32)
             lt = len(dataset)
-            train, _ = process_data(lt, batch_size, encoder_length, decoder_length, True)
+            train, _ = utils.process_data_grid(lt, batch_size, encoder_length, decoder_length, True)
         attention_data = None
         if attention_url:
             attention_data = utils.load_file(attention_url)

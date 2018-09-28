@@ -11,7 +11,6 @@ from baseline_cnnlstm import BaselineModel
 import properties as pr
 import utils
 import rnn_utils
-from train_sp import process_data
 
 """
 
@@ -357,7 +356,7 @@ class MaskGan(BaselineModel):
         if url_attention:
             att_data = utils.load_file(url_attention)
         lt = len(datasets)
-        data, _ = process_data(lt, self.batch_size, self.encoder_length, self.decoder_length, True)
+        data, _ = utils.process_data_grid(lt, self.batch_size, self.encoder_length, self.decoder_length, True)
         self.set_data(datasets, data, None, att_data)
         self.assign_datasets(session)
         dt_length = len(data)

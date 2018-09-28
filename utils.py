@@ -188,6 +188,26 @@ def get_pm25_class(index):
     return cl
 
 
+# pre-process data for training 
+# convert 1-d data to grid-data
+def process_data_grid(dtlength, batch_size, encoder_length, decoder_length=None, is_test=False):
+    # ma = heatmap.build_map()
+    # maximum = (dtlength - encoder_length - decoder_length) // batch_size * batch_size
+    maximum = dtlength - encoder_length - decoder_length
+    # end = maximum + encoder_length + decoder_length
+    # random from 0 -> maximum_index to separate valid & train set
+    indices = np.asarray(range(maximum), dtype=np.int32)
+    if not is_test:
+        train_length = int((maximum * 0.8) // batch_size * batch_size)
+        r = np.random.permutation(maximum)
+        indices = indices[r]
+        train = indices[:train_length]
+        valid = indices[train_length:]
+    else:
+        train, valid = indices, None
+    return train, valid
+
+
 # pre-process data to batch
 def process_data(dataset, data_len, pred, batch_size, max_input_len, max_sent, 
                 is_test=False, pred_sight=1, is_classify=False, context_meaning=1, fr_ele = 7):
