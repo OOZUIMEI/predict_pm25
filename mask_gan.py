@@ -355,6 +355,7 @@ class MaskGan(BaselineModel):
             dis_train_op = self.optimizer.apply_gradients(zip(dis_grads, dis_vars))
             init = tf.global_variables_initializer()
             sess.run(init)
+            saver = tf.train.Saver()
             for i in xrange(max_steps):
                 if train:
                     d_loss, g_loss, _, _ = sess.run([gen_loss, dis_loss, gen_train_op, dis_train_op])

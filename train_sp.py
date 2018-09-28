@@ -214,9 +214,8 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
         if gpu_nums > 1:
             if not is_test:
                 print('==> starting training')
-                _ = model.run_multiple_gpu(session, saver, train, url_weight, train_writer, offset, train=True, gpu_nums=gpu_nums)
+                _ = model.run_multiple_gpu(session, train, url_weight, train_writer, offset, train=True, gpu_nums=gpu_nums)
             else:
-                # saver.restore(session, url_weight)
                 print('==> running model')
                 preds = model.run_multiple_gpu(session, train, url_weight, train=False, shuffle=False, gpu_nums=gpu_nums)
                 save_gan_preds(preds, url_weight)
@@ -241,6 +240,12 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
             dtype="grid", is_folder=False, is_test=False, restore=False):
     model = MaskGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, rnn_layers=rnn_layers, grid_size=grid_size, use_cnn=1)
     dv = p.gpu_devices.split(",")
+    tconfig = get_gpu_options()
+    utils.assert_url(url_feature)
+    sum_dir = 'summaries'
+    saver = None
+    if not utils.check_file(sum_dir):
+        os.makedirs(sum_dir)
     if "gpu" in p.device and len(dv) > 1:
         model.add_placeholders()
         with tf.Session(config=tconfig) as session:       
@@ -274,13 +279,7 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
             model.init_ops()
             init = tf.global_variables_initializer()
             saver = tf.train.Saver()
-        utils.assert_url(url_feature)
-
-        tconfig = get_gpu_options()
-        sum_dir = 'summaries'
-        if not utils.check_file(sum_dir):
-            os.makedirs(sum_dir)
-        
+            
         train_writer = None
         
         with tf.Session(config=tconfig) as session:       

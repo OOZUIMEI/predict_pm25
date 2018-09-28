@@ -116,7 +116,12 @@ class BaselineModel(object):
         return outputs
 
     # perform encoder
-    def exe_encoder(self, enc, use_batch_norm=self.use_batch_norm, dropout=self.dropout):
+    def exe_encoder(self, enc, use_batch_norm=None, dropout=None):
+        if not dropout:
+            dropout = self.dropout
+        if not use_batch_norm:
+            self.use_batch_norm = use_batch_norm
+        
         with tf.variable_scope("encoder", initializer=self.initializer):
             if self.dtype == "grid":
                 if self.use_cnn:
