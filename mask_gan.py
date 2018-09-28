@@ -292,6 +292,7 @@ class MaskGan(BaselineModel):
     # reference from cifa_multiple_gpu code
     def average_gradients(self, tower_grads):
         average_grads = []
+        vars_ = []
         for grad_and_vars in zip(*tower_grads):
             grads = []
             for g, _ in grad_and_vars:
@@ -300,10 +301,10 @@ class MaskGan(BaselineModel):
             grad = tf.concat(axis=0, values=grads)
             grad = tf.reduce_mean(grad, 0)
             v = grad_and_vars[0][1]
-            if self.is_clip:
-                grad = tf.clip_by_globall_norm(grad, 10.)
-            grad_and_var = (grad, v)
-            average_grads.append(grad_and_var)
+            var_.append(v)
+            average_grads.append(grad)
+        average_grads = tf.clip_by_global_norm(average_grads, 10.)
+        average_grads = zip(average_grads, vars_)
         return average_grads
 
     def prefetch_queue(self, session, enqueue, data, total_steps, global_step, preload_nums=8):
