@@ -302,24 +302,10 @@ class MaskGan(BaselineModel):
             average_grads.append(grad_and_var)
         return average_grads
 
-    def run_multiple_gpu(self, session, data, url_weight, train_writer=None, offset=0, train=False, shuffle=True, stride=4, gpu_nums=2, max_steps=1200):
-        if not train:
-            train_op = tf.no_op()
-        dt_length = len(data)
-        # print("data_size: ", dt_length)
-        cons_b = self.batch_size * stride
-        total_steps = dt_length // cons_b
-        preds = []
-        summary = tf.Summary()
-        with tf.device("cpu"):
-            ct = np.asarray(data, dtype=np.float32)
-            if shuffle:
-                r = np.random.permutation(dt_length)
-                ct = ct[r]
-            queue = tf.FIFOqueue(gpu_nums * 2, dtypes=[tf.int32, tf.int32, tf.int32], name="data_lookup")
-            queue.enqueue([self.encoder_inputs, self.decoder_inputs, self.attention_inputs])
-            # prepare data
-            for step in xrange(total_steps):
+    def prefetch_queue(self, session, enqueue, data, total_steps, global_step, preload_nums=8):
+        end_step = global_step + preload_nums
+        if end_step < total_steps:
+            for step in xrange(global_step, end_step):
                 index = range(step * cons_b, (step + 1) * cons_b, stride)
                 ct_t = ct[index]
                 ct_t = np.asarray([range(int(x), int(x) + self.encoder_length) for x in ct_t])
@@ -329,46 +315,65 @@ class MaskGan(BaselineModel):
                     self.decoder_inputs: dec_t,
                     self.attention_inputs: ct_t
                 }
-                session.run(queue, feed_dict=q_dc)
+                session.run(enqueue, feed_dict=q_dc)
 
-            devices = pr.gpu_devices.split(",")
-            with tf.variable_scope(tf.get_variable_scope()):
-                dis_vars, gen_vars = None,None
-                tower_dis_grads = []
-                tower_gen_grads = []
-                for x in xrange(gpu_nums):
-                    with tf.device("gpu:%s" % s):
-                        with tf.name_scope("tenant_%s" % x):
-                            enc, dec, att = queue.dequeue()
-                            enc_output, dec, outputs, tanh_inputs, estimated_values, attention = self.create_generator(enc, dec, att)
-                            fake_preds, fake_rewards, real_preds = self.create_discriminator(enc_output, dec, outputs, attention)
-                            dis_loss = self.add_discriminator_loss(fake_preds, real_preds)
-                            gen_loss = self.get_generator_loss(fake_preds, fake_rewards, estimated_values, tanh_inputs)
-                            dis_grads, dis_vars = self.get_optimization(dis_loss, "discriminator")
-                            gen_grads, gen_vars = self.get_optimization(gen_loss, "generator")
-                            tower_gen_grads.append(gen_grads)
-                            tower_dis_grads.append(dis_grads)
-                            tf.get_variable_scope().reuse_variables()
-            gen_grads = average_gradients(tower_gen_grads)   
-            dis_grads = average_gradients(tower_dis_grads)
-            gen_train_op = self.optimizer.apply_gradients(zip(gen_grads, gen_vars))        
-            dis_train_op = self.optimizer.apply_gradients(zip(dis_grads, dis_vars))
-            init = tf.global_variables_initializer()
-            sess.run(init)
-            saver = tf.train.Saver()
-            for i in xrange(max_steps):
+    def run_multiple_gpu(self, session, data, url_weight, train_writer=None, offset=0, train=False, shuffle=True, stride=4, gpu_nums=2, max_steps=1200):
+        if not train:
+            train_op = tf.no_op()
+        dt_length = len(data)
+        # print("data_size: ", dt_length)
+        cons_b = self.batch_size * stride
+        total_steps = dt_length // cons_b
+        preds = []
+        summary = tf.Summary()
+        ct = np.asarray(data, dtype=np.float32)
+        if shuffle:
+            r = np.random.permutation(dt_length)
+            ct = ct[r]
+        max_load = gpu_nums * 2
+        queue = tf.FIFOQueue(max_load, dtypes=[tf.int32, tf.int32, tf.int32], name="data_lookup")
+        enqueue = queue.enqueue([self.encoder_inputs, self.decoder_inputs, self.attention_inputs])
+        # prepare data
+        devices = pr.gpu_devices.split(",")
+        with tf.variable_scope(tf.get_variable_scope()):
+            dis_vars, gen_vars = None,None
+            tower_dis_grads = []
+            tower_gen_grads = []
+            for x in xrange(gpu_nums):
+                with tf.device("gpu:%s" % devices[x]):
+                    with tf.name_scope("tenant_%s" % x):
+                        enc, dec, att = queue.dequeue()
+                        enc_output, dec, outputs, tanh_inputs, estimated_values, attention = self.create_generator(enc, dec, att)
+                        fake_preds, fake_rewards, real_preds = self.create_discriminator(enc_output, dec, outputs, attention)
+                        dis_loss = self.add_discriminator_loss(fake_preds, real_preds)
+                        gen_loss = self.get_generator_loss(fake_preds, fake_rewards, estimated_values, tanh_inputs)
+                        dis_grads, dis_vars = self.get_optimization(dis_loss, "discriminator")
+                        gen_grads, gen_vars = self.get_optimization(gen_loss, "generator")
+                        tower_gen_grads.append(gen_grads)
+                        tower_dis_grads.append(dis_grads)
+                        tf.get_variable_scope().reuse_variables()
+        gen_grads = average_gradients(tower_gen_grads)   
+        dis_grads = average_gradients(tower_dis_grads)
+        gen_train_op = self.optimizer.apply_gradients(zip(gen_grads, gen_vars))        
+        dis_train_op = self.optimizer.apply_gradients(zip(dis_grads, dis_vars))
+        init = tf.global_variables_initializer()
+        sess.run(init)
+        saver = tf.train.Saver()
+        self.prefetch_queue(session, enqueue, data, total_steps, 0, max_load)
+        for i in xrange(max_steps):
+            for b in xrange(total_steps):
+                if b and b % max_load == 0:
+                    self.prefetch_queue(session, enqueue, data, total_steps, b, max_load)
                 if train:
                     d_loss, g_loss, _, _ = sess.run([gen_loss, dis_loss, gen_train_op, dis_train_op])
                     if train_writer is not None:
                         summary.value.add(tag= "Generator Loss", simple_value=d_loss)
                         summary.value.add(tag= "Discriminator Loss", simple_value=g_loss)
                         train_writer.add_summary(summary, offset + i)
-                    if epoch % 10 == 0:
+                    if epoch % 10 == 0 or (epoch + 1) == max_steps:
                         utils.update_progress((i + 1.0) / p.total_iteration)
                         saver.save(session, 'weights/%s.weights' % url_weight)
                 else:
                     pred = sess.run([outputs])
                     preds.append(pred)
-            if train:
-                saver.save(session, 'weights/%s.weights' % url_weight)
         return preds
