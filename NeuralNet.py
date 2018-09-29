@@ -25,7 +25,7 @@ class NeuralNetwork(object):
     def add_placeholders(self):
         self.embedding = tf.Variable([], validate_shape=False, dtype=tf.float32, name="Data_Embedding")
         self.attention_embedding = tf.Variable([], validate_shape=False, dtype=tf.float32, trainable=False, name="attention_embedding")
-        self.encoder_inputs = tf.placeholders(tf.int32, shape=(pr.batch_size, self.encoder_length))
+        self.encoder_inputs = tf.placeholder(tf.int32, shape=(pr.batch_size, self.encoder_length))
         self.decoder_inputs = tf.placeholder(tf.int32, shape=(pr.batch_size, self.decoder_length))
         self.attention_inputs = tf.placeholder(tf.int32, shape=(pr.batch_size, self.attention_length))
         self.dropout_placeholder = tf.Variable(0.5, False, name="dropout", dtype=tf.float32)
