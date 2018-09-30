@@ -64,11 +64,13 @@ class NeuralNetwork(object):
 
         with tf.variable_scope("encoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             enc_out = self.add_neural_nets(enc)
-            enc_out = tf.tile(enc_out, [1, self.decoder_length])
-        
+            enc_shape = enc_out.get_shape()
+            enc_out = tf.reshape(tf.tile(enc_out, [1, self.decoder_length, 1]), shape=(enc_shape[0], self.decoder_length, enc_shape[1], enc_shape[-1]))
+
         with tf.variable_scope("attention", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             att_out = self.add_neural_nets(att)
-            att_out = tf.tile(att_out, [1, self.decoder_length])
+            att_shape = att_out.get_shape()
+            att_out = tf.reshape(tf.tile(att_out, [1, self.decoder_length, 1]), shape=(att_shape[0], self.decoder_length, att_shape[1], att_shape[-1]))
         
         with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             dec_out = self.add_neural_nets(dec)
