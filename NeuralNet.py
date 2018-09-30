@@ -97,6 +97,7 @@ class NeuralNetwork(object):
 
     def add_loss(self, pred):
         losses = tf.losses.mean_squared_error(labels=self.pred_placeholder, predictions=pred)
+        losses = tf.reduce_mean(losses)
         for x in tf.trainable_variables():
             if "bias" not in x.name.lower():
                 losses += 0.0001 * tf.nn.l2_loss(x)
