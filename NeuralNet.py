@@ -71,7 +71,7 @@ class NeuralNetwork(object):
         with tf.variable_scope("attention", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             att_out = self.add_neural_nets(att)
             att_shape = att_out.get_shape()
-            att_out = tf.reshape(tf.tile(att_out, [1, self.decoder_length * 25, 1]), shape=(att_shape[0], self.decoder_length, 25, att_shape[-1]))
+            att_out = tf.reshape(tf.tile(att_out, [1, self.decoder_length * 25]), shape=(att_shape[0], self.decoder_length, 25, att_shape[-1]))
         
         with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             dec_out = self.add_neural_nets(dec)
@@ -99,7 +99,7 @@ class NeuralNetwork(object):
         losses = tf.losses.mean_squared_error(labels=self.pred_placeholder, predictions=pred)
         for x in tf.trainable_variables():
             if "bias" not in x.name.lower():
-                losses += tf.nn.l2_loss(x)
+                losses += 0.0001 * tf.nn.l2_loss(x)
         return losses
     
      # operation of each epoch
