@@ -410,6 +410,17 @@ def run_neural_nets(url_feature="", attention_url="", url_weight="sp", encoder_l
                 tm = utils.clear_datetime(datetime.strftime(utils.get_datetime_now(), "%Y-%m-%d %H:%M:%S"))
                 l_fl = "train_loss/train_loss_%s_%s" % (url_weight, tm)
                 utils.save_file(l_fl, train_losses)
+            else:
+                # saver.restore(session, url_weight)
+                print('==> running model')
+                _, preds = model.run_epoch(session, model.train, shuffle=False)
+                pt = re.compile("weights/([A-Za-z0-9_.]*).weights")
+                name = pt.match(url_weight)
+                if name:
+                    name_s = name.group(1)
+                else:
+                    name_s = url_weight
+                utils.save_file("test_sp/%s" % name_s, preds)
 
 
 
