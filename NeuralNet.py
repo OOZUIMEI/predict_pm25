@@ -23,7 +23,7 @@ class NeuralNetwork(object):
         self.initializer = tf.contrib.layers.xavier_initializer()
     
     def add_placeholders(self):
-        self.embedding = tf.Variable([], validate_shape=False, dtype=tf.float32, name="Data_Embedding")
+        self.embedding = tf.Variable([], validate_shape=False, dtype=tf.float32, name="Data_Embedding", trainable=False)
         self.attention_embedding = tf.Variable([], validate_shape=False, dtype=tf.float32, trainable=False, name="attention_embedding")
         self.encoder_inputs = tf.placeholder(tf.int32, shape=(pr.batch_size, self.encoder_length))
         self.decoder_inputs = tf.placeholder(tf.int32, shape=(pr.batch_size, self.decoder_length))
