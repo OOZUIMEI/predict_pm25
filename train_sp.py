@@ -385,12 +385,10 @@ def run_neural_nets(url_feature="", attention_url="", url_weight="sp", encoder_l
                 best_val_loss = float('inf')
                 # best_overall_val_loss = float('inf')
                 print('==> starting training')
-                train_losses = []
                 for epoch in xrange(p.total_iteration):
                     print('Epoch {}'.format(epoch))
                     start = time.time()
                     train_loss, _ = model.run_epoch(session, train, epoch, train_writer, train_op=model.train_op, train=True)
-                    train_losses.append(train_loss)
                     print('Training loss: {}'.format(train_loss))
 
                     valid_loss, _ = model.run_epoch(session, valid, epoch, valid_writer)
@@ -399,17 +397,13 @@ def run_neural_nets(url_feature="", attention_url="", url_weight="sp", encoder_l
                     if valid_loss < best_val_loss:
                         best_val_loss = valid_loss
                         best_val_epoch = epoch
-                        # if best_val_loss < best_overall_val_loss:
                         print('Saving weights')
-                        # best_overall_val_loss = best_val_loss
+                        print(url_weight)
                         saver.save(session, 'weights/%s.weights' % url_weight)
 
                     if (epoch - best_val_epoch) > p.early_stopping:
                         break
                     print('Total time: {}'.format(time.time() - start))
-                tm = utils.clear_datetime(datetime.strftime(utils.get_datetime_now(), "%Y-%m-%d %H:%M:%S"))
-                l_fl = "train_loss/train_loss_%s_%s" % (url_weight, tm)
-                utils.save_file(l_fl, train_losses)
             else:
                 # saver.restore(session, url_weight)
                 print('==> running model')
