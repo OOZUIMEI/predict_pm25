@@ -146,15 +146,18 @@ class BaselineModel(object):
     # mapping input indices to dataset
     def lookup_input(self, enc, dec):
         enc = tf.nn.embedding_lookup(self.embedding, enc)
-        enc.set_shape((self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.encode_vector_size))
         dec_f = tf.nn.embedding_lookup(self.embedding, dec)
-        dec_f.set_shape((self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.encode_vector_size))
+        
         if self.dtype == "grid":
+            enc.set_shape((self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.encode_vector_size))
+            dec_f.set_shape((self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.encode_vector_size))
             # embedding = tf.Variable(self.datasets, name="embedding")
             dec = dec_f[:,:,:,:,self.df_ele:]
             dec.set_shape((self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.decode_vector_size))
             self.pred_placeholder = dec_f[:,:,:,:,0]
         else:
+            enc.set_shape((self.batch_size, self.encoder_length, 25, self.encode_vector_size))
+            dec_f.set_shape((self.batch_size, self.encoder_length, 25, self.encode_vector_size))
             dec = dec_f[:,:,:,self.df_ele:]
             dec.set_shape((self.batch_size, self.encoder_length, 25, self.decode_vector_size))
             self.pred_placeholder = dec_f[:,:,:,0]
