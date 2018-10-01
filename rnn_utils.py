@@ -79,8 +79,12 @@ def execute_decoder(inputs, init_state, sequence_length, params, attention=None,
             dec_out = tf.concat([dec_out, attention], axis=1)
         pm2_5 = tf.layers.dense(dec_out, 
                         params["de_output_size"],
-                        name="decoder_output",
-                        activation=tf.nn.sigmoid)
+                        name="decoder_output_relu",
+                        activation=tf.nn.relu)
+        pm2_5 = tf.layers.dense(dec_out, 
+                        params["de_output_size"],
+                        name="decoder_output_tanh",
+                        activation=tf.nn.tanh)
         if dropout:
             pm2_5 = tf.nn.dropout(pm2_5, dropout)
         outputs.append(pm2_5)

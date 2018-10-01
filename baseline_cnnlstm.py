@@ -135,7 +135,7 @@ class BaselineModel(object):
                 enc_data = tf.reshape(cnn, [self.batch_size, self.encoder_length, cnn_shape[-1]])
                 # enc_data = tf.unstack(enc_data, axis=1)
             else:
-                enc = tf.reshape(tf.reshape(enc, [-1]), [self.batch_size, self.encoder_length, self.districts * self.encode_vector_size])
+                enc_data = tf.reshape(enc, [self.batch_size, self.encoder_length, self.districts * self.encode_vector_size])
                 # enc_data = tf.unstack(enc, axis=1)
             # then push through lstm
             _, enc_output = rnn_utils.execute_sequence(enc_data, self.e_params)
@@ -179,7 +179,7 @@ class BaselineModel(object):
                 else:
                     outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, params, attention, cnn_gen=self.use_gen_cnn, mtype=self.mtype)
             else:
-                dec_data = tf.reshape(tf.reshape(dec, [-1]), [self.batch_size, self.decoder_length, self.districts * self.decode_vector_size])
+                dec_data = tf.reshape(dec, [self.batch_size, self.decoder_length, self.districts * self.decode_vector_size])
             #finally push -> decoder
             if self.no_cnn_decoder:
                 outputs = rnn_utils.execute_decoder(dec_data, enc_output, self.decoder_length, params, attention, self.dropout_placeholder)

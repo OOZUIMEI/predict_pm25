@@ -438,7 +438,7 @@ if __name__ == "__main__":
     parser.add_argument("-w", "--url_weight", type=str, default="")
     parser.add_argument("-au", "--attention_url", type=str, default="")
     parser.add_argument("-bs", "--batch_size", type=int, default=64)
-    parser.add_argument("-l", "--loss", default='mae')
+    parser.add_argument("-l", "--loss", default='mse')
     parser.add_argument("-e", "--embed_size", type=int, default=15)
     parser.add_argument("-el", "--encoder_length", type=int, default=24)
     parser.add_argument("-dl", "--decoder_length", type=int, default=24)
