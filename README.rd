@@ -67,6 +67,12 @@ python train_sp.py -u vectors/sp_china_combined/sp_seoul_train_bin -au vectors/s
 Testing
 python train_sp.py -u vectors/sp_china_combined/sp_seoul_test_bin -au vectors/sp_china_combined/sp_china_test_bin  -w weights/lstm_only.weights -m "CNN_LSTM" -cnn 0 -dt "dis" -t 1
 
+# LSTM with grid
+Training 
+python train_sp.py -u vectors/sp_china_combined/seoul_1 -au vectors/sp_china_combined/china_1  -w lstm_only_grid -m "CNN_LSTM" -cnn 0 -l mse -cnn 0
+Testing
+python train_sp.py -u vectors/sp_china_combined/sp_seoul_test_grid -au vectors/sp_china_combined/sp_china_test_bin  -w weights/lstm_only_grid.weights -m "CNN_LSTM" -cnn 0 -l mse -cnn 0 -t 1
+
 # start visualization server
 ng serve --port 3000 --host 0.0.0.0
 

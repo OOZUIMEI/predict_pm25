@@ -34,9 +34,9 @@ def evaluate(pred, labs, rg, is_classify=False, verbose=True):
             print("r2_score:%.2f" % r2)
 
 
-def evaluate_sp():
+def evaluate_sp(url, url2):
     map_ = heatmap.build_map()
-    data = utils.load_file("test_sp/gan_case4")
+    data = utils.load_file(url)
     if type(data) is list:
         data = np.asarray(data)
     if len(data.shape) == 4:
@@ -44,10 +44,12 @@ def evaluate_sp():
     else:
         lt = data.shape[0]
     data = np.reshape(data, (lt, data.shape[-2], 25, 25))
-    labels = utils.load_file("vectors/sp_seoul_test_bin")
+    labels = utils.load_file(url2)
     labels = np.asarray(labels)
     dtl = len(data)
-    loss = 0.0
+    loss_mse = 0.0
+    loss_mae = 0.0
+    loss_rmse = 0.0
     for i, d in enumerate(data):
         lb_i = i * 4 + 24
         lbt = labels[lb_i:(lb_i+24),:,0]
@@ -63,25 +65,25 @@ def evaluate_sp():
             pred_t.append(d_t)
         pred_t = np.asarray(pred_t)
         pred_t = pred_t.flatten()
-        loss += mean_squared_error(lbg, pred_t)
+        mse = mean_squared_error(lbg, pred_t)
+        loss_mse += mse
+        loss_mae += mean_absolute_error(lbg, pred_t)
+        loss_rmse += sqrt(mse)
         # utils.update_progress(i * 1.0 / dtl)
-    loss = loss / dtl * 300
-    print(loss)
+    loss_mse = loss_mse / lt * 300
+    loss_mae = loss_mae / lt * 300
+    loss_rmse = loss_rmse / lt * 300
+    print("MSE: %.2f" % loss_mse)
+    print("MAE: %.2f" % loss_mae)
+    print("RMSE: %.2f" % loss_rmse)
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-u", "--url", help="predictions file path")
-    parser.add_argument("-l", "--url2", help="labels file path")
-    parser.add_argument("-r", "--range", type=int, default=5)
-    parser.add_argument("-c", "--classify", type=int, default=0)
-
-    args = parser.parse_args()
-    preds = utils.load_file(args.url)
+def evaluate_reg(url, url2):
+    preds = utils.load_file(url)
     preds = np.array(preds)
     lt = preds.shape[0] * preds.shape[1]
     preds = np.reshape(preds.flatten(), (lt, preds.shape[2], preds.shape[-1]))
-    labels = utils.load_file(args.url2)
+    labels = utils.load_file(url2)
     labels = np.array(labels)
     loss_mse = 0.0
     loss_mae = 0.0
@@ -104,3 +106,18 @@ if __name__ == "__main__":
     print("MSE: %.2f" % loss_mse)
     print("MAE: %.2f" % loss_mae)
     print("RMSE: %.2f" % loss_rmse)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-u", "--url", help="predictions file path")
+    parser.add_argument("-l", "--url2", help="labels file path")
+    parser.add_argument("-r", "--range", type=int, default=5)
+    parser.add_argument("-c", "--classify", type=int, default=0)
+    parser.add_argument("-t", "--task", type=int, default=0)
+
+    args = parser.parse_args()
+    if args.task == 0:
+        evaluate_sp(args.url, args.url2)
+    else:
+        evaluate_reg(args.url, args.url2)
