@@ -79,6 +79,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     preds = utils.load_file(args.url)
     preds = np.array(preds)
+    preds.reshape(preds.shape[0] * preds.shape[1], preds.shape[2], preds.shape[-1])
     labels = utils.load_file(args.url2)
     labels = np.array(labels)
     loss_mse = 0.0
