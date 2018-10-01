@@ -92,6 +92,7 @@ if __name__ == "__main__":
         lbg = np.array(lbt)
         lbg = lbg.flatten()
         pred_t = d.flatten()
+        plt_l = len(pred_t)
         mse = mean_squared_error(lbg, pred_t)
         loss_mse += mse
         loss_mae += mean_absolute_error(lbg, pred_t)

@@ -113,7 +113,7 @@ def get_gpu_options():
 def main(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, rnn_layers=1,
         dtype="grid", is_folder=False, is_test=False, use_cnn=True, restore=False):
     model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, rnn_layers=rnn_layers,
-                        dtype=dtype, grid_size=grid_size, use_cnn=use_cnn)
+                        dtype=dtype, grid_size=grid_size, use_cnn=use_cnn, loss=loss)
     print('==> initializing models')
     with tf.device('/%s' % p.device):
         model.init_ops()
@@ -211,8 +211,7 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
             save_gan_preds(preds, url_weight)
 
 
-def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, rnn_layers=1, 
-            dtype="grid", is_folder=False, is_test=False, restore=False):
+def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, decoder_length=24, decoder_size=4, grid_size=25, is_folder=False, is_test=False, restore=False):
     model = MaskGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, rnn_layers=rnn_layers, grid_size=grid_size, use_cnn=1)
     dv = p.gpu_devices.split(",")
     tconfig = get_gpu_options()
@@ -462,8 +461,8 @@ if __name__ == "__main__":
     # prediction = get_districts_preds(preds)
     # print(prediction[0])
     if args.model == "GAN":
-        train_gan(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
-            args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), restore=bool(args.restore))
+        train_gan(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, 
+            args.grid_size, is_folder=bool(args.folder), is_test=bool(args.is_test), restore=bool(args.restore))
     elif args.model == "CNN_LSTM":
         main(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
         args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn),  restore=bool(args.restore))

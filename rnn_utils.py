@@ -95,7 +95,7 @@ def execute_decoder(inputs, init_state, sequence_length, params, attention=None,
 
 
 # perform cnn on pm2_5 output
-def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=None, cnn_gen=False, mtype=4, use_batch_norm=True, dropout=0.5):
+def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=None, cnn_rep=True, cnn_gen=False, mtype=4, use_batch_norm=True, dropout=0.5):
     # push final state of encoder to decoder
     if params["fw_cell"] == "gru_block":
         dec_state = tf.squeeze(init_state[0], [0])
@@ -111,7 +111,8 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=N
         pm2_5_t = tf.expand_dims(tf.reshape(pm2_5, [params["batch_size"], params["grid_size"], params["grid_size"]]), 3)
         dec_in = tf.concat([input_t, pm2_5_t], axis=3)
         # need to do cnn here
-        dec_in = get_cnn_rep(dec_in, mtype=mtype)
+        if cnn_rep:
+            dec_in = get_cnn_rep(dec_in, mtype=mtype)
         dec_in = tf.layers.flatten(dec_in)
         dec_out, dec_state = cell_dec(dec_in, dec_state)
         if attention is not None: 

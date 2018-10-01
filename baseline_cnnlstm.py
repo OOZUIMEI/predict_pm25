@@ -39,7 +39,6 @@ class BaselineModel(object):
         self.use_cnn = use_cnn
         self.districts = 25
         self.rnn_layers = rnn_layers
-        self.no_cnn_decoder = no_cnn_decoder
         self.atttention_hidden_size = atttention_hidden_size
         self.initializer = tf.contrib.layers.xavier_initializer()
         self.e_params = {
@@ -132,7 +131,8 @@ class BaselineModel(object):
                 cnn = tf.layers.flatten(cnn)
                 cnn_shape = cnn.get_shape()
                 # last_dim = cnn_shape[-1] * cnn_shape[-2]
-                enc_data = tf.reshape(cnn, [self.batch_size, self.encoder_length, cnn_shape[-1]])
+                last_dim = int(cnn_shape[-1]) / self.encoder_length
+                enc_data = tf.reshape(cnn, [self.batch_size, self.encoder_length, int(last_dim)])
                 # enc_data = tf.unstack(enc_data, axis=1)
             else:
                 enc_data = tf.reshape(enc, [self.batch_size, self.encoder_length, self.districts * self.encode_vector_size])
@@ -169,7 +169,7 @@ class BaselineModel(object):
         params["fw_cell"] = "gru_block"
         with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             if self.dtype == "grid":
-                outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, params, attention, cnn_gen=self.use_gen_cnn, mtype=self.mtype)
+                outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, params, attention, cnn_rep=self.use_cnn, cnn_gen=self.use_gen_cnn, mtype=self.mtype)
             else:
                 dec_data = tf.reshape(dec, [self.batch_size, self.decoder_length, self.districts * self.decode_vector_size])
                 outputs = rnn_utils.execute_decoder(dec_data, enc_output, self.decoder_length, params, attention, self.dropout_placeholder)
