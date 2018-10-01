@@ -79,7 +79,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     preds = utils.load_file(args.url)
     preds = np.array(preds)
-    preds.reshape(preds.shape[0] * preds.shape[1], preds.shape[2], preds.shape[-1])
+    lt = preds.shape[0] * preds.shape[1]
+    preds = np.reshape(preds.flatten(), (lt, preds.shape[2], preds.shape[-1]))
     labels = utils.load_file(args.url2)
     labels = np.array(labels)
     loss_mse = 0.0
@@ -96,6 +97,9 @@ if __name__ == "__main__":
         loss_mae += mean_absolute_error(lbg, pred_t)
         loss_rmse += sqrt(mse)
 
+    loss_mse = loss_mse / lt * 300
+    loss_mae = loss_mae / lt * 300
+    loss_rmse = loss_rmse / lt * 300
     print("MSE: %.2f" % loss_mse)
     print("MAE: %.2f" % loss_mae)
-    print("RMSE: %.2f" % loss_mae)
+    print("RMSE: %.2f" % loss_rmse)
