@@ -34,25 +34,7 @@ def evaluate(pred, labs, rg, is_classify=False, verbose=True):
             print("r2_score:%.2f" % r2)
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-u", "--url")
-    parser.add_argument("-r", "--range", type=int, default=5)
-    parser.add_argument("-c", "--classify", type=int, default=0)
-
-    args = parser.parse_args()
-
-    # a = utils.load_file(args.url, False)
-    # labs = []
-    # preds = []
-    # for i, x in enumerate(a):
-    #     if i:
-    #         x_ = x.rstrip("\n")
-    #         x_ = x_.split(",")
-    #         if x_:
-    #             labs.append(int(x_[-1]))
-    #             preds.append(int(x_[0]))
-    # evaluate(preds, labs, args.range, args.classify)
+def evaluate_sp():
     map_ = heatmap.build_map()
     data = utils.load_file("test_sp/gan_case4")
     if type(data) is list:
@@ -84,4 +66,25 @@ if __name__ == "__main__":
         loss += mean_squared_error(lbg, pred_t)
         # utils.update_progress(i * 1.0 / dtl)
     loss = loss / dtl * 300
+    print(loss)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-u", "--url", help="predictions file path")
+    parser.add_argument("-l", "--url2", help="labels file path")
+    parser.add_argument("-r", "--range", type=int, default=5)
+    parser.add_argument("-c", "--classify", type=int, default=0)
+
+    args = parser.parse_args()
+    preds = utils.load_file(args.url)
+    labels = utils.load_file(args.url2)
+    loss = 0.0
+    for i, d in enumerate(preds):
+        lb_i = i * 4 + 24
+        lbt = labels[lb_i:(lb_i+24),:,0]
+        lbg = np.array(lbt)
+        lbg = lbg.flatten()
+        pred_t = d.flatten()
+        loss += mean_squared_error(lbg, pred_t)
     print(loss)

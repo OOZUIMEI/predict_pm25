@@ -19,6 +19,7 @@ import craw_aws as aws
 
 import process_sp_vector as psv
 from baseline_cnnlstm import BaselineModel
+from NeuralNet import NeuralNetwork
 from mask_gan import MaskGan
 # import matplotlib
 # import matplotlib.pyplot as plt
@@ -339,6 +340,83 @@ def get_prediction_real_time(sparkEngine, url_weight="", dim=12):
             return preds, timestamp
     return [], []
     
+def run_neural_nets(url_feature="", attention_url="", url_weight="sp", encoder_length=24, encoder_size=15, decoder_length=24, decoder_size=9, is_test=False, restore=False):
+    model = NeuralNetwork(encoder_length=encoder_length, encoder_vector_size=encoder_size, decoder_length=decoder_length, decoder_vector_size=decoder_size)
+    print('==> initializing models')
+    with tf.device('/%s' % p.device):
+        model.init_model()
+        init = tf.global_variables_initializer()
+        saver = tf.train.Saver()
+    utils.assert_url(url_feature)
+
+    tconfig = get_gpu_options()
+    sum_dir = 'summaries'
+    if not utils.check_file(sum_dir):
+        os.makedirs(sum_dir)
+
+    train_writer = None
+    with tf.Session(config=tconfig) as session:
+        if not restore:
+            session.run(init)
+        else:
+            print("==> Reload pre-trained weights")
+            saver.restore(session, url_weight)
+            url_weight = url_weight.split("/")[-1]
+            url_weight = url_weight.rstrip(".weights")
+        
+        if not is_test:
+            suf = time.strftime("%Y.%m.%d_%H.%M")
+            train_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_train", session.graph, filename_suffix=suf)
+            valid_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_valid", session.graph, filename_suffix=suf)
+
+        print("==> Loading dataset")
+        dataset = utils.load_file(url_feature)
+        if dataset:
+            dataset = np.asarray(dataset, dtype=np.float32)
+            lt = len(dataset)
+            train, valid = utils.process_data_grid(lt, p.batch_size, encoder_length, decoder_length, is_test)
+            if attention_url:
+                attention_data = utils.load_file(attention_url)
+            else:
+                attention_data = None
+            model.set_data(dataset, train, valid, attention_data, session)
+            if not is_test:
+                best_val_epoch = 0
+                best_val_loss = float('inf')
+                # best_overall_val_loss = float('inf')
+                print('==> starting training')
+                for epoch in xrange(p.total_iteration):
+                    print('Epoch {}'.format(epoch))
+                    start = time.time()
+                    train_loss, _ = model.run_epoch(session, train, epoch, train_writer, train_op=model.train_op, train=True)
+                    print('Training loss: {}'.format(train_loss))
+
+                    valid_loss, _ = model.run_epoch(session, valid, epoch, valid_writer)
+                    print('Validation loss: {}'.format(valid_loss))
+
+                    if valid_loss < best_val_loss:
+                        best_val_loss = valid_loss
+                        best_val_epoch = epoch
+                        print('Saving weights')
+                        print(url_weight)
+                        saver.save(session, 'weights/%s.weights' % url_weight)
+
+                    if (epoch - best_val_epoch) > p.early_stopping:
+                        break
+                    print('Total time: {}'.format(time.time() - start))
+            else:
+                # saver.restore(session, url_weight)
+                print('==> running model')
+                _, preds = model.run_epoch(session, model.train, shuffle=False)
+                pt = re.compile("weights/([A-Za-z0-9_.]*).weights")
+                name = pt.match(url_weight)
+                if name:
+                    name_s = name.group(1)
+                else:
+                    name_s = url_weight
+                utils.save_file("test_sp/%s" % name_s, preds)
+
+
 
 def  get_districts_preds(preds):
     res = []
@@ -386,6 +464,9 @@ if __name__ == "__main__":
     if args.model == "GAN":
         train_gan(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
             args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), restore=bool(args.restore))
-    else:
+    elif args.model == "CNN_LSTM":
         main(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
         args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn),  restore=bool(args.restore))
+    else:
+        run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore))
+    

@@ -53,6 +53,11 @@ python train_sp.py -u vectors/sp_china_combined/seoul_0 -au vectors/sp_china_com
 Test GAN
 python train_sp.py -u vectors/sp_china_combined/sp_seoul_test_grid -au vectors/sp_china_combined/sp_china_test_bin -w weights/gan_cuda.weights -e 15 -ds 9 -rs 1 -t 1
 
+
+# Neural nets
+Training:
+python train_sp.py -u vectors/sp_china_combined/sp_seoul_train_bin -au vectors/sp_china_combined/sp_china_train_bin  -w neural_nets -m "NN"
+
 # start visualization server
 ng serve --port 3000 --host 0.0.0.0
 

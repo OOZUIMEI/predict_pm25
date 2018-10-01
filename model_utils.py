@@ -5,7 +5,7 @@ import rnn_utils
 
 
 
-def add_training_op(loss, learning_rate, global_step=None, decay_steps=None, decay_rate=None):
+def add_training_op(loss, learning_rate):
         """Calculate and apply gradients"""
         opt = tf.train.AdamOptimizer(learning_rate)
         gvs = opt.compute_gradients(loss)
