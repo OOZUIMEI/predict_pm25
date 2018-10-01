@@ -51,11 +51,11 @@ class NeuralNetwork(object):
         enc = tf.nn.embedding_lookup(self.embedding, self.encoder_inputs)
         dec_f = tf.nn.embedding_lookup(self.embedding, self.decoder_inputs)
         if self.dtype == "grid":
-            enc.set_shape((pr.batch_size, self.encoder_length, pr.map_size, pr.map_size, self.encode_vector_size))
-            dec_f.set_shape((pr.batch_size, self.encoder_length, pr.map_size, pr.map_size, self.encode_vector_size))
+            enc.set_shape((pr.batch_size, self.encoder_length, pr.map_size, pr.map_size, self.encoder_vector_size))
+            dec_f.set_shape((pr.batch_size, self.encoder_length, pr.map_size, pr.map_size, self.encoder_vector_size))
             # embedding = tf.Variable(self.datasets, name="embedding")
-            dec = dec_f[:,:,:,:,self.df_ele:]
-            dec.set_shape((pr.batch_size, self.encoder_length, pr.map_size, pr.map_size, self.decode_vector_size))
+            dec = dec_f[:,:,:,:,6:]
+            dec.set_shape((pr.batch_size, self.encoder_length, pr.map_size, pr.map_size, self.decoder_vector_size))
             self.pred_placeholder = dec_f[:,:,:,:,0]
         else:
             enc.set_shape((pr.batch_size, self.encoder_length, 25, self.encoder_vector_size))
@@ -75,7 +75,7 @@ class NeuralNetwork(object):
         with tf.variable_scope("attention", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             att_out = self.add_neural_nets(att)
         
-        if self.dtype != "grid"
+        if self.dtype != "grid":
             enc = tf.reshape(tf.transpose(enc, [0, 2, 1, 3]), shape=(pr.batch_size, 25, self.encoder_length * self.encoder_vector_size))
             with tf.variable_scope("encoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
                 enc_out = self.add_neural_nets(enc)
@@ -101,10 +101,12 @@ class NeuralNetwork(object):
             enc = tf.layers.flatten(enc)
             with tf.variable_scope("encoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
                 enc_out = self.add_neural_nets(enc)
-                enc_out = tf.tile(enc_out, [1, self.decoder_length])
+                enc_shape = enc_out.get_shape()
+                enc_out = tf.reshape(tf.tile(enc_out, [1, self.decoder_length]), shape=(pr.batch_size, self.decoder_length, enc_shape[-1]))
             
-            att_out = tf.tile(att_out, [1, self.decoder_length])
-            
+            att_shape = att_out.get_shape()
+            att_out = tf.reshape(tf.tile(att_out, [1, self.decoder_length]), shape=(pr.batch_size, self.decoder_length, enc_shape[-1]))
+
             with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
                 dec_out = self.add_neural_nets(dec)
                 # dec_out has shape batch_size x 24 x 25 x 96
