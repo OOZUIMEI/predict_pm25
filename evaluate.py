@@ -81,12 +81,20 @@ if __name__ == "__main__":
     preds = np.array(preds)
     labels = utils.load_file(args.url2)
     labels = np.array(labels)
-    loss = 0.0
+    loss_mse = 0.0
+    loss_mae = 0.0
+    loss_rmse = 0.0
     for i, d in enumerate(preds):
         lb_i = i * 4 + 24
         lbt = labels[lb_i:(lb_i+24),:,0]
         lbg = np.array(lbt)
         lbg = lbg.flatten()
         pred_t = d.flatten()
-        loss += mean_squared_error(lbg, pred_t)
-    print(loss)
+        mse = mean_squared_error(lbg, pred_t)
+        loss_mse += mse
+        loss_mae += mean_absolute_error(lbg, pred_t)
+        loss_rmse += sqrt(mse)
+
+    print("MSE: %.2f" % loss_mse)
+    print("MAE: %.2f" % loss_mae)
+    print("RMSE: %.2f" % loss_mae)
