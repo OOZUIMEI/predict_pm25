@@ -19,7 +19,7 @@ class BaselineModel(object):
     def __init__(self, encoder_length=24, decoder_length=24, grid_size=25, rnn_hidden_units=128, 
                 encode_vector_size=12, decode_vector_size=6, learning_rate=0.01, batch_size=64, loss="mse", 
                 df_ele=6, rnn_layers=1, dtype="grid", attention_length=24, atttention_hidden_size=17,
-                use_attention=True, use_cnn=False, no_cnn_decoder=False):
+                use_attention=True, use_cnn=False):
         self.encoder_length = encoder_length
         self.decoder_length = decoder_length
         self.sequence_length = encoder_length + decoder_length
@@ -169,25 +169,11 @@ class BaselineModel(object):
         params["fw_cell"] = "gru_block"
         with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             if self.dtype == "grid":
-                if self.no_cnn_decoder:
-                    if self.use_cnn:
-                        # add one cnn layer before decoding using lstm
-                        cnn = rnn_utils.get_cnn_rep(dec, mtype=self.mtype)
-                    else:
-                        cnn = dec
-                        grd_cnn = self.grid_square * self.decode_vector_size
-                    cnn = tf.layers.flatten(cnn)
-                    cnn_shape = cnn.get_shape()
-                    dec_data = tf.reshape(cnn, [self.batch_size, self.decoder_length, cnn_shape[-1]])
-                else:
-                    outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, params, attention, cnn_gen=self.use_gen_cnn, mtype=self.mtype)
+                outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, params, attention, cnn_gen=self.use_gen_cnn, mtype=self.mtype)
             else:
                 dec_data = tf.reshape(dec, [self.batch_size, self.decoder_length, self.districts * self.decode_vector_size])
-            #finally push -> decoder
-            if self.no_cnn_decoder:
                 outputs = rnn_utils.execute_decoder(dec_data, enc_output, self.decoder_length, params, attention, self.dropout_placeholder)
-            else:
-                outputs = tf.stack(outputs, axis=1)
+            outputs = tf.stack(outputs, axis=1)
         return outputs
     
     # china representation

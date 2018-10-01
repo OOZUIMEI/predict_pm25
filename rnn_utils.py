@@ -69,7 +69,6 @@ def execute_decoder(inputs, init_state, sequence_length, params, attention=None,
         dec_state = tf.squeeze(init_state[0], [0])
     else:
         dec_state = init_state
-    dec_state = init_state
     pm2_5 = np.zeros((params["batch_size"], params["de_output_size"]))
     dec_out = None
     outputs = []

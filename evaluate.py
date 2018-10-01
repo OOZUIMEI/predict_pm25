@@ -78,7 +78,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     preds = utils.load_file(args.url)
+    preds = np.array(preds)
     labels = utils.load_file(args.url2)
+    labels = np.array(labels)
     loss = 0.0
     for i, d in enumerate(preds):
         lb_i = i * 4 + 24
