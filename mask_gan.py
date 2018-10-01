@@ -359,11 +359,11 @@ class MaskGan(BaselineModel):
         print("Loading dataset")
         datasets = utils.load_file(url_data)
         if url_attention:
-            att_attention = utils.load_file(url_attention)
+            att_data = utils.load_file(url_attention)
         lt = len(datasets)
         data, _ = utils.process_data_grid(lt, self.batch_size, self.encoder_length, self.decoder_length, True)
         self.set_data(datasets, data, None, att_data)
-        self.assign_datasets(session)
+        self.assign_datasets(sess)
         dt_length = len(data)
         cons_b = self.batch_size * stride
         total_steps = dt_length // cons_b
