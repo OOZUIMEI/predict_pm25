@@ -71,45 +71,61 @@ class NeuralNetwork(object):
     def inference(self):
         enc, dec, att = self.lookup_input()
         att = tf.reshape(att, shape=(pr.batch_size, self.attention_length * self.attention_vector_size))
+
+        with tf.variable_scope("attention", initializer=self.initializer, reuse=tf.AUTO_REUSE):
+            att_out = self.add_neural_nets(att)
+        
         if self.dtype != "grid"
             enc = tf.reshape(tf.transpose(enc, [0, 2, 1, 3]), shape=(pr.batch_size, 25, self.encoder_length * self.encoder_vector_size))
             with tf.variable_scope("encoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
                 enc_out = self.add_neural_nets(enc)
                 enc_shape = enc_out.get_shape()
                 enc_out = tf.reshape(tf.tile(enc_out, [1, self.decoder_length, 1]), shape=(enc_shape[0], self.decoder_length, enc_shape[1], enc_shape[-1]))
+            
+            att_shape = att_out.get_shape()
+            att_out = tf.reshape(tf.tile(att_out, [1, self.decoder_length * 25]), shape=(att_shape[0], self.decoder_length, 25, att_shape[-1]))
 
-            with tf.variable_scope("attention", initializer=self.initializer, reuse=tf.AUTO_REUSE):
-                att_out = self.add_neural_nets(att)
-                att_shape = att_out.get_shape()
-                att_out = tf.reshape(tf.tile(att_out, [1, self.decoder_length * 25]), shape=(att_shape[0], self.decoder_length, 25, att_shape[-1]))
+            with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
+                dec_out = self.add_neural_nets(dec)
+                # dec_out has shape batch_size x 24 x 25 x 96
+            dec_out = tf.concat([dec_out, enc_out, att_out], axis=3)
+            with tf.variable_scope("prediction", initializer=self.initializer, reuse=tf.AUTO_REUSE):
+                pred_hidden = self.add_neural_nets(dec_out)
+                # pred_relu = tf.layers.dense(pred_hidden, units=1, activation=tf.nn.relu, name="relu_hidden")
+                # # output has shape batch_size x 24 x 25
+                # pred = tf.layers.dense(pred_relu, units=1, activation=tf.nn.tanh, name="final_hidden")
+                pred = tf.layers.dense(pred_hidden, units=1, activation=tf.nn.sigmoid, name="final_hidden_sigmoid")
+                pred = tf.layers.dropout(pred, self.dropout_placeholder)
+                pred = tf.squeeze(pred, axis=3)
+        else:
+            enc = tf.layers.flatten(enc)
+            with tf.variable_scope("encoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
+                enc_out = self.add_neural_nets(enc)
+                enc_out = tf.tile(enc_out, [1, self.decoder_length])
+            
+            att_out = tf.tile(att_out, [1, self.decoder_length])
             
             with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
                 dec_out = self.add_neural_nets(dec)
-            # dec_out has shape batch_size x 24 x 25 x 96
+                # dec_out has shape batch_size x 24 x 25 x 96
             dec_out = tf.concat([dec_out, enc_out, att_out], axis=3)
-        else:
-
-        
-        with tf.variable_scope("prediction", initializer=self.initializer, reuse=tf.AUTO_REUSE):
-            pred_hidden = self.add_neural_nets(dec_out)
-            # pred_relu = tf.layers.dense(pred_hidden, units=1, activation=tf.nn.relu, name="relu_hidden")
-            # # output has shape batch_size x 24 x 25
-            # pred = tf.layers.dense(pred_relu, units=1, activation=tf.nn.tanh, name="final_hidden")
-            pred = tf.layers.dense(pred_relu, units=1, activation=tf.nn.sigmoid, name="final_hidden_sigmoid")
-            pred = tf.layers.dropout(pred, self.dropout_placeholder)
-            pred = tf.squeeze(pred, axis=3)
+            with tf.variable_scope("prediction", initializer=self.initializer, reuse=tf.AUTO_REUSE):
+                pred = tf.layers.dense(dec_out, units=625, activation=tf.nn.sigmoid, name="final_hidden_sigmoid")
+                pred = tf.layers.dropout(pred, self.dropout_placeholder)
         return pred
         
     def add_neural_nets(self, inputs):
         out_hid1 = tf.layers.dense(inputs, units=256, activation=tf.nn.tanh, name="hidden_256")
         out_hid2 = tf.layers.dense(out_hid1, units=128, activation=tf.nn.tanh, name="hidden_128")
         out_hid3 = tf.layers.dense(out_hid2, units=64, activation=tf.nn.tanh, name="hidden_64")
-        out_hid4 = tf.layers.dense(out_hid3, units=64, activation=tf.nn.tanh, name="hidden_32")
+        out_hid4 = tf.layers.dense(out_hid3, units=32, activation=tf.nn.tanh, name="hidden_32")
         out_hid4 = tf.layers.dropout(out_hid4, self.dropout_placeholder)
         return out_hid4
 
     def add_loss(self, pred):
-        losses = tf.losses.mean_squared_error(labels=self.pred_placeholder, predictions=pred)
+        labels = tf.layers.flatten(self.pred_placeholder)
+        preds = tf.layers.flatten(pred)
+        losses = tf.losses.mean_squared_error(labels=labels, predictions=preds)
         losses = tf.reduce_mean(losses)
         for x in tf.trainable_variables():
             if "bias" not in x.name.lower():
