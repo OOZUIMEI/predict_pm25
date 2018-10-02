@@ -108,9 +108,9 @@ class NeuralNetwork(object):
             with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
                 dec_in = tf.reshape(dec, shape=(pr.batch_size, self.decoder_length, 625 * self.decoder_vector_size))
                 dec_out = self.add_neural_nets(dec_in)
-                print(dec_out.get_shape())
                 # dec_out has shape batch_size x 24 x 25 x 96
             dec_out = tf.concat([dec_out, enc_out, att_out], axis=2)
+
             with tf.variable_scope("prediction", initializer=self.initializer, reuse=tf.AUTO_REUSE):
                 pred = tf.layers.dense(dec_out, units=625, activation=tf.nn.sigmoid, name="final_hidden_sigmoid")
                 pred = tf.layers.dropout(pred, self.dropout_placeholder)

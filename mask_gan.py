@@ -25,12 +25,22 @@ CNNs-LSTM models
 # case 4: 2 CNNs + 1LSTM + Regular training method + dropout + batchnorm               10.877427656329758
 # case 5: 2 CNNs + 1LSTM + Regular training method + Gen with CNNs + DP + BN           14.06973230155157    
 
-# GAN Models
+# GAN Models (LSTM + CNNs)
 #case 1: 2 CNNs + 1LSTM + MSE                                                           11.115757976757626                                                      
 #case 3: 2 CNNs + 1LSTM + MSE + dp & batchnorm                                          11.401404469056558
 #case 4: 2 CNNs + 1LSTM + GEN CNNs + MSE + dp                                           11.212858479217973
 #case 5: 2 CNNs + 1LSTM + GEN CNNs + MSE + dp & batchnorm                               11.280975725838095
 
+# RNN                                                                                   
+# LSTM 1 layers                                                                         36.05                                                                     
+# GRU 1 layers                                                                                   
+# Neural networks                                                                       36.36
+
+# ADAIN
+
+# Stacked Autoencoder
+
+# GAN + CNNs
 
 
 

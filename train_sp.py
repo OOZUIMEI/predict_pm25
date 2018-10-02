@@ -397,7 +397,6 @@ def run_neural_nets(url_feature="", attention_url="", url_weight="sp", encoder_l
                         best_val_loss = valid_loss
                         best_val_epoch = epoch
                         print('Saving weights')
-                        print(url_weight)
                         saver.save(session, 'weights/%s.weights' % url_weight)
 
                     if (epoch - best_val_epoch) > p.early_stopping:
