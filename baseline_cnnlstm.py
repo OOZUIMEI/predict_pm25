@@ -43,7 +43,7 @@ class BaselineModel(object):
         self.initializer = tf.contrib.layers.xavier_initializer()
         self.e_params = {
             "fw_cell_size" : self.rnn_hidden_units,
-            "fw_cell": "cudnn_gru",
+            "fw_cell": "cudnn_rnn",
             "batch_size" : self.batch_size,
             "type": 0,
             "rnn_layer": self.rnn_layers,
@@ -166,7 +166,7 @@ class BaselineModel(object):
     #perform decoder
     def exe_decoder(self, dec, enc_output, attention=None):
         params = copy.deepcopy(self.e_params)
-        params["fw_cell"] = "gru_block"
+        params["fw_cell"] = "rnn"
         with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             if self.dtype == "grid":
                 outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, params, attention, cnn_rep=self.use_cnn, cnn_gen=self.use_gen_cnn, mtype=self.mtype)
@@ -180,7 +180,7 @@ class BaselineModel(object):
     def get_attention_rep(self, inputs):
         with tf.variable_scope("attention_rep", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             params = {
-                "fw_cell": "cudnn_lstm",
+                "fw_cell": "cudnn_rnn",
                 "fw_cell_size": self.rnn_hidden_units
             }
             inputs.set_shape((self.batch_size, self.attention_length, self.atttention_hidden_size))

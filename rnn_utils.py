@@ -5,8 +5,8 @@ import sys
 import time
 import numpy as np
 import tensorflow as tf
-from tensorflow.contrib.rnn import BasicLSTMCell, LayerNormBasicLSTMCell, MultiRNNCell, LSTMBlockFusedCell, LSTMBlockCell, GRUBlockCell
-from tensorflow.contrib.cudnn_rnn import CudnnLSTM, CudnnGRU
+from tensorflow.contrib.rnn import BasicLSTMCell, LayerNormBasicLSTMCell, MultiRNNCell, LSTMBlockFusedCell, LSTMBlockCell, GRUBlockCell, BasicRNNCell
+from tensorflow.contrib.cudnn_rnn import CudnnLSTM, CudnnGRU, CudnnRNNTanh
 import properties as prp
 import utils
 
@@ -24,6 +24,10 @@ def get_cell(cell_type, size, layers=1):
         cell = LSTMBlockCell(size)
     elif cell_type == "gru_block":
         cell = GRUBlockCell(size)
+    elif cell_type == "rnn":
+        cell = BasicRNNCell(size)
+    elif cell_type == "cudnn_rnn":
+        cell = CudnnRNNTanh(layers, size)
     else:
         cell = BasicLSTMCell(size)
     return cell
@@ -97,10 +101,11 @@ def execute_decoder(inputs, init_state, sequence_length, params, attention=None,
 # perform cnn on pm2_5 output
 def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=None, cnn_rep=True, cnn_gen=False, mtype=4, use_batch_norm=True, dropout=0.5):
     # push final state of encoder to decoder
-    if params["fw_cell"] == "gru_block":
-        dec_state = tf.squeeze(init_state[0], [0])
-    else:
-        dec_state = init_state
+    #if "block" in params["fw_cell"]:
+    print("Decoder using cell:" + params["fw_cell"])
+    dec_state = tf.squeeze(init_state[0], [0])
+    #else:
+    #    dec_state = init_state
     pm2_5 = np.zeros((params["batch_size"], params["de_output_size"]), dtype=np.float32)
     dec_out = None
     outputs = []
