@@ -74,11 +74,13 @@ class NeuralNetwork(object):
 
         with tf.variable_scope("attention", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             att_out = self.add_neural_nets(att)
+            att_out = tf.layers.dropout(att_out, self.dropout_placeholder)
         
         if self.dtype != "grid":
             enc = tf.reshape(tf.transpose(enc, [0, 2, 1, 3]), shape=(pr.batch_size, 25, self.encoder_length * self.encoder_vector_size))
             with tf.variable_scope("encoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
                 enc_out = self.add_neural_nets(enc)
+                enc_out = tf.layers.dropout(enc_out, self.dropout_placeholder)
                 enc_shape = enc_out.get_shape()
                 enc_out = tf.reshape(tf.tile(enc_out, [1, self.decoder_length, 1]), shape=(enc_shape[0], self.decoder_length, enc_shape[1], enc_shape[-1]))
             
@@ -87,6 +89,7 @@ class NeuralNetwork(object):
 
             with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
                 dec_out = self.add_neural_nets(dec)
+                dec_out = tf.layers.dropout(dec_out, self.dropout_placeholder)
                 # dec_out has shape batch_size x 24 x 25 x 96
             dec_out = tf.concat([dec_out, enc_out, att_out], axis=3)
             with tf.variable_scope("prediction", initializer=self.initializer, reuse=tf.AUTO_REUSE):
@@ -101,6 +104,7 @@ class NeuralNetwork(object):
             enc = tf.layers.flatten(enc)
             with tf.variable_scope("encoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
                 enc_out = self.add_neural_nets(enc)
+                enc_out = tf.layers.dropout(enc_out, self.dropout_placeholder)
                 enc_shape = enc_out.get_shape()
                 enc_out = tf.reshape(tf.tile(enc_out, [1, self.decoder_length]), shape=(pr.batch_size, self.decoder_length, enc_shape[-1]))
             att_shape = att_out.get_shape()
@@ -108,6 +112,7 @@ class NeuralNetwork(object):
             with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
                 dec_in = tf.reshape(dec, shape=(pr.batch_size, self.decoder_length, 625 * self.decoder_vector_size))
                 dec_out = self.add_neural_nets(dec_in)
+                dec_out = tf.layers.dropout(dec_out, self.dropout_placeholder)
                 # dec_out has shape batch_size x 24 x 25 x 96
             dec_out = tf.concat([dec_out, enc_out, att_out], axis=2)
 
@@ -116,12 +121,11 @@ class NeuralNetwork(object):
                 pred = tf.layers.dropout(pred, self.dropout_placeholder)
         return pred
         
-    def add_neural_nets(self, inputs):
-        out_hid1 = tf.layers.dense(inputs, units=256, activation=tf.nn.tanh, name="hidden_256")
-        out_hid2 = tf.layers.dense(out_hid1, units=128, activation=tf.nn.tanh, name="hidden_128")
-        out_hid3 = tf.layers.dense(out_hid2, units=64, activation=tf.nn.tanh, name="hidden_64")
-        out_hid4 = tf.layers.dense(out_hid3, units=32, activation=tf.nn.tanh, name="hidden_32")
-        out_hid4 = tf.layers.dropout(out_hid4, self.dropout_placeholder)
+    def add_neural_nets(self, inputs, activation=tf.nn.tanh):
+        out_hid1 = tf.layers.dense(inputs, units=256, activation=activation, name="hidden_256")
+        out_hid2 = tf.layers.dense(out_hid1, units=128, activation=activation, name="hidden_128")
+        out_hid3 = tf.layers.dense(out_hid2, units=64, activation=activation, name="hidden_64")
+        out_hid4 = tf.layers.dense(out_hid3, units=32, activation=activation, name="hidden_32")
         return out_hid4
 
     def add_loss(self, pred):

@@ -41,8 +41,10 @@ def execute_sequence(inputs, params):
         else:
             params["fw_cell"] = "basic"
     # 1 is bidireciton
+    if  "fw_layers" not in params:
+        params["fw_layers"] = 1
     # note: state_size of MultiRNNCell must be equal to size input_size
-    fw_cell = get_cell(params["fw_cell"], params["fw_cell_size"])
+    fw_cell = get_cell(params["fw_cell"], params["fw_cell_size"], params["fw_layers"])
     if "cudnn" in params["fw_cell"] or params["fw_cell"] == "lstm_block_fused":
         inputs = tf.transpose(inputs, [1, 0, 2])
         if "cudnn" in params["fw_cell"]:
@@ -69,7 +71,7 @@ def execute_sequence(inputs, params):
 # not perform cnn on pm2_5 output
 def execute_decoder(inputs, init_state, sequence_length, params, attention=None, dropout=None):
     # push final state of encoder to decoder
-    if params["fw_cell"] == "gru_block":
+    if params["fw_cell"] == "gru_block" or params["fw_cell"] == "rnn":
         dec_state = tf.squeeze(init_state[0], [0])
     else:
         dec_state = init_state
@@ -143,7 +145,7 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=N
 # this is for generator
 def execute_decoder_critic(inputs, init_state, sequence_length, params, attention=None, use_critic=True, cnn_gen=True, mtype=3, use_batch_norm=True, dropout=0.5):
     # push final state of encoder to decoder
-    if params["fw_cell"] == "gru_block":
+    if params["fw_cell"] == "gru_block" or params["fw_cell"] == "rnn":
         dec_state = tf.squeeze(init_state[0], [0])
     else:
         dec_state = init_state
@@ -182,7 +184,7 @@ def execute_decoder_critic(inputs, init_state, sequence_length, params, attentio
 # this is for discriminator
 def execute_decoder_dis(inputs, init_state, sequence_length, params, gamma, attention=None, is_fake=True, mtype=3, use_batch_norm=True, dropout=0.5):
     # push final state of encoder to decoder
-    if params["fw_cell"] == "gru_block":
+    if params["fw_cell"] == "gru_block" or params["fw_cell"] == "rnn":
         dec_state = tf.squeeze(init_state[0], [0])
     else:
         dec_state = init_state

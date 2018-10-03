@@ -20,6 +20,7 @@ import craw_aws as aws
 import process_sp_vector as psv
 from baseline_cnnlstm import BaselineModel
 from NeuralNet import NeuralNetwork
+from adain import Adain
 from mask_gan import MaskGan
 # import matplotlib
 # import matplotlib.pyplot as plt
@@ -339,8 +340,11 @@ def get_prediction_real_time(sparkEngine, url_weight="", dim=12):
             return preds, timestamp
     return [], []
     
-def run_neural_nets(url_feature="", attention_url="", url_weight="sp", encoder_length=24, encoder_size=15, decoder_length=24, decoder_size=9, is_test=False, restore=False):
-    model = NeuralNetwork(encoder_length=encoder_length, encoder_vector_size=encoder_size, decoder_length=decoder_length, decoder_vector_size=decoder_size)
+def run_neural_nets(url_feature="", attention_url="", url_weight="sp", encoder_length=24, encoder_size=15, decoder_length=24, decoder_size=9, is_test=False, restore=False, model="NN"):
+    if model == "NN":
+        model = NeuralNetwork(encoder_length=encoder_length, encoder_vector_size=encoder_size, decoder_length=decoder_length, decoder_vector_size=decoder_size)
+    else:
+        model = Adain(encoder_length=encoder_length, encoder_vector_size=encoder_size, decoder_length=decoder_length)
     print('==> initializing models')
     with tf.device('/%s' % p.device):
         model.init_model()
@@ -415,7 +419,6 @@ def run_neural_nets(url_feature="", attention_url="", url_weight="sp", encoder_l
                 utils.save_file("test_sp/%s" % name_s, preds)
 
 
-
 def  get_districts_preds(preds):
     res = []
     for d_t in preds:
@@ -463,9 +466,10 @@ if __name__ == "__main__":
         train_gan(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, 
             args.grid_size, is_folder=bool(args.folder), is_test=bool(args.is_test), restore=bool(args.restore))
     elif args.model == "CNN_LSTM":
-        print(args.use_cnn)
         main(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
         args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn),  restore=bool(args.restore))
+    elif args.model == "ADAIN":
+        run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, bool(args.is_test), bool(args.restore))
     else:
         run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore))
     

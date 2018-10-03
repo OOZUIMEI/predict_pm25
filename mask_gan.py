@@ -31,9 +31,10 @@ CNNs-LSTM models
 #case 4: 2 CNNs + 1LSTM + GEN CNNs + MSE + dp                                           11.212858479217973
 #case 5: 2 CNNs + 1LSTM + GEN CNNs + MSE + dp & batchnorm                               11.280975725838095
 
-# RNN                                                                                   
-# LSTM 1 layers                                                                         36.05                                                                     
-# GRU 1 layers                                                                                   
+# RNN                                                                                   36.91
+# LSTM 1 layers                                                                         36.41                                                                     
+# GRU 1 layers                                                                          36.48             
+# GRU + LSTM                                                                            36.05
 # Neural networks                                                                       36.36
 
 # ADAIN
