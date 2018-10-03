@@ -50,8 +50,12 @@ def execute_sequence(inputs, params):
         if "cudnn" in params["fw_cell"]:
             outputs, fn_state = fw_cell(inputs)
             if params["fw_cell"] == "cudnn_lstm":
-                c = tf.squeeze(fn_state[1], [0])
-                h = tf.squeeze(fn_state[0], [0])
+                if c_shape[0] == 1:
+                    c = tf.squeeze(fn_state[1], [0])
+                    h = tf.squeeze(fn_state[0], [0])
+                else:
+                    c = tf.squeeze(tf.gather(fn_state[1], [-1]), [0])
+                    h = tf.squeeze(tf.gather(fn_state[0], [-1]), [0])
                 fn_state = (c, h)
         else:
             outputs, fn_state = fw_cell(inputs, dtype=tf.float32)
