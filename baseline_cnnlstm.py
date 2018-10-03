@@ -182,7 +182,7 @@ class BaselineModel(object):
     def get_attention_rep(self, inputs):
         with tf.variable_scope("attention_rep", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             params = {
-                "fw_cell": self.e_params["fw_cell"]
+                "fw_cell": self.e_params["fw_cell"],
                 "fw_cell_size": self.rnn_hidden_units
             }
             inputs.set_shape((self.batch_size, self.attention_length, self.atttention_hidden_size))
