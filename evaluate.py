@@ -34,7 +34,7 @@ def evaluate(pred, labs, rg, is_classify=False, verbose=True):
             print("r2_score:%.2f" % r2)
 
 
-def evaluate_sp(url, url2, is_grid=True):
+def evaluate_sp(url, url2, is_grid=False):
     map_ = heatmap.build_map()
     data = utils.load_file(url)
     if type(data) is list:
@@ -43,7 +43,10 @@ def evaluate_sp(url, url2, is_grid=True):
         lt = data.shape[0] * data.shape[1]
     else:
         lt = data.shape[0]
-    data = np.reshape(data, (lt, data.shape[-2], 25, 25))
+    if is_grid:
+        data = np.reshape(data, (lt, data.shape[-2], 25, 25))
+    else:
+        data = np.reshape(data, (lt, data.shape[-2], 25))
     labels = utils.load_file(url2)
     labels = np.asarray(labels)
     dtl = len(data)
@@ -60,16 +63,21 @@ def evaluate_sp(url, url2, is_grid=True):
         lbg = np.asarray(lbg)
         lbg = lbg.flatten()
         pred_t  = []
-        for d_ in d:
-            d_t = heatmap.clear_interpolate_bound(np.asarray(d_), map_)
-            pred_t.append(d_t)
+        if is_grid:
+            for d_ in d:
+                d_t = heatmap.clear_interpolate_bound(np.asarray(d_), map_)
+                pred_t.append(d_t)
+        else:
+            for d_ in d:
+                d_t = heatmap.fill_map(d_, map_)
+                pred_t.append(d_t)
         pred_t = np.asarray(pred_t)
         pred_t = pred_t.flatten()
         mse = mean_squared_error(lbg, pred_t)
         loss_mse += mse
         loss_mae += mean_absolute_error(lbg, pred_t)
         loss_rmse += sqrt(mse)
-        # utils.update_progress(i * 1.0 / dtl)
+        utils.update_progress((i + 1.0) / dtl)
     loss_mse = loss_mse / lt * 300
     loss_mae = loss_mae / lt * 300
     loss_rmse = loss_rmse / lt * 300

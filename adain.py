@@ -5,6 +5,8 @@ import properties as pr
 import rnn_utils
 
 
+# reference: a neural attention model for urban air quality inference: learning the weights of monitoring stations
+
 class  Adain(NeuralNetwork):
     
     def __init__(self, rnn_hidden_units=300, *args, **kwargs):
