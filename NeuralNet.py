@@ -12,7 +12,8 @@ import utils
 
 class NeuralNetwork(object):
 
-    def __init__(self, encoder_length=24, encoder_vector_size=15, decoder_length=24, decoder_vector_size=9, attention_length=24, attention_vector_size=17, learning_rate=0.01, dtype="grid"):
+    def __init__(self, encoder_length=24, encoder_vector_size=15, decoder_length=24, decoder_vector_size=9, attention_length=24, attention_vector_size=17, learning_rate=0.01, dtype="grid", **kwargs):
+        super(NeuralNetwork, self).__init__(**kwargs)
         self.encoder_length = encoder_length
         self.decoder_length = decoder_length
         self.attention_length = attention_length

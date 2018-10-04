@@ -80,6 +80,9 @@ python train_sp.py -u vectors/sp_china_combined/sp_seoul_train_bin -au vectors/s
 Testing 
 python train_sp.py -u vectors/sp_china_combined/sp_seoul_test_bin -au vectors/sp_china_combined/sp_china_test_bin  -w weights/adain_dropout.weights -m "ADAIN" -t 1 -r 1
 
+
+#SAE
+python train_sp.py -u vectors/sp_china_combined/sp_seoul_train_bin -au vectors/sp_china_combined/sp_china_train_bin  -w sae -m "SAE" -p 1
 # start visualization server
 ng serve --port 3000 --host 0.0.0.0
 

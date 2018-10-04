@@ -9,15 +9,15 @@ import rnn_utils
 
 class  Adain(NeuralNetwork):
     
-    def __init__(self, rnn_hidden_units=300, *args, **kwargs):
-        super(self.__class__, self).__init__(*args, **kwargs)
+    def __init__(self, rnn_hidden_units=300, **kwargs):
+        super(Adain, self).__init__(**kwargs)
         self.rnn_hidden_units = rnn_hidden_units
         self.params = {
             "fw_cell": "cudnn_lstm",
             "fw_cell_size": self.rnn_hidden_units,
             "fw_layers": 2
         }
-        self.dtype = dtype
+        self.dtype = "dis"
 
     def inference(self):
         

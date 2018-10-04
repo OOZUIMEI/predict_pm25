@@ -1,4 +1,6 @@
 from __future__ import print_function
+import sys 
+import numpy as np
 import tensorflow as tf
 import properties as pr
 from adain import Adain
@@ -10,12 +12,12 @@ from adain import Adain
 # time intervals in the paper 
 class StackAutoEncoder(Adain):
     
-    def __init__(self, pre_train=False, *args, **kwargs):
-        super(self.__class__, self).__init__(args, kwargs)
+    def __init__(self, pre_train=False, learning_rate=0.01, **kwargs):
+        super(StackAutoEncoder, self).__init__(**kwargs)
         self.pre_train_iter = 10
         self.time_intervals = 8
         self.pre_train = pre_train
-        self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
+        self.optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
 
     def inference(self):
         
@@ -46,18 +48,18 @@ class StackAutoEncoder(Adain):
         return enc
 
     # build stack autoencoder netoworkds
-    def add_encoder(self, inputs, layer=0, pre_train=True):
+    def add_encoder(self, inputs, layer=0):
         scope_name = "ae_layer_%i" % layer
         with tf.variable_scope(scope_name, initializer=self.initializer, reuse=tf.AUTO_REUSE):
             shape = inputs.get_shape()
             ae_vectors = self.add_single_net(inputs, 300, tf.nn.sigmoid, "ae_en_sigmoid")
             # retrieve hidden size of inputs
-            output_ae = self.add_neural_nets(ae_vectors, shape[-1], tf.nn.sigmoid, "ae_de_sigmoid")
-            if pre_train:
-                ae_loss = tf.losses.mean_squarred_error(labels=inputs, pred=output_ae)
+            output_ae = self.add_single_net(ae_vectors, shape[-1], tf.nn.sigmoid, "ae_de_sigmoid")
+            if self.pre_train:
+                ae_loss = tf.losses.mean_squared_error(labels=inputs, predictions=output_ae)
                 train_weights = []
                 for x in tf.trainable_variables():
-                    if x.op.name.startWith(scope_name):
+                    if x.op.name.startsWith(scope_name):
                         train_weights.append(x)
                         if "bias" not in x.name.lower():
                             ae_loss += tf.nn.l2_loss(x)
