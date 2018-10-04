@@ -128,8 +128,9 @@ class NeuralNetwork(object):
         out_hid4 = tf.layers.dense(out_hid3, units=32, activation=activation, name="hidden_32")
         return out_hid4
 
-    def add_loss(self, pred):
-        labels = tf.layers.flatten(self.pred_placeholder)
+    def add_loss(self, pred, labels=None):
+        if labels is None:
+            labels = tf.layers.flatten(self.pred_placeholder)
         preds = tf.layers.flatten(pred)
         losses = tf.losses.mean_squared_error(labels=labels, predictions=preds)
         losses = tf.reduce_mean(losses)

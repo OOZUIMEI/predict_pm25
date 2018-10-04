@@ -34,7 +34,7 @@ def evaluate(pred, labs, rg, is_classify=False, verbose=True):
             print("r2_score:%.2f" % r2)
 
 
-def evaluate_sp(url, url2):
+def evaluate_sp(url, url2, is_grid=True):
     map_ = heatmap.build_map()
     data = utils.load_file(url)
     if type(data) is list:

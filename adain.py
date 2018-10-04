@@ -70,8 +70,8 @@ class  Adain(NeuralNetwork):
 
         return outputs
 
-    def add_single_net(self, inputs):
-        out_hid1 = tf.layers.dense(inputs, units=100, activation=tf.nn.relu, name="hidden_relu_basic")
+    def add_single_net(self, inputs, units=100, activation=tf.nn.relu, name="hidden_relu_basic"):
+        out_hid1 = tf.layers.dense(inputs, units=units, activation=activation, name=name)
         return out_hid1
 
     def add_upper_net(self, inputs):
