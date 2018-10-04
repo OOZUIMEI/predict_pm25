@@ -1,6 +1,6 @@
 from __future__ import print_function
 import tensorflow as tf
-import properties
+import properties as pr
 from adain import Adain
 
 
@@ -10,10 +10,11 @@ from adain import Adain
 # time intervals in the paper 
 class StackAutoEncoder(Adain):
     
-    def __init__(self, *args, **kwargs):
+    def __init__(self, pre_train=False, *args, **kwargs):
         super(self.__class__, self).__init__(args, kwargs)
         self.pre_train_iter = 10
         self.time_intervals = 8
+        self.pre_train = pre_train
         self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
 
     def inference(self):
@@ -29,8 +30,9 @@ class StackAutoEncoder(Adain):
         self.train_ae_2 = train_ae_2
 
         with tf.variable_scope("prediction_layer", initializer=self.initializer, reuse=tf.AUTO_REUSE):
-            outputs = self.add_single_net(output_ae_2, 25, tf.nn.sigmoid, "prediction_sigmoid")
-
+            outputs = self.add_single_net(output_ae_2, self.decoder_length * 25, tf.nn.sigmoid, "prediction_sigmoid")
+            outputs = tf.reshape(outputs, shape=(pr.batch_size, self.decoder_length, 25))
+            
         return outputs
     
     # lookup input's vectors from datasets
@@ -66,7 +68,7 @@ class StackAutoEncoder(Adain):
         return output_ae, train_ae
     
     # operation of each epoch
-    def run_epoch(self, session, data, num_epoch=0, train_writer=None, train_op=None, verbose=True, train=False, shuffle=True, stride=4, pretrain=False, pretrain_weight_url=""):
+    def run_epoch(self, session, data, num_epoch=0, train_writer=None, train_op=None, verbose=True, train=False, shuffle=True, stride=4):
         if train_op is None:
             train_op = tf.no_op()
         dt_length = len(data)
@@ -80,7 +82,7 @@ class StackAutoEncoder(Adain):
             ct = ct[r]
         preds = []
         # pretrain if needed
-        if pretrain:
+        if self.pre_train:
             # only pretrain with the second half of data
             for pr_i in xrange(self.pre_train_iter):
                 for step in xrange(total_steps/2, total_steps):

@@ -21,6 +21,7 @@ import process_sp_vector as psv
 from baseline_cnnlstm import BaselineModel
 from NeuralNet import NeuralNetwork
 from adain import Adain
+from stack_autoencoder import StackAutoEncoder
 from mask_gan import MaskGan
 # import matplotlib
 # import matplotlib.pyplot as plt
@@ -340,9 +341,13 @@ def get_prediction_real_time(sparkEngine, url_weight="", dim=12):
             return preds, timestamp
     return [], []
     
-def run_neural_nets(url_feature="", attention_url="", url_weight="sp", encoder_length=24, encoder_size=15, decoder_length=24, decoder_size=9, is_test=False, restore=False, model="NN"):
+
+# call neural networks, stack autoencoder, or adain 
+def run_neural_nets(url_feature="", attention_url="", url_weight="sp", encoder_length=24, encoder_size=15, decoder_length=24, decoder_size=9, is_test=False, restore=False, model="NN", pre_train=False):
     if model == "NN":
         model = NeuralNetwork(encoder_length=encoder_length, encoder_vector_size=encoder_size, decoder_length=decoder_length, decoder_vector_size=decoder_size)
+    elif model == "SAE":
+        model = StackAutoEncoder(encoder_length=encoder_length, encoder_vector_size=encoder_size, decoder_length=decoder_length, pre_train=pre_train)
     else:
         model = Adain(encoder_length=encoder_length, encoder_vector_size=encoder_size, decoder_length=decoder_length)
     print('==> initializing models')
@@ -434,8 +439,8 @@ if __name__ == "__main__":
     # 10110 -> 10080 -> 126 batch 
     # python train.py -pr "vectors/labels" -f "vectors/full_data" -fl "vectors/full_data_len" -p "train_basic_64b_tanh_12h_" -fw "basic" -dc 1 -l mae -r 10 -usp 1 -e 13 -bs 126 -sl 24 -ir 0 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-u", "--feature", help="")
-    parser.add_argument("-f", "--folder", default=0, type=int,  help="prefix to save weighted files")
+    parser.add_argument("-u", "--feature", help="a path to datasets (either to a file or a folder)")
+    parser.add_argument("-f", "--folder", default=0, type=int,  help="either train a folder or just train a file")
     parser.add_argument("-w", "--url_weight", type=str, default="")
     parser.add_argument("-au", "--attention_url", type=str, default="")
     parser.add_argument("-bs", "--batch_size", type=int, default=64)
@@ -444,13 +449,14 @@ if __name__ == "__main__":
     parser.add_argument("-el", "--encoder_length", type=int, default=24)
     parser.add_argument("-dl", "--decoder_length", type=int, default=24)
     parser.add_argument("-ds", "--decoder_size", type=int, default=9)
-    parser.add_argument("-g", "--grid_size", type=int, default=25)
-    parser.add_argument("-dt", "--dtype", default='grid')
+    parser.add_argument("-g", "--grid_size", type=int, default=25, help="size of grid")
+    parser.add_argument("-dt", "--dtype", default='grid', help="dtype is either 'grid' or 'dis' that mean use grid data of just station data")
     parser.add_argument("-t", "--is_test", default=0, help="is testing", type=int)
-    parser.add_argument("-cnn", "--use_cnn", default=1, help="using cnn or not", type=int)
+    parser.add_argument("-cnn", "--use_cnn", default=1, help="using cnn or not in mining input's vectors", type=int)
     parser.add_argument("-r", "--rnn_layers", default=1, help="number of rnn layers", type=int)
     parser.add_argument("-m", "--model", default="GAN")
-    parser.add_argument("-rs", "--restore", default=0, help="Restore pre-trained models", type=int)
+    parser.add_argument("-rs", "--restore", default=0, help="Restore pre-trained model", type=int)
+    parser.add_argument("-p", "--pretrain", default=0, help="Pretrain model: only use of SAE networks", type=int)
 
     args = parser.parse_args()
     # if not os.path.exists("missing.pkl"):
@@ -470,6 +476,8 @@ if __name__ == "__main__":
         args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn),  restore=bool(args.restore))
     elif args.model == "ADAIN":
         run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore), args.model)
+    elif args.model == "SAE":
+        run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore), args.model, bool(args.pretrain))
     else:
         run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore))
     
