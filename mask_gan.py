@@ -171,27 +171,35 @@ class MaskGan(BaselineModel):
     
     def train_discriminator(self, loss):
         with tf.name_scope("train_discriminator"):
-            dis_grads, dis_vars = self.get_optimization(loss, "discriminator")
-            dis_train_op = self.optimizer.apply_gradients(zip(dis_grads, dis_vars))
+            dis_optimizer = tf.train.AdamOptimizer(self.dis_learning_rate, self.beta1)
+            dis_vars = [v for v in tf.trainable_variables() if v.op.name.startswith("discriminator")]
+            dis_grads = tf.gradients(loss, dis_vars)
+            dis_grads, _ = tf.clip_by_global_norm(dis_grads, 10.)
+            dis_train_op = dis_optimizer.apply_gradients(zip(dis_grads, dis_vars))
             return dis_train_op
     
     # policy gradient
     def train_generator(self, loss):
         with tf.name_scope("train_generator"):
-            side = 1
+            gen_optimizer = tf.train.AdamOptimizer(self.gen_learning_rate, self.beta1)
+            gen_vars = [v for v in tf.trainable_variables() if v.op.name.startswith("generator")]
             if self.gen_loss_type == 0:
-                side = -1
-            gen_grads, gen_vars = self.get_optimization(loss, "generator", side)
-            gen_train_op = self.optimizer.apply_gradients(zip(gen_grads, gen_vars))
+                # gradient ascent, maximum reward  => descent with minimizing the loss
+                gen_grads = tf.gradients(-loss, gen_vars)
+            else:
+                # using mse without critic
+                gen_grads = tf.gradients(loss, gen_vars)
+            gen_grads, _ = tf.clip_by_global_norm(gen_grads, 10.)
+            gen_train_op = gen_optimizer.apply_gradients(zip(gen_grads, gen_vars))
             return gen_train_op
 
     def get_optimization(self, loss, name_scope, side=1):
         vars_ = [v for v in tf.trainable_variables() if v.op.name.startswith(name_scope)]
-        grads = self.optimizer.compute_gradients(loss, vars_)
+        # grads = self.optimizer.compute_gradients(loss, vars_)
         if side != 1:
-            grads = self.optimizer.compute_gradients(-loss, vars_)
+            grads = tf.gradients(-loss, vars_)
         else:
-            grads = self.optimizer.compute_gradients(loss, vars_)
+            grads = tf.gradients(loss, vars_)
         grads, _ = tf.clip_by_global_norm(grads, 10.)
         # grads = tf.gradients(loss, vars_)
         return grads, vars_
@@ -212,7 +220,7 @@ class MaskGan(BaselineModel):
             r = np.random.permutation(dt_length)
             ct = ct[r]
       
-        if self.train and len(self.strides) > 1:
+        if train and len(self.strides) > 1:
             np.random.shuffle(strides)
             stride = strides[0]
       
