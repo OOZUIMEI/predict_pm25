@@ -54,17 +54,16 @@ https://github.com/soumith/ganhacks
 
 class MaskGan(BaselineModel):
 
-    def __init__(self, gamma=0.9, learning_rate=0.0002, critic_learning_rate=0.001, use_critic=False, *args, **kwargs):
+    def __init__(self, gamma=0.9, learning_rate=0.0002, *args, **kwargs):
         super(self.__class__, self).__init__(*args, **kwargs)
         self.gen_loss_type = 1
         self.gamma = gamma
         self.learning_rate = learning_rate
-        # critic loss
-        self.use_critic = use_critic
         # set up multiple cnns layers to generate outputs
         self.use_gen_cnn = False
-        # add l1 norm to loss
-        self.use_l1 = False
+        self.dropout = 0.5
+        self.use_batch_norm = True
+        self.strides = [4, 8, 12]
         self.is_clip = True
         self.beta1 = 0.5
         self.lamda = 100
@@ -82,9 +81,6 @@ class MaskGan(BaselineModel):
         # use tanh on generator output or not. because y = tanh(x) if x > 0 then y always belongs to [0, 1]
         self.dis_loss = self.add_discriminator_loss(fake_preds, real_preds)
         self.gen_loss = self.get_generator_loss(fake_preds, fake_rewards, estimated_values, tanh_inputs)
-        if self.use_critic:
-            self.critic_loss = self.add_critic_loss(fake_rewards, estimated_values)
-            self.critic_op = self.train_critic(self.critic_loss)
         self.gen_op = self.train_generator(self.gen_loss)
         self.dis_op = self.train_discriminator(self.dis_loss)
         
@@ -108,18 +104,6 @@ class MaskGan(BaselineModel):
             else:
                 tanh_outputs = outputs
         return enc_output, dec, outputs, tanh_outputs, estimated_values, attention
-
-    #perform decoder with critic estimated award
-    def exe_decoder_critic(self, dec, enc_output, attention=None):
-        with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
-            # estimated_values [0, inf], outputs: [0, 1]
-            params = copy.deepcopy(self.e_params)
-            params["fw_cell"] = "gru_block"
-            outputs, estimated_values = rnn_utils.execute_decoder_critic(dec, enc_output, self.decoder_length, params, attention, use_critic=self.use_critic, cnn_gen=self.use_gen_cnn, mtype=self.gmtype)
-            # batch_size x decoder_length x grid_size x grid_size
-            outputs = tf.stack(outputs, axis=1)
-            # batch_size x decoder_length
-        return outputs, estimated_values
 
     # inputs is either from generator or from real context
     # enc_output: last hidden layer of encoder
@@ -161,12 +145,7 @@ class MaskGan(BaselineModel):
     # type 2: ||(fake - real)||22
     def add_generator_loss(self, fake_preds, rewards, estimated_values, outputs=None, labels=None):
         r_ = tf.squeeze(tf.stack(rewards, axis=1))
-        if self.use_critic:
-            e_ = tf.squeeze(tf.stack(estimated_values, axis=1))
-            advantages = tf.subtract(r_, e_)
-            advantages = tf.clip_by_value(advantages, -5, 5)
-        else:
-            advantages = tf.abs(r_)
+        advantages = tf.abs(r_)
         # fake_labels = tf.constant(1, shape=[self.batch_size, self.decoder_length])
         if labels is not None:
             loss_values = tf.losses.mean_squared_error(labels, outputs)
@@ -185,65 +164,51 @@ class MaskGan(BaselineModel):
         dis_loss = dis_loss_real + dis_loss_fake
         tf.summary.scalar("dis_loss", dis_loss)
         return dis_loss
-
-    def train_critic(self, loss):
-        with tf.name_scope("train_critic"):
-            critic_optimizer = tf.train.AdamOptimizer(self.learning_rate, self.beta1)
-            critic_vars = [
-                v for v  in tf.trainable_variables() if ("critic_linear_output" in v.op.name or "decoder_reward" in v.op.name or v.op.name.startswith("discriminator/rnn"))
-            ]
-            critic_grads = tf.gradients(loss, critic_vars)
-            if self.is_clip:
-                critic_grads, _ = tf.clip_by_global_norm(critic_grads, 10.)
-            critic_train_op = critic_optimizer.apply_gradients(zip(critic_grads, critic_vars))        
-        return critic_train_op
     
     def train_discriminator(self, loss):
         with tf.name_scope("train_discriminator"):
             dis_grads, dis_vars = self.get_optimization(loss, "discriminator")
-            dis_grads, _ = tf.clip_by_global_norm(dis_grads, 10.)
-            dis_optimizer = tf.train.AdamOptimizer(self.learning_rate, self.beta1)
-            dis_train_op = dis_optimizer.apply_gradients(zip(dis_grads, dis_vars))
+            dis_train_op = self.optimizer.apply_gradients(zip(dis_grads, dis_vars))
             return dis_train_op
     
     # policy gradient
     def train_generator(self, loss):
         with tf.name_scope("train_generator"):
-            gen_vars = [v for v in tf.trainable_variables() if v.op.name.startswith("generator")]
-            gen_optimizer = tf.train.AdamOptimizer(self.learning_rate, self.beta1) 
+            side = 1
             if self.gen_loss_type == 0:
-                gen_grads = tf.gradients(-loss, gen_vars)
-            else:
-                gen_grads = tf.gradients(loss, gen_vars)
-            gen_grads, _ = tf.clip_by_global_norm(gen_grads, 10.)
-            gen_train_op = gen_optimizer.apply_gradients(zip(gen_grads, gen_vars))
+                side = -1
+            gen_grads, gen_vars = self.get_optimization(loss, "generator", side)
+            gen_train_op = self.optimizer.apply_gradients(zip(gen_grads, gen_vars))
             return gen_train_op
 
-    def get_optimization(self, loss, name_scope):
+    def get_optimization(self, loss, name_scope, side=1):
         vars_ = [v for v in tf.trainable_variables() if v.op.name.startswith(name_scope)]
-        #grads = self.optimizer.compute_gradients(loss, vars_)
-        grads = tf.gradients(loss, vars_)
+        grads = self.optimizer.compute_gradients(loss, vars_)
+        if side != 1:
+            grads = self.optimizer.compute_gradients(-loss, vars_)
+        else:
+            grads = self.optimizer.compute_gradients(loss, vars_)
+        grads, _ = tf.clip_by_global_norm(grads, 10.)
+        # grads = tf.gradients(loss, vars_)
         return grads, vars_
 
     # using stride to reduce the amount of data to loop over time intervals
-    def run_epoch(self, session, data, num_epoch=0, train_writer=None, verbose=True, train=False, shuffle=True, stride=4):
+    def run_epoch(self, session, data, num_epoch=0, train_writer=None, verbose=False, train=False, shuffle=True, stride=4):
         st = time.time()
         if not train:
             self.gen_op = tf.no_op()
             self.dis_op = tf.no_op()
         dt_length = len(data)
         # print("data_size: ", dt_length)
-        total_gen_loss = []
-        total_dis_loss = []
-        total_critic_loss = []
+        total_gen_loss = 0.0
+        total_dis_loss = 0.0
         preds = []
         ct = np.asarray(data, dtype=np.float32)
         if shuffle:
             r = np.random.permutation(dt_length)
             ct = ct[r]
       
-        strides = [4, 8, 12]
-        if train:
+        if self.train and len(self.strides) > 1:
             np.random.shuffle(strides)
             stride = strides[0]
       
@@ -251,8 +216,7 @@ class MaskGan(BaselineModel):
 
         total_steps = dt_length // cons_b
         for step in xrange(total_steps):
-            index = range(step * cons_b,
-                          (step + 1) * cons_b, stride)
+            index = range(step * cons_b, (step + 1) * cons_b, stride)
             # just the starting points of encoding batch_size,
             ct_t = ct[index]
             # switch batchsize, => batchsize * encoding_length (x -> x + 24)
@@ -266,25 +230,13 @@ class MaskGan(BaselineModel):
             if self.use_attention:
                 feed[self.attention_inputs] = ct_t
 
-            if self.use_critic:
-                gen_loss, dis_loss, critic_loss, pred, _, _, _= session.run(
-                    [self.gen_loss, self.dis_loss, self.critic_loss, self.outputs, self.gen_op, 
-                    self.dis_op, self.critic_op], feed_dict=feed)
-                total_critic_loss.append(critic_loss) 
-            else:
-                gen_loss, dis_loss, pred, _, _= session.run([self.gen_loss, self.dis_loss, self.outputs, self.gen_op, self.dis_op], feed_dict=feed)
+            gen_loss, dis_loss, pred, _, _= session.run([self.gen_loss, self.dis_loss, self.outputs, self.gen_op, self.dis_op], feed_dict=feed)
             
-            total_gen_loss.append(gen_loss) 
-            total_dis_loss.append(dis_loss)
+            total_gen_loss += gen_loss
+            total_dis_loss += dis_loss
             
             if verbose:
-                if self.use_critic:
-                    sys.stdout.write('\r{} / {} gen_loss = {} | dis_loss = {} | critic_loss = {}'.format(
-                        step, total_steps, np.mean(total_gen_loss), np.mean(total_dis_loss), np.mean(total_critic_loss)))
-                else:
-                    sys.stdout.write('\r{} / {} gen_loss = {} | dis_loss = {}'.format(
-                        step, total_steps, np.mean(total_gen_loss), np.mean(total_dis_loss)))
-
+                sys.stdout.write('\r{} / {} gen_loss = {} | dis_loss = {}'.format(step, total_steps, total_gen_loss / (step + 1.0), total_dis_loss / (step + 1.0)))
                 sys.stdout.flush()
 
             if not train:
@@ -295,12 +247,10 @@ class MaskGan(BaselineModel):
             dur = time.time() - st
             print("Running time: %.2f" % dur)
         if train_writer is not None:
-            total_gen_loss, total_dis_loss = np.mean(total_gen_loss), np.mean(total_dis_loss)
+            total_gen_loss, total_dis_loss = total_gen_loss / total_steps, total_dis_loss / total_steps
             summary = tf.Summary()
             summary.value.add(tag= "Generator Loss", simple_value=total_gen_loss)
             summary.value.add(tag= "Discriminator Loss", simple_value=total_dis_loss)
-            if self.use_critic:
-                summary.value.add(tag= "Critic Loss", simple_value=np.mean(total_critic_loss))
             train_writer.add_summary(summary, num_epoch)
         return preds
 

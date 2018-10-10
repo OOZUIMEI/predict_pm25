@@ -201,7 +201,7 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
             print('==> starting training')
             train_f = train_writer
             for epoch in xrange(p.total_iteration):
-                _ = model.run_epoch(session, train, offset + epoch, train_f, train=True, verbose=True)
+                _ = model.run_epoch(session, train, offset + epoch, train_f, train=True)
                 if epoch % 10 == 0:
                     utils.update_progress((epoch + 1) * 1.0 / p.total_iteration)
                     saver.save(session, 'weights/%s.weights' % url_weight)

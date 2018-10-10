@@ -33,6 +33,7 @@ class BaselineModel(object):
         self.grid_square = grid_size * grid_size
         self.loss = loss
         self.dropout = 0.0
+        self.use_batch_norm = False
         self.df_ele = df_ele
         self.dtype = dtype        
         self.map = heatmap.build_map()
@@ -173,7 +174,7 @@ class BaselineModel(object):
             params["fw_cell"] = "lstm_block"
         with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             if self.dtype == "grid":
-                outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, params, attention, cnn_rep=self.use_cnn, cnn_gen=self.use_gen_cnn, mtype=self.mtype)
+                outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, params, attention, cnn_rep=self.use_cnn, cnn_gen=self.use_gen_cnn, mtype=self.mtype, self.use_batch_norm, self.dropout)
             else:
                 dec_data = tf.reshape(dec, [self.batch_size, self.decoder_length, self.districts * self.decode_vector_size])
                 outputs = rnn_utils.execute_decoder(dec_data, enc_output, self.decoder_length, params, attention, self.dropout_placeholder)

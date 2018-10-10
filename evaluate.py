@@ -34,6 +34,7 @@ def evaluate(pred, labs, rg, is_classify=False, verbose=True):
             print("r2_score:%.2f" % r2)
 
 
+# evaluate grid training
 def evaluate_sp(url, url2, is_grid=True):
     map_ = heatmap.build_map()
     data = utils.load_file(url)
@@ -50,7 +51,6 @@ def evaluate_sp(url, url2, is_grid=True):
     labels = utils.load_file(url2)
     labels = np.asarray(labels)
     dtl = len(data)
-    loss_mse = 0.0
     loss_mae = 0.0
     loss_rmse = 0.0
     for i, d in enumerate(data):
@@ -74,14 +74,11 @@ def evaluate_sp(url, url2, is_grid=True):
         pred_t = np.asarray(pred_t) * 300
         pred_t = pred_t.flatten()
         mse = mean_squared_error(lbg, pred_t)
-        loss_mse += mse
         loss_mae += mean_absolute_error(lbg, pred_t)
         loss_rmse += sqrt(mse)
         utils.update_progress((i + 1.0) / dtl)
-    loss_mse = loss_mse / lt
     loss_mae = loss_mae / lt
     loss_rmse = loss_rmse / lt
-    print("MSE: %.2f" % loss_mse)
     print("MAE: %.2f" % loss_mae)
     print("RMSE: %.2f" % loss_rmse)
 
@@ -118,9 +115,10 @@ if __name__ == "__main__":
     parser.add_argument("-r", "--range", type=int, default=5)
     parser.add_argument("-c", "--classify", type=int, default=0)
     parser.add_argument("-t", "--task", type=int, default=0)
+    parser.add_argument("-g", "--grid", type=int, default=1)
 
     args = parser.parse_args()
     if args.task == 0:
-        evaluate_sp(args.url, args.url2)
+        evaluate_sp(args.url, args.url2, bool(args.grid))
     else:
         evaluate_reg(args.url, args.url2)
