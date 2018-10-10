@@ -60,7 +60,7 @@ class MaskGan(BaselineModel):
         self.gamma = gamma
         self.learning_rate = learning_rate
         # set up multiple cnns layers to generate outputs
-        self.use_gen_cnn = False
+        self.use_gen_cnn = True
         self.dropout = 0.5
         self.use_batch_norm = True
         self.strides = [4, 8, 12]
@@ -111,7 +111,7 @@ class MaskGan(BaselineModel):
             # estimated_values [0, inf], outputs: [0, 1]
             params = copy.deepcopy(self.e_params)
             params["fw_cell"] = "gru_block"
-            outputs, estimated_values = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, params, attention, self.use_critic, self.use_gen_cnn, self.gmtype, self.use_batch_norm, self.dropout)
+            outputs, estimated_values = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, params, attention, self.use_cnn, self.use_gen_cnn, self.mtype, self.use_batch_norm, self.dropout)
             # batch_size x decoder_length x grid_size x grid_size
             outputs = tf.stack(outputs, axis=1)
             # batch_size x decoder_length
