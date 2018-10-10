@@ -64,7 +64,6 @@ class MaskGan(BaselineModel):
         self.dropout = 0.5
         self.use_batch_norm = True
         self.strides = [4, 8, 12]
-        self.is_clip = True
         self.beta1 = 0.5
         self.lamda = 100
         self.gmtype = 3
@@ -105,6 +104,19 @@ class MaskGan(BaselineModel):
                 tanh_outputs = outputs
         return enc_output, dec, outputs, tanh_outputs, estimated_values, attention
 
+
+    #perform decoder with critic estimated award
+    def exe_decoder_critic(self, dec, enc_output, attention=None):
+        with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
+            # estimated_values [0, inf], outputs: [0, 1]
+            params = copy.deepcopy(self.e_params)
+            params["fw_cell"] = "gru_block"
+            outputs, estimated_values = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, params, attention, self.use_critic, self.use_gen_cnn, self.gmtype, self.use_batch_norm, self.dropout)
+            # batch_size x decoder_length x grid_size x grid_size
+            outputs = tf.stack(outputs, axis=1)
+            # batch_size x decoder_length
+        return outputs, estimated_values
+    
     # inputs is either from generator or from real context
     # enc_output: last hidden layer of encoder
     # dec: decoder vectors without pm2.5

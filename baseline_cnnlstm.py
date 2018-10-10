@@ -242,10 +242,8 @@ class BaselineModel(object):
     
     # operation of each epoch
     def run_epoch(self, session, data, num_epoch=0, train_writer=None, train_op=None, verbose=True, train=False, shuffle=True, stride=4):
-        dp = self.dropout
         if train_op is None:
             train_op = tf.no_op()
-            dp = 1
         dt_length = len(data)
         # print("data_size: ", dt_length)
         cons_b = self.batch_size * stride
@@ -274,8 +272,7 @@ class BaselineModel(object):
             if self.use_attention:
                 feed[self.attention_inputs] = ct_t
 
-            loss, pred, _= session.run(
-                [self.loss_op, self.output, train_op], feed_dict=feed)
+            loss, pred, _= session.run([self.loss_op, self.output, train_op], feed_dict=feed)
             
             total_loss.append(loss)
             if verbose and step % verbose == 0:
