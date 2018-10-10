@@ -14,7 +14,7 @@ class  Adain(NeuralNetwork):
         self.rnn_hidden_units = rnn_hidden_units
         self.params = {
             "fw_cell": "cudnn_lstm",
-            "fw_cell_size": self.rnn_hidden_units,
+            "fw_cell_size": rnn_hidden_units,
             "fw_layers": 2
         }
         self.dtype = "dis"

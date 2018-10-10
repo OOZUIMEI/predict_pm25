@@ -62,7 +62,7 @@ class MaskGan(BaselineModel):
         # critic loss
         self.use_critic = use_critic
         # set up multiple cnns layers to generate outputs
-        self.use_gen_cnn = True
+        self.use_gen_cnn = False
         # add l1 norm to loss
         self.use_l1 = False
         self.is_clip = True
@@ -105,7 +105,8 @@ class MaskGan(BaselineModel):
             tanh_outputs = None
             if self.use_gen_cnn:
                 tanh_outputs = tf.tanh(outputs)
-
+            else:
+                tanh_outputs = outputs
         return enc_output, dec, outputs, tanh_outputs, estimated_values, attention
 
     #perform decoder with critic estimated award
@@ -200,44 +201,38 @@ class MaskGan(BaselineModel):
     def train_discriminator(self, loss):
         with tf.name_scope("train_discriminator"):
             dis_grads, dis_vars = self.get_optimization(loss, "discriminator")
-            dis_grads = tf.clip_by_global_norm(dis_grads, 10.)
-            dis_train_op = self.optimizer.apply_gradients(zip(dis_grads, dis_vars))
+            dis_grads, _ = tf.clip_by_global_norm(dis_grads, 10.)
+            dis_optimizer = tf.train.AdamOptimizer(self.learning_rate, self.beta1)
+            dis_train_op = dis_optimizer.apply_gradients(zip(dis_grads, dis_vars))
             return dis_train_op
     
     # policy gradient
     def train_generator(self, loss):
         with tf.name_scope("train_generator"):
-            if self.use_l1:
-                l1_norm = tf.contrib.layers.l1_regularizer(scale=self.lamda)
-                l1_loss = tf.contrib.layers.apply_regularization(l1_norm, gen_vars)
-                loss += l1_loss
-            gen_grads, gen_vars = self.get_optimization(loss, "generator")
-            if self.is_clip:
-                gen_grads = tf.clip_by_global_norm(gen_grads, 10.)
-            # if self.gen_loss_type == 0:
-            #     # gradient ascent, maximum reward  => descent with minimizing the loss
-            #     gen_grads = tf.gradients(-loss, gen_vars)
-            # else:
-            #     # using mse without critic
-            #     gen_grads = tf.gradients(loss, gen_vars)
-            gen_train_op = self.optimizer.apply_gradients(zip(gen_grads, gen_vars))
+            gen_vars = [v for v in tf.trainable_variables() if v.op.name.startswith("generator")]
+            gen_optimizer = tf.train.AdamOptimizer(self.learning_rate, self.beta1) 
+            if self.gen_loss_type == 0:
+                gen_grads = tf.gradients(-loss, gen_vars)
+            else:
+                gen_grads = tf.gradients(loss, gen_vars)
+            gen_grads, _ = tf.clip_by_global_norm(gen_grads, 10.)
+            gen_train_op = gen_optimizer.apply_gradients(zip(gen_grads, gen_vars))
             return gen_train_op
 
     def get_optimization(self, loss, name_scope):
         vars_ = [v for v in tf.trainable_variables() if v.op.name.startswith(name_scope)]
-        grads = self.optimizer.compute_gradients(loss, vars_)
-        # grads = tf.gradients(loss, vars_)
+        #grads = self.optimizer.compute_gradients(loss, vars_)
+        grads = tf.gradients(loss, vars_)
         return grads, vars_
 
     # using stride to reduce the amount of data to loop over time intervals
     def run_epoch(self, session, data, num_epoch=0, train_writer=None, verbose=True, train=False, shuffle=True, stride=4):
         st = time.time()
         if not train:
-            train_op = tf.no_op()
+            self.gen_op = tf.no_op()
+            self.dis_op = tf.no_op()
         dt_length = len(data)
         # print("data_size: ", dt_length)
-        cons_b = self.batch_size * stride
-        total_steps = dt_length // cons_b
         total_gen_loss = []
         total_dis_loss = []
         total_critic_loss = []
@@ -246,6 +241,15 @@ class MaskGan(BaselineModel):
         if shuffle:
             r = np.random.permutation(dt_length)
             ct = ct[r]
+      
+        strides = [4, 8, 12]
+        if train:
+            np.random.shuffle(strides)
+            stride = strides[0]
+      
+        cons_b = self.batch_size * stride
+
+        total_steps = dt_length // cons_b
         for step in xrange(total_steps):
             index = range(step * cons_b,
                           (step + 1) * cons_b, stride)

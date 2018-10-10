@@ -32,7 +32,7 @@ class BaselineModel(object):
         self.batch_size = batch_size
         self.grid_square = grid_size * grid_size
         self.loss = loss
-        self.dropout = 0.9
+        self.dropout = 0.0
         self.df_ele = df_ele
         self.dtype = dtype        
         self.map = heatmap.build_map()
@@ -67,7 +67,7 @@ class BaselineModel(object):
                 self.e_params["fw_cell_size"] = self.districts
         self.use_gen_cnn = False
         self.mtype = 4
-        self.use_batch_norm = True
+        self.use_batch_norm = False
     
     def set_training(self, training):
         self.is_training = training
@@ -128,7 +128,9 @@ class BaselineModel(object):
                 cnn = tf.layers.flatten(cnn)
                 cnn_shape = cnn.get_shape()
                 # last_dim = cnn_shape[-1] * cnn_shape[-2]
-                last_dim = int(cnn_shape[-1]) / self.encoder_length
+                print(cnn_shape)
+                # last_dim = int(cnn_shape[-1]) / self.encoder_length
+                last_dim = int(cnn_shape[-1])
                 enc_data = tf.reshape(cnn, [self.batch_size, self.encoder_length, int(last_dim)])
                 # enc_data = tf.unstack(enc_data, axis=1)
             else:
@@ -182,7 +184,7 @@ class BaselineModel(object):
     def get_attention_rep(self, inputs):
         with tf.variable_scope("attention_rep", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             params = {
-                "fw_cell": self.e_params["fw_cell"],
+                "fw_cell": "cudnn_lstm",
                 "fw_cell_size": self.rnn_hidden_units
             }
             inputs.set_shape((self.batch_size, self.attention_length, self.atttention_hidden_size))

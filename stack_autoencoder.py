@@ -1,10 +1,9 @@
 from __future__ import print_function
-import sys 
+import sys
 import numpy as np
 import tensorflow as tf
 import properties as pr
 from adain import Adain
-
 
 # reference: deep learning architecture for air quality predictions
 # hidden layer = 300
@@ -12,7 +11,7 @@ from adain import Adain
 # time intervals in the paper 
 class StackAutoEncoder(Adain):
     
-    def __init__(self, pre_train=False, learning_rate=0.01, **kwargs):
+    def __init__(self, pre_train=False, learning_rate=0.01, **kwargs): 
         super(StackAutoEncoder, self).__init__(**kwargs)
         self.pre_train_iter = 10
         self.time_intervals = 8
@@ -59,7 +58,7 @@ class StackAutoEncoder(Adain):
                 ae_loss = tf.losses.mean_squared_error(labels=inputs, predictions=output_ae)
                 train_weights = []
                 for x in tf.trainable_variables():
-                    if x.op.name.startsWith(scope_name):
+                    if x.op.name.startswith(scope_name):
                         train_weights.append(x)
                         if "bias" not in x.name.lower():
                             ae_loss += tf.nn.l2_loss(x)

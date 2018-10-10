@@ -34,7 +34,7 @@ def evaluate(pred, labs, rg, is_classify=False, verbose=True):
             print("r2_score:%.2f" % r2)
 
 
-def evaluate_sp(url, url2, is_grid=False):
+def evaluate_sp(url, url2, is_grid=True):
     map_ = heatmap.build_map()
     data = utils.load_file(url)
     if type(data) is list:
@@ -61,7 +61,7 @@ def evaluate_sp(url, url2, is_grid=False):
             x_l = heatmap.fill_map(x, map_)
             lbg.append(x_l)
         lbg = np.asarray(lbg)
-        lbg = lbg.flatten()
+        lbg = lbg.flatten() * 300
         pred_t  = []
         if is_grid:
             for d_ in d:
@@ -71,16 +71,16 @@ def evaluate_sp(url, url2, is_grid=False):
             for d_ in d:
                 d_t = heatmap.fill_map(d_, map_)
                 pred_t.append(d_t)
-        pred_t = np.asarray(pred_t)
+        pred_t = np.asarray(pred_t) * 300
         pred_t = pred_t.flatten()
         mse = mean_squared_error(lbg, pred_t)
         loss_mse += mse
         loss_mae += mean_absolute_error(lbg, pred_t)
         loss_rmse += sqrt(mse)
         utils.update_progress((i + 1.0) / dtl)
-    loss_mse = loss_mse / lt * 300
-    loss_mae = loss_mae / lt * 300
-    loss_rmse = loss_rmse / lt * 300
+    loss_mse = loss_mse / lt
+    loss_mae = loss_mae / lt
+    loss_rmse = loss_rmse / lt
     print("MSE: %.2f" % loss_mse)
     print("MAE: %.2f" % loss_mae)
     print("RMSE: %.2f" % loss_rmse)
@@ -93,7 +93,6 @@ def evaluate_reg(url, url2):
     preds = np.reshape(preds.flatten(), (lt, preds.shape[2], preds.shape[-1]))
     labels = utils.load_file(url2)
     labels = np.array(labels)
-    loss_mse = 0.0
     loss_mae = 0.0
     loss_rmse = 0.0
     for i, d in enumerate(preds):
@@ -102,16 +101,12 @@ def evaluate_reg(url, url2):
         lbg = np.array(lbt)
         lbg = lbg.flatten()
         pred_t = d.flatten()
-        plt_l = len(pred_t)
         mse = mean_squared_error(lbg, pred_t)
-        loss_mse += mse
         loss_mae += mean_absolute_error(lbg, pred_t)
         loss_rmse += sqrt(mse)
 
-    loss_mse = loss_mse / lt * 300
     loss_mae = loss_mae / lt * 300
     loss_rmse = loss_rmse / lt * 300
-    print("MSE: %.2f" % loss_mse)
     print("MAE: %.2f" % loss_mae)
     print("RMSE: %.2f" % loss_rmse)
 

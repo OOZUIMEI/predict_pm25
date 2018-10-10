@@ -210,12 +210,13 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
             # saver.restore(session, url_weight)
             print('==> running model')
             preds = model.run_epoch(session, train, train=False, verbose=False, shuffle=False)
-            save_gan_preds(preds, url_weight)
+            save_gan_preds(url_weight, preds)
 
 
 def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, decoder_length=24, decoder_size=4, grid_size=25, is_folder=False, is_test=False, restore=False):
-    model = MaskGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, rnn_layers=rnn_layers, grid_size=grid_size, use_cnn=1)
-    dv = p.gpu_devices.split(",")
+    model = MaskGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size, use_cnn=1)
+    #dv = p.gpu_devices.split(",")
+    dv=[1]
     tconfig = get_gpu_options()
     utils.assert_url(url_feature)
     sum_dir = 'summaries'

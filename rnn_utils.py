@@ -50,6 +50,7 @@ def execute_sequence(inputs, params):
         if "cudnn" in params["fw_cell"]:
             outputs, fn_state = fw_cell(inputs)
             if params["fw_cell"] == "cudnn_lstm":
+                c_shape = fn_state[0].get_shape()
                 if c_shape[0] == 1:
                     c = tf.squeeze(fn_state[1], [0])
                     h = tf.squeeze(fn_state[0], [0])
@@ -271,8 +272,8 @@ def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8, use_b
         # normalize input to [-1, 1] in generator
         cnn_inputs = tf.tanh(cnn_inputs)
         # 25 x 25 x H => 8x8x8 => 4x4x8
-        conv1 = get_cnn_unit(cnn_inputs, max_filters, (11,11), activation, "VALID", "rep_conv1", use_batch_norm, dropout)
-        cnn_outputs = get_cnn_unit(conv1, max_filters, upscale_k, activation, "SAME", "rep_conv2", use_batch_norm, dropout)
+        conv1 = get_cnn_unit(cnn_inputs, max_filters, (11,11), activation, "VALID", "rep_conv1")
+        cnn_outputs = get_cnn_unit(conv1, max_filters, upscale_k, activation, "SAME", "rep_conv2")
     # else:
     #     """
     #         Use for representation steps of both encoder and decoder
