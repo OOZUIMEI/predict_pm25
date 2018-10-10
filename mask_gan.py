@@ -75,11 +75,11 @@ class MaskGan(BaselineModel):
         # self.merged = tf.summary.merge_all()
 
     def inference(self):
-        enc_output, dec, outputs, tanh_inputs, estimated_values, attention = self.create_generator(self.encoder_inputs, self.decoder_inputs, self.attention_inputs)
+        enc_output, dec, outputs, tanh_inputs, attention = self.create_generator(self.encoder_inputs, self.decoder_inputs, self.attention_inputs)
         fake_preds, fake_rewards, real_preds = self.create_discriminator(enc_output, dec, outputs, attention)
         # use tanh on generator output or not. because y = tanh(x) if x > 0 then y always belongs to [0, 1]
         self.dis_loss = self.add_discriminator_loss(fake_preds, real_preds)
-        self.gen_loss = self.get_generator_loss(fake_preds, fake_rewards, estimated_values, tanh_inputs)
+        self.gen_loss = self.get_generator_loss(fake_preds, fake_rewards, tanh_inputs)
         self.gen_op = self.train_generator(self.gen_loss)
         self.dis_op = self.train_discriminator(self.dis_loss)
         
@@ -90,32 +90,29 @@ class MaskGan(BaselineModel):
             # shape:  batch_size x decoder_length x grid_size x grid_size
             enc, dec = self.lookup_input(enc, dec)
             enc_output = self.exe_encoder(enc, False, 0.0)
-            # estimated_values [0, inf]
             attention = None
             if self.use_attention:
                 # batch size x rnn_hidden_size
                 inputs = tf.nn.embedding_lookup(self.attention_embedding, att)
                 attention = self.get_attention_rep(inputs)
-            outputs, estimated_values = self.exe_decoder_critic(dec, enc_output, attention)
+            outputs = self.exe_decoder(dec, enc_output, attention)
             tanh_outputs = None
             if self.use_gen_cnn:
                 tanh_outputs = tf.tanh(outputs)
             else:
                 tanh_outputs = outputs
-        return enc_output, dec, outputs, tanh_outputs, estimated_values, attention
-
+        return enc_output, dec, outputs, tanh_outputs, attention
 
     #perform decoder with critic estimated award
     def exe_decoder_critic(self, dec, enc_output, attention=None):
         with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
-            # estimated_values [0, inf], outputs: [0, 1]
             params = copy.deepcopy(self.e_params)
             params["fw_cell"] = "gru_block"
-            outputs, estimated_values = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, params, attention, self.use_cnn, self.use_gen_cnn, self.mtype, self.use_batch_norm, self.dropout)
+            outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, params, attention, self.use_cnn, self.use_gen_cnn, self.mtype, self.use_batch_norm, self.dropout)
             # batch_size x decoder_length x grid_size x grid_size
             outputs = tf.stack(outputs, axis=1)
             # batch_size x decoder_length
-        return outputs, estimated_values
+        return outputs
     
     # inputs is either from generator or from real context
     # enc_output: last hidden layer of encoder
@@ -134,28 +131,23 @@ class MaskGan(BaselineModel):
             real_preds, _ = rnn_utils.execute_decoder_dis(dec_real, enc_output, self.decoder_length, params, self.gamma, attention, False, mtype=self.gmtype)
         return tf.squeeze(tf.stack(fake_preds, axis=1), [2]), fake_rewards, tf.squeeze(tf.stack(real_preds, axis=1), [2])
 
-    # mse training
-    def  add_critic_loss(self, rewards, estimated_values):
-        loss = tf.losses.mean_squared_error(labels=rewards, predictions=estimated_values)
-        tf.summary.scalar("critic_loss", loss)
-        return loss
 
-    def get_generator_loss(self, fake_preds, fake_rewards, estimated_values, outputs):
+    def get_generator_loss(self, fake_preds, fake_rewards, outputs):
         if self.use_gen_cnn:
             outputs = tf.tanh(outputs)
         if self.gen_loss_type == 0:
             # use log(G)
-            gen_loss = self.add_generator_loss(fake_preds, fake_rewards, estimated_values)
+            gen_loss = self.add_generator_loss(fake_preds, fake_rewards)
         else: 
             # use mse of G & labels
             labels = tf.reshape(self.pred_placeholder, shape=(self.batch_size, self.decoder_length, self.grid_square))
-            gen_loss = self.add_generator_loss(fake_preds, fake_rewards, estimated_values, outputs, labels)
+            gen_loss = self.add_generator_loss(fake_preds, fake_rewards, outputs, labels)
         return gen_loss
 
     # add generation loss
     # type 1: regular loss log(D(G))
     # type 2: ||(fake - real)||22
-    def add_generator_loss(self, fake_preds, rewards, estimated_values, outputs=None, labels=None):
+    def add_generator_loss(self, fake_preds, rewards, outputs=None, labels=None):
         r_ = tf.squeeze(tf.stack(rewards, axis=1))
         advantages = tf.abs(r_)
         # fake_labels = tf.constant(1, shape=[self.batch_size, self.decoder_length])
@@ -315,10 +307,10 @@ class MaskGan(BaselineModel):
                 with tf.device("gpu:%s" % devices[x]):
                     with tf.name_scope("tenant_%s" % x):
                         enc, dec, att = queue.dequeue()
-                        enc_output, dec, outputs, tanh_inputs, estimated_values, attention = self.create_generator(enc, dec, att)
+                        enc_output, dec, outputs, tanh_inputs, attention = self.create_generator(enc, dec, att)
                         fake_preds, fake_rewards, real_preds = self.create_discriminator(enc_output, dec, outputs, attention)
                         dis_loss = self.add_discriminator_loss(fake_preds, real_preds)
-                        gen_loss = self.get_generator_loss(fake_preds, fake_rewards, estimated_values, tanh_inputs)
+                        gen_loss = self.get_generator_loss(fake_preds, fake_rewards, tanh_inputs)
                         dis_grads, _ = self.get_optimization(dis_loss, "discriminator")
                         gen_grads, _ = self.get_optimization(gen_loss, "generator")
                         tower_gen_grads.append(gen_grads)
