@@ -60,10 +60,10 @@ class MaskGan(BaselineModel):
         self.gamma = gamma
         self.learning_rate = learning_rate
         # set up multiple cnns layers to generate outputs
-        self.use_gen_cnn = True
-        self.dropout = 0.5
-        self.use_batch_norm = True
-        self.strides = [4, 8, 12]
+        self.use_gen_cnn = False
+        self.dropout = 0.0
+        self.use_batch_norm = False
+        self.strides = [4]
         self.beta1 = 0.5
         self.lamda = 100
         self.gmtype = 3
@@ -171,7 +171,7 @@ class MaskGan(BaselineModel):
     
     def train_discriminator(self, loss):
         with tf.name_scope("train_discriminator"):
-            dis_optimizer = tf.train.AdamOptimizer(self.dis_learning_rate, self.beta1)
+            dis_optimizer = tf.train.AdamOptimizer(self.learning_rate, self.beta1)
             dis_vars = [v for v in tf.trainable_variables() if v.op.name.startswith("discriminator")]
             dis_grads = tf.gradients(loss, dis_vars)
             dis_grads, _ = tf.clip_by_global_norm(dis_grads, 10.)
@@ -181,7 +181,7 @@ class MaskGan(BaselineModel):
     # policy gradient
     def train_generator(self, loss):
         with tf.name_scope("train_generator"):
-            gen_optimizer = tf.train.AdamOptimizer(self.gen_learning_rate, self.beta1)
+            gen_optimizer = tf.train.AdamOptimizer(self.learning_rate, self.beta1)
             gen_vars = [v for v in tf.trainable_variables() if v.op.name.startswith("generator")]
             if self.gen_loss_type == 0:
                 # gradient ascent, maximum reward  => descent with minimizing the loss
@@ -210,6 +210,7 @@ class MaskGan(BaselineModel):
     def run_epoch(self, session, data, num_epoch=0, train_writer=None, verbose=False, train=False, shuffle=True, stride=4):
         st = time.time()
         if not train:
+            print("init train_op is none for test")
             self.gen_op = tf.no_op()
             self.dis_op = tf.no_op()
         dt_length = len(data)

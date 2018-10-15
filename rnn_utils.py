@@ -133,7 +133,6 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=N
             pm2_5_input = tf.layers.dense(dec_out, 256, name="decoder_output_cnn")
             pm2_5_input = tf.reshape(pm2_5_input, [params["batch_size"], 4, 4, 16])
             pm2_5_cnn = get_cnn_rep(pm2_5_input, 2, max_filters=16, use_batch_norm=use_batch_norm, dropout=dropout)
-            # pm2_5_cnn = tf.tanh(pm2_5_cnn)
             pm2_5 = tf.layers.flatten(pm2_5_cnn)
         else:
             pm2_5 = tf.layers.dense(dec_out, 
