@@ -127,8 +127,8 @@ class MaskGan(BaselineModel):
         dec_fake = tf.concat([dec, outputs_], axis=4)
         with tf.variable_scope("discriminator", self.initializer, reuse=tf.AUTO_REUSE):
             # get probability of reality (either fake or real)
-            fake_preds, fake_rewards = rnn_utils.execute_decoder_dis(dec_fake, enc_output, self.decoder_length, params, self.gamma, attention, mtype=self.gmtype)
-            real_preds, _ = rnn_utils.execute_decoder_dis(dec_real, enc_output, self.decoder_length, params, self.gamma, attention, False, mtype=self.gmtype)
+            fake_preds, fake_rewards = rnn_utils.execute_decoder_dis(dec_fake, enc_output, self.decoder_length, params, self.gamma, attention, mtype=self.gmtype, use_batch_norm=self.use_batch_norm, dropout=self.dropout)
+            real_preds, _ = rnn_utils.execute_decoder_dis(dec_real, enc_output, self.decoder_length, params, self.gamma, attention, False, mtype=self.gmtype, use_batch_norm=self.use_batch_norm, dropout=self.dropout)
         return tf.squeeze(tf.stack(fake_preds, axis=1), [2]), fake_rewards, tf.squeeze(tf.stack(real_preds, axis=1), [2])
 
 
@@ -198,8 +198,10 @@ class MaskGan(BaselineModel):
         # grads = self.optimizer.compute_gradients(loss, vars_)
         if side != 1:
             grads = tf.gradients(-loss, vars_)
+            # grads = self.optimizer.compute_gradients(-loss, vars_)
         else:
             grads = tf.gradients(loss, vars_)
+            # grads = self.optimizer.compute_gradients(loss, vars_)
         grads, _ = tf.clip_by_global_norm(grads, 10.)
         # grads = tf.gradients(loss, vars_)
         return grads, vars_

@@ -123,7 +123,7 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=N
         dec_in = tf.concat([input_t, pm2_5_t], axis=3)
         # need to do cnn here
         if cnn_rep:
-            dec_in = get_cnn_rep(dec_in, mtype=mtype)
+            dec_in = get_cnn_rep(dec_in, mtype=mtype, use_batch_norm=use_batch_norm, dropout=dropout)
         dec_in = tf.layers.flatten(dec_in)
         dec_out, dec_state = cell_dec(dec_in, dec_state)
         if attention is not None: 
@@ -133,7 +133,7 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=N
             pm2_5_input = tf.layers.dense(dec_out, 256, name="decoder_output_cnn")
             pm2_5_input = tf.reshape(pm2_5_input, [params["batch_size"], 4, 4, 16])
             pm2_5_cnn = get_cnn_rep(pm2_5_input, 2, max_filters=16, use_batch_norm=use_batch_norm, dropout=dropout)
-            pm2_5_cnn = tf.tanh(pm2_5_cnn)
+            # pm2_5_cnn = tf.tanh(pm2_5_cnn)
             pm2_5 = tf.layers.flatten(pm2_5_cnn)
         else:
             pm2_5 = tf.layers.dense(dec_out, 
@@ -148,42 +148,42 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=N
 # estimated value of critic: 0 - inf
 # outputs: pm2.5 images
 # this is for generator
-def execute_decoder_critic(inputs, init_state, sequence_length, params, attention=None, use_critic=True, cnn_gen=True, mtype=3, use_batch_norm=True, dropout=0.5):
-    # push final state of encoder to decoder
-    if params["fw_cell"] == "gru_block" or params["fw_cell"] == "rnn":
-        dec_state = tf.squeeze(init_state[0], [0])
-    else:
-        dec_state = init_state
-    pm2_5 = np.zeros((params["batch_size"], params["de_output_size"]), dtype=np.float32)
-    dec_out = None
-    outputs = []
-    estimated_values = []
-    cell_dec = get_cell(params["fw_cell"], params["fw_cell_size"])
-    for t in xrange(sequence_length):
-        # shape of input_t bs x grid_size x grid_size x hidden_size
-        input_t = inputs[:, t]
-        pm2_5_t = tf.expand_dims(tf.reshape(pm2_5, [params["batch_size"], params["grid_size"], params["grid_size"]]), 3)
-        dec_in = tf.concat([input_t, pm2_5_t], axis=3)
-        # need to do cnn here
-        dec_in = get_cnn_rep(dec_in, mtype=mtype)
-        dec_in = tf.layers.flatten(dec_in)
-        dec_out, dec_state = cell_dec(dec_in, dec_state)
-        if attention is not None: 
-            dec_out = tf.concat([dec_out, attention], axis=1)
-        # belong to generator
-        if cnn_gen:
-            pm2_5_input = tf.layers.dense(dec_out, 256, name="decoder_output_cnn")
-            pm2_5_input = tf.reshape(pm2_5_input, [params["batch_size"], 4, 4, 16])
-            pm2_5_cnn = get_cnn_rep(pm2_5_input, 2, max_filters=16, use_batch_norm=use_batch_norm, dropout=dropout)
-            pm2_5 = tf.layers.flatten(pm2_5_cnn)
-        else:
-            pm2_5 = tf.layers.dense(dec_out, params["de_output_size"], name="decoder_output", activation=tf.nn.sigmoid)
-        # belong to critic
-        if use_critic:
-            e_value = tf.layers.dense(dec_out, 1, name="critic_linear_output", activation=None)
-            estimated_values.append(e_value)
-        outputs.append(pm2_5)
-    return outputs, estimated_values
+# def execute_decoder_critic(inputs, init_state, sequence_length, params, attention=None, use_critic=True, cnn_gen=True, mtype=3, use_batch_norm=True, dropout=0.5):
+#     # push final state of encoder to decoder
+#     if params["fw_cell"] == "gru_block" or params["fw_cell"] == "rnn":
+#         dec_state = tf.squeeze(init_state[0], [0])
+#     else:
+#         dec_state = init_state
+#     pm2_5 = np.zeros((params["batch_size"], params["de_output_size"]), dtype=np.float32)
+#     dec_out = None
+#     outputs = []
+#     estimated_values = []
+#     cell_dec = get_cell(params["fw_cell"], params["fw_cell_size"])
+#     for t in xrange(sequence_length):
+#         # shape of input_t bs x grid_size x grid_size x hidden_size
+#         input_t = inputs[:, t]
+#         pm2_5_t = tf.expand_dims(tf.reshape(pm2_5, [params["batch_size"], params["grid_size"], params["grid_size"]]), 3)
+#         dec_in = tf.concat([input_t, pm2_5_t], axis=3)
+#         # need to do cnn here
+#         dec_in = get_cnn_rep(dec_in, mtype=mtype)
+#         dec_in = tf.layers.flatten(dec_in)
+#         dec_out, dec_state = cell_dec(dec_in, dec_state)
+#         if attention is not None: 
+#             dec_out = tf.concat([dec_out, attention], axis=1)
+#         # belong to generator
+#         if cnn_gen:
+#             pm2_5_input = tf.layers.dense(dec_out, 256, name="decoder_output_cnn")
+#             pm2_5_input = tf.reshape(pm2_5_input, [params["batch_size"], 4, 4, 16])
+#             pm2_5_cnn = get_cnn_rep(pm2_5_input, 2, max_filters=16, use_batch_norm=use_batch_norm, dropout=dropout)
+#             pm2_5 = tf.layers.flatten(pm2_5_cnn)
+#         else:
+#             pm2_5 = tf.layers.dense(dec_out, params["de_output_size"], name="decoder_output", activation=tf.nn.sigmoid)
+#         # belong to critic
+#         if use_critic:
+#             e_value = tf.layers.dense(dec_out, 1, name="critic_linear_output", activation=None)
+#             estimated_values.append(e_value)
+#         outputs.append(pm2_5)
+#     return outputs, estimated_values
 
 # output: predictions - probability [0, 1], rewards [0, 1]
 # this is for discriminator

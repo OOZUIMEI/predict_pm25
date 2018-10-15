@@ -129,7 +129,6 @@ class BaselineModel(object):
                 cnn = tf.layers.flatten(cnn)
                 cnn_shape = cnn.get_shape()
                 # last_dim = cnn_shape[-1] * cnn_shape[-2]
-                print(cnn_shape)
                 # last_dim = int(cnn_shape[-1]) / self.encoder_length
                 last_dim = int(cnn_shape[-1])
                 enc_data = tf.reshape(cnn, [self.batch_size, self.encoder_length, int(last_dim)])
@@ -173,8 +172,8 @@ class BaselineModel(object):
         else:
             params["fw_cell"] = "lstm_block"
         with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
-            if self.dtype == "grid":
-                outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, params, attention, self.use_cnn, self.use_gen_cnn, self.mtype, self.use_batch_norm, self.dropout)
+            if self.dtype == "grid":                
+                outputs = rnn_utils.:q(dec, enc_output, self.decoder_length, params, attention, self.use_cnn, self.use_gen_cnn, self.mtype, self.use_batch_norm, self.dropout)
             else:
                 dec_data = tf.reshape(dec, [self.batch_size, self.decoder_length, self.districts * self.decode_vector_size])
                 outputs = rnn_utils.execute_decoder(dec_data, enc_output, self.decoder_length, params, attention, self.dropout_placeholder)

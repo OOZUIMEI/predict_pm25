@@ -49,9 +49,9 @@ python train_sp.py -u vectors/spatiotemporal/sample_sp_grid -au vectors/spatiote
 
 # GAN Training and Testing
 Train GAN 
-python train_sp.py -u vectors/sp_china_combined/seoul_0 -au vectors/sp_china_combined/china_0 -w gan_cuda_transcnn -f 1 -e 15 -ds 9
+python train_sp.py -u vectors/sp_china_combined/seoul_1 -au vectors/sp_china_combined/china_1 -w gan_cuda_transcnn -e 15 -ds 9
 Test GAN
-python train_sp.py -u vectors/sp_china_combined/sp_seoul_test_grid -au vectors/sp_china_combined/sp_china_test_bin -w weights/gan_cuda.weights -e 15 -ds 9 -rs 1 -t 1
+python train_sp.py -u vectors/sp_china_combined/sp_seoul_test_grid -au vectors/sp_china_combined/sp_china_test_bin -w weights/gan_cuda.weights -rs 1 -t 1 -e 15 -ds 9
 
 
 # Neural nets
