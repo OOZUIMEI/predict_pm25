@@ -26,6 +26,7 @@ Crawling:
 
 crawl daegu_aqi
 
+
 # crawl weather
     $ python craw_weather.py -f 1
 

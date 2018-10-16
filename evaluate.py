@@ -35,7 +35,7 @@ def evaluate(pred, labs, rg, is_classify=False, verbose=True):
 
 
 # evaluate grid training
-def evaluate_sp(url, url2, is_grid=True):
+def evaluate_sp(url, url2, is_grid=True, grid_eval=True):
     map_ = heatmap.build_map()
     data = utils.load_file(url)
     if type(data) is list:
@@ -54,47 +54,57 @@ def evaluate_sp(url, url2, is_grid=True):
     loss_mae = 0.0
     loss_rmse = 0.0
     for i, d in enumerate(data):
-        lb_i = i * 4 + 24
-        lbt = labels[lb_i:(lb_i+24),:,0]
-        lbg = []
-        for x in lbt:
-            x_l = heatmap.fill_map(x, map_)
-            lbg.append(x_l)
-        lbg = np.asarray(lbg)
-        lbg = lbg.flatten() * 300
         pred_t  = []
         if is_grid:
             for d_ in d:
                 d_t = heatmap.clear_interpolate_bound(np.asarray(d_), map_)
                 pred_t.append(d_t)
         else:
-            for d_ in d:
-                d_t = heatmap.fill_map(d_, map_)
-                pred_t.append(d_t)
-        pred_t = np.asarray(pred_t) * 300
+            if grid_eval:
+                for d_ in d:
+                    d_t = heatmap.fill_map(d_, map_)
+                    pred_t.append(d_t)
+            else:
+                pred_t = d
+        lb_i = i * 4 + 24
+        lbt = labels[lb_i:(lb_i+24),:,0]
+        if grid_eval:
+            lbg = []
+            for x in lbt:
+                x_l = heatmap.fill_map(x, map_)
+                lbg.append(x_l)
+            lbg = np.asarray(lbg)
+            lbg = lbg.flatten()
+        else:
+            lbg = lbt.flatten()
+        pred_t = np.asarray(pred_t)
         pred_t = pred_t.flatten()
         mse = mean_squared_error(lbg, pred_t)
         loss_mae += mean_absolute_error(lbg, pred_t)
         loss_rmse += sqrt(mse)
         utils.update_progress((i + 1.0) / dtl)
-    loss_mae = loss_mae / lt
-    loss_rmse = loss_rmse / lt
+    loss_mae = loss_mae / lt * 300
+    loss_rmse = loss_rmse / lt * 300
     print("MAE: %.2f" % loss_mae)
     print("RMSE: %.2f" % loss_rmse)
 
 
-def evaluate_reg(url, url2):
+def evaluate_reg(url, url2, lags=24):
     preds = utils.load_file(url)
     preds = np.array(preds)
     lt = preds.shape[0] * preds.shape[1]
     preds = np.reshape(preds.flatten(), (lt, preds.shape[2], preds.shape[-1]))
     labels = utils.load_file(url2)
     labels = np.array(labels)
+
     loss_mae = 0.0
     loss_rmse = 0.0
     for i, d in enumerate(preds):
         lb_i = i * 4 + 24
         lbt = labels[lb_i:(lb_i+24),:,0]
+        if lags != 24:
+            d = d[:lags,:]
+            lbt = lbt[:lags,:]
         lbg = np.array(lbt)
         lbg = lbg.flatten()
         pred_t = d.flatten()
@@ -115,10 +125,15 @@ if __name__ == "__main__":
     parser.add_argument("-r", "--range", type=int, default=5)
     parser.add_argument("-c", "--classify", type=int, default=0)
     parser.add_argument("-t", "--task", type=int, default=0)
-    parser.add_argument("-g", "--grid", type=int, default=1)
+    parser.add_argument("-g", "--grid", type=int, default=0)
+    parser.add_argument("-gev", "--grid_eval", type=int, default=0)
+    parser.add_argument("-tl", "--time_lags", type=int, default=24)
 
     args = parser.parse_args()
     if args.task == 0:
-        evaluate_sp(args.url, args.url2, bool(args.grid))
+        # ADAIN: MAE: 75.96 RMSE: 79.24
+        # SAE MAE: 78.66 RMSE: 89.31
+        # Neural nets: MAE: 61.27 RMSE: 66.95
+        evaluate_sp(args.url, args.url2, bool(args.grid), bool(args.grid_eval))
     else:
-        evaluate_reg(args.url, args.url2)
+        evaluate_reg(args.url, args.url2, args.time_lags)

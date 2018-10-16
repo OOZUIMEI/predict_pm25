@@ -13,7 +13,7 @@ url_test = "vectors/sp_seoul_test_bin"
 data_train = utils.load_file(url_train)
 data_train = np.array(data_train)
 
-pm2_5_train = np.mean(data_train[-6000:,:,0], axis=1)
+pm2_5_train = np.mean(data_train[-8000:,:,0], axis=1)
 
 data_test = utils.load_file(url_test)
 data_test = np.array(data_test)
@@ -28,15 +28,17 @@ mae = 0.0
 rmse = 0.0
 model = ARIMA(train_data, order=(8, 1, 1))
 model_fit = model.fit(disp=0)
-outputs,_,_ = model_fit.forecast(steps=10000)
+outputs,_,_ = model_fit.forecast(steps=11000)
 outputs = [x if x >= 0 else 0.0 for x in outputs]
-labels = pm2_5_test[2000:12000]
+labels = pm2_5_test[0:12000]
 mae += mean_absolute_error(labels, outputs) 
 mse = mean_squared_error(labels, outputs)
 rmse += sqrt(mse)
 
 rmse = rmse * 300
 mae = mae * 300
+
+# mae: 28.43 rmse: 35.41
 print("mae: %.2f" % mae)
 print("rmse: %.2f" % rmse)
 
