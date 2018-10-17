@@ -290,6 +290,41 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
                 execute_gan(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
 
 
+# def  get_districts_preds(preds):
+#     res = []
+#     for d_t in preds:
+#         r_t = []
+#         for x, y in p.dis_points:
+#             # x = col, y = row
+#             r_t.append(d_t[y][x] * 500)
+#         res.append(r_t)
+#     return res
+
+
+"""
+average data of area => 25 points
+output should be 24 x 25
+"""
+def aggregate_predictions(preds)
+    outputs = []
+    # loop over timesteps
+    for t in preds:
+        # 25 x 25
+        out_ = []
+        for d in p.dis_points:
+            val = 0.0
+            for x, y in d:
+                val += t[y][x]
+            if val != 0.0:
+                val = val / p.grid_size
+            out_.append(val)
+        outputs.append(out_)
+    return outputs
+
+
+"""
+activate spark engine & real time prediction service
+"""
 def get_prediction_real_time(sparkEngine, url_weight="", dim=15):
     # continuously crawl aws and aqi & weather
     encoder_length = 24
@@ -310,13 +345,13 @@ def get_prediction_real_time(sparkEngine, url_weight="", dim=15):
         
         # repeat for 25 districts
         if w_pred:
-            w_pred = np.repeat(np.expand_dims(w_pred, 1), 25, 1)
+            w_pred = np.repeat(np.expand_dims(w_pred, 1), p.grid_size, 1)
             de_vectors = psv.convert_data_to_grid_exe(w_pred)
             # pad to fill top elements of decoder vectors
             de_vectors = np.pad(de_vectors, ((0, 0), (0, 0), (0, 0), (6, 0)), 'constant', constant_values=0)
         else:
             # know nothing about future weather forecast
-            de_vectors = np.zeros((decoder_length, 25, 25, dim))
+            de_vectors = np.zeros((decoder_length, p.grid_size, p.grid_size, dim))
         sp_vectors = np.concatenate((sp_vectors, de_vectors), axis=0)
         # 4. Feed to model
         # model = BaselineModel(encoder_length=encoder_length, encode_vector_size=12, batch_size=1, decoder_length=decoder_length, rnn_layers=1,
@@ -335,8 +370,8 @@ def get_prediction_real_time(sparkEngine, url_weight="", dim=15):
             saver.restore(session, 'weights/%s' % p.prediction_weight)
             print('==> running model')
             preds = model.run_epoch(session, model.train, train=False, verbose=False, shuffle=False)
-            print(np.shape(preds))
-            preds = np.reshape(preds, (decoder_length, 25, 25))
+            preds = np.reshape(preds, (decoder_length, p.grid_size, p.grid_size))
+            aggregate_predictions(preds)
             return preds, timestamp
     return [], []
     
@@ -421,17 +456,6 @@ def run_neural_nets(url_feature="", attention_url="", url_weight="sp", encoder_l
                 else:
                     name_s = url_weight
                 utils.save_file("test_sp/%s" % name_s, preds)
-
-
-def  get_districts_preds(preds):
-    res = []
-    for d_t in preds:
-        r_t = []
-        for x, y in p.dis_points:
-            # x = col, y = row
-            r_t.append(d_t[y][x] * 500)
-        res.append(r_t)
-    return res
 
 
 if __name__ == "__main__":
