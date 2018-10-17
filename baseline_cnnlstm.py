@@ -150,7 +150,7 @@ class BaselineModel(object):
         if self.dtype == "grid":
             enc.set_shape((self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.encode_vector_size))
             dec_f.set_shape((self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.encode_vector_size))
-            # embedding = tf.Variable(self.datasets, name="embedding")
+            # embedding = tf.Variable(self.daitasets, name="embedding")
             dec = dec_f[:,:,:,:,self.df_ele:]
             dec.set_shape((self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.decode_vector_size))
             self.pred_placeholder = dec_f[:,:,:,:,0]
