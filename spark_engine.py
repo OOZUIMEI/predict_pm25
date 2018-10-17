@@ -69,6 +69,9 @@ class SparkEngine():
             StructField("city", StringType(), True),
             StructField("pm2_5", StringType(), True)
         ])
+        # the order of vectors
+        self.features = ["pm2_5_norm","pm10_norm","o3_val","no2_val","co_val","so2_val","temp","precip","wind_sp","wind_gust","wind_agl","humidity","is_holiday","hour","month"]
+    
 
     def init_spark(self):
         conf = (SparkConf().setAppName("prediction_airpollution"))
@@ -135,7 +138,6 @@ class SparkEngine():
             end = end + timedelta(days=1)
             ed2_ = end.strftime(p.fm)
             w_pred = w_pred.filter((col("timestamp") >= ed_) & (col("timestamp") <= ed2_))
-        
         final = merge.groupBy("timestamp") \
                      .agg(collect_list("district_code").alias("district_code"), \
                         collect_list("o3_val").alias("o3_val"), \
@@ -158,20 +160,23 @@ class SparkEngine():
         mx_val = np.array(p.max_values)
         mn_val = np.array(p.min_values)
         del_val = mx_val - mn_val
+        
         for d in final:
             dis_vectors = [np.zeros(dim, dtype=np.float).tolist()] * 25
             dis = d["district_code"]
-            values = np.array([float(d["o3_val"]),float(d["no2_val"]),float(d["co_val"]),float(d["so2_val"]),
-                              float(d["temp"]),float(d["precip"]),float(d["wind_sp"]),float(d["wind_gust"])])
-            values_norm = np.array([d["pm2_5_norm"],d["pm10_norm"],d["humidity"]])
+            values = np.array([float(d[x]) for x in self.features[2:10]])
             values = np.transpose(values)
-            values_norm = np.transpose(values_norm)
+            # min-max standardize for 2->9th element
             values = (values - mn_val) / del_val
-            values = np.concatenate((values, values_norm), axis=1)
+            values_norm_1 = np.transpose(np.array([d[x] for x in self.features[:2]]))
+            values_norm_2 = np.transpose(np.array([d[x] for x in self.features[10:]]))
+            # concatenate to a single vector
+            values = np.concatenate((values_norm_1, values, values_norm_2), axis=1)
             for i, x in enumerate(dis):
                 idx = int(x) - 1
                 dis_vectors[idx] = [1 if y > 1 else y if y > 0 else 0 for y in values[i]]
             res.append(dis_vectors)     
+        
         # future forecast
         seoul_w_pred = w_pred.filter(col("city") == "seoul").orderBy("timestamp").limit(24).collect()
         w_ = []
@@ -181,9 +186,9 @@ class SparkEngine():
         w_delta = w_max - w_min
         for x in seoul_w_pred:
             # normalize future forecast according to 0 -- 1 corresponding to min -- max of training set
-            a = (np.array([x['temp'],x["precip"],x["humidity"],x["wind_sp"],x["wind_gust"]]) - w_min) / w_delta
-            a = a.tolist()
-            a = [1 if y > 1 else y if y > 0 else 0 for y in a] + [x["wind_agl"]]
+            dt_v = np.array([x['temp'],x["precip"],x["humidity"],x["wind_sp"],x["wind_gust"]])
+            a = self.min_max_scaler(dt_v, w_min, w_delta)
+            a = self.set_boundary(a) + [x["wind_agl"]]
             timestamp.append(x['timestamp'])
             w_.append(a)
 
@@ -200,15 +205,28 @@ class SparkEngine():
         aqicn_sh = aqicn.filter(col("city") == "shenyang").orderBy("timestamp").limit(24).collect()
 
         china_vectors = []
+        china_max = np.array(p.max_cn_values)
+        china_min = np.array(p.min_cn_values)
+        china_delta = china_max - china_min
         for ab, ash, wb, wsh in zip(aqicn_be, aqicn_sh, beijing_w_pred, shenyang_w_pred):
             ab_ = ab['pm2_5']
             ash_ = ash['pm2_5']
             wb_1, wb_2 = self.get_china_weather_factors(wb)
+            wb_2 = self.min_max_scaler(np.array(wb_2), china_min, china_delta)
             wsh_1, wsh_2 = self.get_china_weather_factors(wsh)
-            china_vector = [ab_] + [ash_] + wb_1 + wsh_1 + [wb["month"], wb["hour"], wb["holiday"]] + wb_2 + wsh_2
+            wsh_2 = self.min_max_scaler(np.array(wsh_2), china_min, china_delta)
+            china_vector = [ab_] + [ash_] + wb_1 + wsh_1 + [wb["month"], wb["hour"], wb["is_holiday"]] + self.set_boundary(wb_2) + self.set_boundary(wsh_2)
             china_vectors.append(china_vector)
 
         return res, w_, china_vectors, timestamp
 
     def get_china_weather_factors(self, rows):
-        return [rows["humidity"], rows["wind_agl"]], [rows['temp'],rows["wind_sp"],rows["wind_gust"],rows["precip"]]
+        return [rows["wind_agl"],rows["humidity"]], [rows['temp'],rows["wind_sp"],rows["wind_gust"],rows["precip"]]
+    
+    def min_max_scaler(self, inputs, min_v, delta):
+        return (inputs - min_v) / delta
+    
+    def set_boundary(self, inputs):
+        return [1.0 if y > 1.0 else y if y > 0.0 else 0.0 for y in inputs]
+
+
