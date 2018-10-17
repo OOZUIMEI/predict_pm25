@@ -305,7 +305,7 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
 average data of area => 25 points
 output should be 24 x 25
 """
-def aggregate_predictions(preds)
+def aggregate_predictions(preds):
     outputs = []
     # loop over timesteps
     for t in preds:
@@ -316,7 +316,7 @@ def aggregate_predictions(preds)
             for x, y in d:
                 val += t[y][x]
             if val != 0.0:
-                val = val / p.grid_size
+                val = val / len(d) * 300
             out_.append(val)
         outputs.append(out_)
     return outputs
@@ -480,12 +480,12 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--model", default="GAN")
     parser.add_argument("-rs", "--restore", default=0, help="Restore pre-trained model", type=int)
     parser.add_argument("-p", "--pretrain", default=0, help="Pretrain model: only use of SAE networks", type=int)
-    """
+    
     args = parser.parse_args()
     sparkEngine = SparkEngine()
     preds, timestamp = get_prediction_real_time(sparkEngine)
-    """
-
+    
+"""
     
     if args.model == "GAN":
         train_gan(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, 
@@ -499,4 +499,4 @@ if __name__ == "__main__":
         run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore), args.model, bool(args.pretrain))
     else:
         run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore))
-    
+    """

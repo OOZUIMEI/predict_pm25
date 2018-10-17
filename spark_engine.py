@@ -55,9 +55,9 @@ class SparkEngine():
             StructField("forecast", StringType(), True),
             StructField("temp", IntegerType(), True),
             StructField("feel_like", IntegerType(), True),
-            StructField("wind_sp", IntegerType(), True),
+            StructField("wind_sp", StringType(), True),
             StructField("wind_dir", StringType(), True),
-            StructField("wind_gust", IntegerType(), True),
+            StructField("wind_gust", StringType(), True),
             StructField("cloud", IntegerType(), True),
             StructField("humidity", IntegerType(), True),
             StructField("precip", DoubleType(), True),
@@ -126,7 +126,7 @@ class SparkEngine():
                             last("humidity").alias("humidity"),last("wind_sp").alias("wind_sp"), \
                             last("wind_gust").alias("wind_gust"),last("wind_dir").alias("wind_dir")) \
                      .select("timestamp", "temp", "precip", "humidity", "wind_sp", "wind_gust", self.udf_dir("wind_dir").cast("double").alias("wind_agl"), "city")
-            
+        w_pred.show()
         aqicn = self.spark.read.format("csv").option("header", "false").schema(self.aqi_schema).load(p4) \
                     .groupBy("timestamp", "city").agg(last("pm2_5").alias("pm2_5")) \
                     .select("timestamp", "city", "pm2_5")
@@ -178,6 +178,7 @@ class SparkEngine():
             res.append(dis_vectors)     
         
         # future forecast
+        w_pred.show()
         seoul_w_pred = w_pred.filter(col("city") == "seoul").orderBy("timestamp").limit(24).collect()
         w_ = []
         timestamp = []

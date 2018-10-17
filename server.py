@@ -7,7 +7,7 @@ import train_sp as engine
 import properties as pr
 import utils
 from  spark_engine import SparkEngine
-from train_sp import get_prediction_real_time, get_districts_preds, aggregate_predictions
+from train_sp import get_prediction_real_time, aggregate_predictions
 
 
 class WebApp(object):
