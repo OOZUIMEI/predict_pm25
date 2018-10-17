@@ -352,6 +352,7 @@ def get_prediction_real_time(sparkEngine, url_weight="", dim=15):
         else:
             # know nothing about future weather forecast
             de_vectors = np.zeros((decoder_length, p.grid_size, p.grid_size, dim))
+        print(np.shape(sp_vectors), np.shape(de_vectors))
         sp_vectors = np.concatenate((sp_vectors, de_vectors), axis=0)
         # 4. Feed to model
         # model = BaselineModel(encoder_length=encoder_length, encode_vector_size=12, batch_size=1, decoder_length=decoder_length, rnn_layers=1,
@@ -487,7 +488,6 @@ if __name__ == "__main__":
     
 """
     
-<<<<<<< 046626e5daccc8fc43e695783625fa98fc341b9e
     if args.model == "GAN":
         train_gan(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, 
             args.grid_size, is_folder=bool(args.folder), is_test=bool(args.is_test), restore=bool(args.restore))
@@ -500,9 +500,6 @@ if __name__ == "__main__":
         run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore), args.model, bool(args.pretrain))
     else:
         run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore))
-    """
-=======
-    # if args.model == "GAN":
     #     train_gan(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, 
     #         args.grid_size, is_folder=bool(args.folder), is_test=bool(args.is_test), restore=bool(args.restore))
     # elif args.model == "CNN_LSTM":
@@ -517,4 +514,4 @@ if __name__ == "__main__":
     preds = np.reshape(range(24*625), (24, 25, 25))
     outputs = aggregate_predictions(preds)
     print(np.shape(outputs))
->>>>>>> fix sparkengine
+"""

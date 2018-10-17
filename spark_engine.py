@@ -178,7 +178,6 @@ class SparkEngine():
             res.append(dis_vectors)     
         
         # future forecast
-        w_pred.show()
         seoul_w_pred = w_pred.filter(col("city") == "seoul").orderBy("timestamp").limit(24).collect()
         w_ = []
         timestamp = []
@@ -187,9 +186,10 @@ class SparkEngine():
         w_delta = w_max - w_min
         for x in seoul_w_pred:
             # normalize future forecast according to 0 -- 1 corresponding to min -- max of training set
-            dt_v = np.array([x['temp'],x["precip"],x["humidity"],x["wind_sp"],x["wind_gust"]])
+            dt_v = np.array([x['temp'],x["precip"],self.process_wind_no(x["wind_sp"]),self.process_wind_no(x["wind_gust"])])
             a = self.min_max_scaler(dt_v, w_min, w_delta)
-            a = self.set_boundary(a) + [x["wind_agl"]]
+            a = self.set_boundary(a)
+            a = a + [x["wind_agl"],x["humidity"]/100.0]
             timestamp.append(x['timestamp'])
             w_.append(a)
 
@@ -222,17 +222,9 @@ class SparkEngine():
         return res, w_, china_vectors, timestamp
 
     def get_china_weather_factors(self, rows):
-        wsp = rows["wind_sp"].split(" ")
-        if wsp:
-            wsp = float(wsp[0])
-        else:
-            wsp = 0
-        wg = rows["wind_gust"].split(" ")
-        if wg:
-            wg = float(wg[0])
-        else:
-            wg = 0
-        return [rows["wind_agl"],rows["humidity"]], [rows['temp'], wsp, wg,rows["precip"]]
+        wsp = self.process_wind_no(rows["wind_sp"])
+        wg = self.process_wind_no(rows["wind_gust"])
+        return [rows["wind_agl"],rows["humidity"]/100.0], [rows['temp'], wsp, wg,rows["precip"]]
     
     def min_max_scaler(self, inputs, min_v, delta):
         return (inputs - min_v) / delta
@@ -240,4 +232,10 @@ class SparkEngine():
     def set_boundary(self, inputs):
         return [1.0 if y > 1.0 else y if y > 0.0 else 0.0 for y in inputs]
 
-
+    def process_wind_no(self, w):
+        wsp = w.split(" ")
+        if wsp:
+            wsp = float(wsp[0])
+        else:
+            wsp = 0.0
+        return wsp
