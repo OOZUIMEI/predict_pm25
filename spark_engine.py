@@ -164,7 +164,7 @@ class SparkEngine():
         for d in final:
             dis_vectors = [np.zeros(dim, dtype=np.float).tolist()] * 25
             dis = d["district_code"]
-            values = np.array([float(d[x]) for x in self.features[2:10]])
+            values = np.array([d[x] for x in self.features[2:10]])
             values = np.transpose(values)
             # min-max standardize for 2->9th element
             values = (values - mn_val) / del_val
@@ -197,7 +197,7 @@ class SparkEngine():
         # "s_temp","s_wsp","s_gust","s_precip","b_temp","b_wsp","b_gust","b_precip"
         beijing_w_pred = w_pred.withColumn("is_holiday", self.udf_china_holiday(date_format(col("timestamp"), "E"), col("timestamp"))) \
                                 .withColumn("hour", hour(col("timestamp")).cast("double") / 23) \
-                                .withColumn("month", (month(col(("timestamp")).cast("double") - 1) / 12)) \
+                                .withColumn("month", (month(w_pred.timestamp).cast("double") - 1) / 12) \
                                 .filter(col("city") == "beijing").orderBy("timestamp").limit(24).collect()
         shenyang_w_pred = w_pred.filter(col("city") == "shenyang").orderBy("timestamp").limit(24).collect()
         

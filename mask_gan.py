@@ -226,8 +226,10 @@ class MaskGan(BaselineModel):
         if train and len(self.strides) > 1:
             np.random.shuffle(strides)
             stride = strides[0]
-      
-        cons_b = self.batch_size * stride
+        if self.batch_size >= stride:
+            cons_b = self.batch_size * stride
+        else:
+            cons_b = self.batch_size
 
         total_steps = dt_length // cons_b
         for step in xrange(total_steps):

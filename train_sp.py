@@ -290,7 +290,7 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
                 execute_gan(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
 
 
-def get_prediction_real_time(sparkEngine, url_weight="", dim=12):
+def get_prediction_real_time(sparkEngine, url_weight="", dim=15):
     # continuously crawl aws and aqi & weather
     encoder_length = 24
     decoder_length = 24
@@ -322,7 +322,7 @@ def get_prediction_real_time(sparkEngine, url_weight="", dim=12):
         # model = BaselineModel(encoder_length=encoder_length, encode_vector_size=12, batch_size=1, decoder_length=decoder_length, rnn_layers=1,
         #                 dtype='grid', grid_size=25, use_cnn=True)
         # model.set_data(sp_vectors, [0], None)
-        model = MaskGan(encoder_length=encoder_length, encode_vector_size=15, batch_size=1, decode_vector_size=decoder_length, grid_size=25, use_cnn=True)
+        model = MaskGan(encoder_length=encoder_length, encode_vector_size=15, batch_size=1, decode_vector_size=9, grid_size=25, use_cnn=True)
         model.set_data(sp_vectors, [0], None, china_vectors)
         with tf.device('/%s' % p.device):
             model.init_ops()
@@ -335,7 +335,8 @@ def get_prediction_real_time(sparkEngine, url_weight="", dim=12):
             saver.restore(session, 'weights/%s' % p.prediction_weight)
             print('==> running model')
             preds = model.run_epoch(session, model.train, train=False, verbose=False, shuffle=False)
-            preds = np.reshape(np.squeeze(preds), (decoder_length, 25, 25))
+            print(np.shape(preds))
+            preds = np.reshape(preds, (decoder_length, 25, 25))
             return preds, timestamp
     return [], []
     
@@ -455,18 +456,13 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--model", default="GAN")
     parser.add_argument("-rs", "--restore", default=0, help="Restore pre-trained model", type=int)
     parser.add_argument("-p", "--pretrain", default=0, help="Pretrain model: only use of SAE networks", type=int)
-
+    """
     args = parser.parse_args()
     sparkEngine = SparkEngine()
     preds, timestamp = get_prediction_real_time(sparkEngine)
-    print(preds)
-        # utils.save_file("missing.pkl", preds)
-    # else:
-    #     preds = utils.load_file("missing.pkl")
-    # preds = np.reshape(np.squeeze(preds), (24, 25, 25))
-    # prediction = get_districts_preds(preds)
-    # print(prediction[0])
     """
+
+    
     if args.model == "GAN":
         train_gan(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, 
             args.grid_size, is_folder=bool(args.folder), is_test=bool(args.is_test), restore=bool(args.restore))
@@ -479,4 +475,4 @@ if __name__ == "__main__":
         run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore), args.model, bool(args.pretrain))
     else:
         run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore))
-    """
+    
