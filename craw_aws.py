@@ -73,7 +73,7 @@ class CrawAWS(Crawling):
                     output += timestamp + " " + x[0] + ":00," + str(dis) + "," + utils.array_to_str(x[1:], ",") + "\n"
                     if (counter - last_save) == save_interval:
                         last_save = counter
-                        write_log(output)
+                        self.write_log(output)
                         output = ""
         except Exception as e:
             print(e)
