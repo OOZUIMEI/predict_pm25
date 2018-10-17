@@ -301,7 +301,7 @@ def get_prediction_real_time(sparkEngine, url_weight="", dim=12):
     start = start.replace(minute=0, second=0, microsecond=0)
     # s_ = start.strftime(p.fm)
     # 2. process normalize data
-    vectors, w_pred, timestamp = sparkEngine.process_vectors(start, end, dim)
+    vectors, w_pred, china_vectors, timestamp = sparkEngine.process_vectors(start, end, dim)
     v_l = len(vectors)
     if v_l:
         sp_vectors = psv.convert_data_to_grid_exe(vectors)
@@ -319,26 +319,23 @@ def get_prediction_real_time(sparkEngine, url_weight="", dim=12):
             de_vectors = np.zeros((decoder_length, 25, 25, dim))
         sp_vectors = np.concatenate((sp_vectors, de_vectors), axis=0)
         # 4. Feed to model
-        model = BaselineModel(encoder_length=encoder_length, encode_vector_size=12, batch_size=1, decoder_length=decoder_length, rnn_layers=1,
-                        dtype='grid', grid_size=25, use_cnn=True)
-        model.set_data(sp_vectors, [0], None)
-        
+        # model = BaselineModel(encoder_length=encoder_length, encode_vector_size=12, batch_size=1, decoder_length=decoder_length, rnn_layers=1,
+        #                 dtype='grid', grid_size=25, use_cnn=True)
+        # model.set_data(sp_vectors, [0], None)
+        model = MaskGan(encoder_length=encoder_length, encode_vector_size=15, batch_size=1, decode_vector_size=decoder_length, grid_size=25, use_cnn=True)
+        model.set_data(sp_vectors, [0], None, china_vectors)
         with tf.device('/%s' % p.device):
             model.init_ops()
-            init = tf.global_variables_initializer()
             saver = tf.train.Saver()
         
         tconfig = get_gpu_options()
         with tf.Session(config=tconfig) as session:
-            print('==> initializing models')
-            session.run(init)
-            print('==> running model')
+            model.assign_datasets(session)              
+            print('==> restore model')
             saver.restore(session, 'weights/%s' % p.prediction_weight)
             print('==> running model')
-            _, preds = model.run_epoch(session, model.train, shuffle=False, verbose=False)
+            preds = model.run_epoch(session, model.train, train=False, verbose=False, shuffle=False)
             preds = np.reshape(np.squeeze(preds), (decoder_length, 25, 25))
-            # _, ax = plt.subplots(figsize=(10, 10))
-            # ax.imshow(preds[0], cmap="gray")
             return preds, timestamp
     return [], []
     

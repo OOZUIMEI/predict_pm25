@@ -38,9 +38,21 @@ def normalize_agl(x):
 
 
 def get_holiday(x, date):
-    if x == "Sat" or x == "Sun" or date in holidays: 
+    if x == "Sat" or x == "Sun" or date in p.holidays: 
         return 1
     return 0
+
+
+def  get_holiday_china(x, date):
+    if x == "Sat" or x == "Sun" or date in p.china_holidays: 
+        return 1
+    return 0
+
+
+# def humidity(h): 
+#     if h:
+#         return h / 100 
+#     return 0.0
 
 
 def wdm(col):

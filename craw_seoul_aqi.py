@@ -98,7 +98,7 @@ class CrawSeoulAQI(Crawling):
         output = ""
         counter = 0
         last_save = 0
-        crawler_range = args.interval * 3600
+        # crawler_range = 3600
         if not args.forward:
             cond = start <= end
             if args.end:
@@ -112,7 +112,7 @@ class CrawSeoulAQI(Crawling):
             now = utils.get_datetime_now()
             # if (now - start_point).total_seconds() >= args.interval:
             #     start_point = now
-            if (now - start).total_seconds() > crawler_range:
+            if (now - start).total_seconds() > 3600:
                 hour = start.hour
                 tmp = start
                 if tmp.hour == 0:

@@ -23,7 +23,9 @@ class SparkEngine():
         self.udf_pm = udf(udf_utils.normalize_pm)
         self.udf_agl = udf(udf_utils.normalize_agl)
         self.udf_dir = udf(udf_utils.convert_dir_to_agl)
-        self.udf_hum = udf(udf_utils.humidity)
+        self.udf_humid = udf(udf_utils.humidity)
+        self.udf_holidays = udf(udf_utils.get_holiday)
+        self.udf_china_holidays = udf(udf_utils.get_holiday_china)
         self.sp_schema = StructType([
             StructField("timestamp", StringType(), True),
             StructField("district_code", IntegerType(), True),
@@ -59,7 +61,13 @@ class SparkEngine():
             StructField("cloud", IntegerType(), True),
             StructField("humidity", IntegerType(), True),
             StructField("precip", DoubleType(), True),
-            StructField("pressure", IntegerType(), True)
+            StructField("pressure", IntegerType(), True),
+            StructField("city", StringType(), True)
+        ])
+        self.aqi_schema = Structure([
+            StructField("timestamp", StringType(), True),
+            StructField("city", StringType(), True),
+            StructField("pm2_5", StringType(), True)
         ])
 
     def init_spark(self):
@@ -83,7 +91,8 @@ class SparkEngine():
         # engine do something
         p1 = "data/seoul_aqi.csv"
         p2 = "data/seoul_aws.csv"
-        p3 = "data/seoul_weather.csv"
+        p3 = "data/weather_forecasts.csv"
+        p4 = "data/aqicn.csv"
         air = self.spark.read.format("csv").option("header", "false").schema(self.sp_schema).load(p1) \
                     .select("timestamp","district_code","pm10_val","pm2_5_val","o3_val","no2_val","co_val","so2_val","pm10_aqi","pm2_5_aqi",
                     self.udf_pm(col("pm2_5_aqi")).cast("double").alias("pm2_5_norm"), self.udf_pm(col("pm10_aqi")).cast("double").alias("pm10_norm"))
@@ -101,15 +110,23 @@ class SparkEngine():
         
         merge = air.filter(col("district_code") != 0) \
                     .join(aws_mean, [air.timestamp == aws_mean.timestamp, air.district_code == aws_mean.code], "left_outer") \
-                    .select(air.timestamp, air.district_code, "o3_val", "no2_val", "co_val", "so2_val", \
-                            "temp", "precip", "humidity", "wind_sp", "wind_gust", "pm2_5_norm", "pm10_norm", self.udf_agl(col("wind_agl")).cast('double').alias("wind_agl")) \
+                    .withColumn("is_holiday", self.udf_holiday(date_format(full_date("timestamp"), "E"), full_date("timestamp").cast(DateType)))
+                    .withColumn("hour", hour(full_date("timestamp")).cast("double") / 23)
+                    .withColumn("month", (month(full_date("timestamp")).cast("double") - 1) / 12)
+                    .select(air.timestamp, air.district_code, "o3_val", "no2_val", "co_val", "so2_val", "is_holiday", "hour", "month"\
+                            "pm2_5_norm", "pm10_norm", "temp", "precip", self.udf_humid($"humidity").alias("humidity"), \ 
+                            self.udf_agl(col("wind_agl")).cast('double').alias("wind_agl"), "wind_sp", "wind_gust") \
                     .na.fill(0.0, ["o3_val","no2_val","co_val","so2_val", "temp", "precip", "humidity", "wind_sp", "wind_gust", "pm2_5_norm", "pm10_norm", "wind_agl"])
 
         w_pred = self.spark.read.format("csv").option("header", "false").schema(self.sw_pred).load(p3) \
-                     .groupBy("timestamp").agg(last("temp").alias("temp"),last("precip").alias("precip"), \
+                     .groupBy("timestamp", "city").agg(last("temp").alias("temp"),last("precip").alias("precip"), \
                             last("humidity").alias("humidity"),last("wind_sp").alias("wind_sp"), \
                             last("wind_gust").alias("wind_gust"),last("wind_dir").alias("wind_dir")) \
-                     .select("timestamp", "temp", "precip", "humidity", "wind_sp", "wind_gust", self.udf_dir("wind_dir").cast("double").alias("wind_agl"))
+                     .select("timestamp", "temp", "precip", "humidity", "wind_sp", "wind_gust", self.udf_dir("wind_dir").cast("double").alias("wind_agl"), "city")
+            
+        aqicn = self.spark.read.format("csv").option("header", "false").schema(self.aqi_schema).load(p4) \
+                    .groupBy("timestamp", "city").agg(last("pm2_5").alias("pm2_5"))
+                    .select("timestamp", "city", "pm2_5")
 
         if start and end:
             st_ = start.strftime(p.fm)
@@ -125,14 +142,17 @@ class SparkEngine():
                         collect_list("no2_val").alias("no2_val"), \
                         collect_list("co_val").alias("co_val"), \
                         collect_list("so2_val").alias("so2_val"), \
+                        collect_list("is_holiday").alias("is_holiday"), \
+                        collect_list("hour").alias("hour"), \
+                        collect_list("month").alias("month"), \
+                        collect_list("pm2_5_norm").alias("pm2_5_norm"), \
+                        collect_list("pm10_norm").alias("pm10_norm"), \
                         collect_list("temp").alias("temp"), \
                         collect_list("precip").alias("precip"), \
                         collect_list("humidity").alias("humidity"), \
+                        collect_list("wind_agl").alias("wind_agl")) \
                         collect_list("wind_sp").alias("wind_sp"), \
                         collect_list("wind_gust").alias("wind_gust"), \
-                        collect_list("pm2_5_norm").alias("pm2_5_norm"), \
-                        collect_list("pm10_norm").alias("pm10_norm"), \
-                        collect_list("wind_agl").alias("wind_agl")) \
                      .orderBy("timestamp").limit(24).collect()
         res = []
         mx_val = np.array(p.max_values)
@@ -152,18 +172,42 @@ class SparkEngine():
                 dis_vectors[idx] = [1 if y > 1 else y if y > 0 else 0 for y in values[i]]
             res.append(dis_vectors)     
         # future forecast
-        w_pred = w_pred.orderBy("timestamp").limit(24).collect()
+        seoul_w_pred = w_pred.filter(col("city") == "seoul").orderBy("timestamp").limit(24).collect()
         w_ = []
         timestamp = []
         w_max = np.array(p.max_values[4:])
         w_min = np.array(p.min_values[4:])
         w_delta = w_max - w_min
-        for x in w_pred:
+        for x in seoul_w_pred:
             # normalize future forecast according to 0 -- 1 corresponding to min -- max of training set
             a = (np.array([x['temp'],x["precip"],x["humidity"],x["wind_sp"],x["wind_gust"]]) - w_min) / w_delta
             a = a.tolist()
             a = [1 if y > 1 else y if y > 0 else 0 for y in a] + [x["wind_agl"]]
             timestamp.append(x['timestamp'])
             w_.append(a)
+
+        # process vectors for china factors from weather forecasts & aqi cn data
+        # "b_pm2_5", "s_pm2_5", "b_wdir", "b_humidity", "s_wdir", "s_humidity", "month", "hour", "is_holiday"
+        # "s_temp","s_wsp","s_gust","s_precip","b_temp","b_wsp","b_gust","b_precip"
+        beijing_w_pred = w_pred.withColumn("is_holiday", self.udf_china_holiday(date_format(full_date("timestamp"), "E"), full_date("timestamp").cast(DateType))) \
+                                .withColumn("hour", hour(full_date("timestamp")).cast("double") / 23) \
+                                .withColumn("month", (month(full_date("timestamp")).cast("double") - 1) / 12) \
+                                .filter(col("city") == "beijing").orderBy("timestamp").limit(24).collect()
+        shenyang_w_pred = w_pred.filter(col("city") == "shenyang").orderBy("timestamp").limit(24).collect()
         
-        return res, w_, timestamp
+        aqicn_be = aqicn.filter(col("city") == "beijing").orderBy("timestamp").limit(24).collect()
+        aqicn_sh = aqicn.filter(col("city") == "shenyang").orderBy("timestamp").limit(24).collect()
+
+        china_vectors = []
+        for ab, ash, wb, wsh in zip(aqicn_be, aqicn_sh, beijing_w_pred, shenyang_w_pred):
+            ab_ = ab['pm2_5']
+            ash_ = ash['pm2_5']
+            wb_1, wb_2 = self.get_china_weather_factors(wb)
+            wsh_1, wsh_2 = self.get_china_weather_factors(wsh)
+            china_vector = [ab_] + [ash_] + wb_1 + wsh_1 + [wb["month"], wb["hour"], wb["holiday"]] + wb_2 + wsh_2
+            china_vectors.append(china_vector)
+
+        return res, w_, china_vectors, timestamp
+
+    def get_china_weather_factors(self, rows):
+        return [rows["humidity"], rows["wind_agl"]], [rows['temp'],rows["wind_sp"],rows["wind_gust"],rows["precip"]]

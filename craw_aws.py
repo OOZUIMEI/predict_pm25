@@ -83,12 +83,12 @@ class CrawAWS(Crawling):
         print("start crawling aws")
         save_interval = args.save_interval
         start = datetime.strptime(args.start, pr.fm)
-        # start_point = utils.get_datetime_now()
+        start_point = utils.get_datetime_now()
         # output = "timestamp,PM10_VAL,PM2.5_VAL,O3(ppm),NO2(ppm),CO(ppm),SO2(ppm),PM10_AQI,PM2.5_AQI\n"
         output = ""
         counter = 0
         last_save = 0
-        crawler_range = args.interval * 3600
+        crawler_range = 86400
         if not args.forward:
             cond = start <= end
             if args.end:
@@ -100,14 +100,14 @@ class CrawAWS(Crawling):
             cond = True
         while cond:
             now = utils.get_datetime_now()
-            # if (now - start_point).total_seconds() >= args.interval:
-            #     start_point = now
+            # at first, crawling by daily
+            # if up to the moment, crawling by hourly
             # how long from last crawled date to now?
             if (now - start).total_seconds() > crawler_range:
                 tmp = start
                 st = "00"
                 ed = "24"
-                if crawler_range == 3600:
+                if crawler_range != 86400:
                     st = self.format10(tmp.hour)
                     ed = self.format10(tmp.hour + 1)
                 output, counter, last_save = self.craw_data_controller(output, counter, last_save, save_interval, tmp, st, ed)
