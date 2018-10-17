@@ -23,9 +23,9 @@ class SparkEngine():
         self.udf_pm = udf(udf_utils.normalize_pm)
         self.udf_agl = udf(udf_utils.normalize_agl)
         self.udf_dir = udf(udf_utils.convert_dir_to_agl)
-        self.udf_humid = udf(udf_utils.humidity)
-        self.udf_holidays = udf(udf_utils.get_holiday)
-        self.udf_china_holidays = udf(udf_utils.get_holiday_china)
+        self.udf_humidity = udf(udf_utils.humidity)
+        self.udf_holiday = udf(udf_utils.get_holiday)
+        self.udf_china_holiday = udf(udf_utils.get_holiday_china)
         self.sp_schema = StructType([
             StructField("timestamp", StringType(), True),
             StructField("district_code", IntegerType(), True),
@@ -64,7 +64,7 @@ class SparkEngine():
             StructField("pressure", IntegerType(), True),
             StructField("city", StringType(), True)
         ])
-        self.aqi_schema = Structure([
+        self.aqi_schema = StructType([
             StructField("timestamp", StringType(), True),
             StructField("city", StringType(), True),
             StructField("pm2_5", StringType(), True)
@@ -110,11 +110,11 @@ class SparkEngine():
         
         merge = air.filter(col("district_code") != 0) \
                     .join(aws_mean, [air.timestamp == aws_mean.timestamp, air.district_code == aws_mean.code], "left_outer") \
-                    .withColumn("is_holiday", self.udf_holiday(date_format(full_date("timestamp"), "E"), full_date("timestamp").cast(DateType)))
-                    .withColumn("hour", hour(full_date("timestamp")).cast("double") / 23)
-                    .withColumn("month", (month(full_date("timestamp")).cast("double") - 1) / 12)
-                    .select(air.timestamp, air.district_code, "o3_val", "no2_val", "co_val", "so2_val", "is_holiday", "hour", "month"\
-                            "pm2_5_norm", "pm10_norm", "temp", "precip", self.udf_humid($"humidity").alias("humidity"), \ 
+                    .withColumn("is_holiday", self.udf_holiday(date_format(air.timestamp, "E"), air.timestamp)) \
+                    .withColumn("hour", hour(air.timestamp).cast("double") / 23) \
+                    .withColumn("month", (month(air.timestamp).cast("double") - 1) / 12) \
+                    .select(air.timestamp, air.district_code, "o3_val", "no2_val", "co_val", "so2_val", "is_holiday", "hour", "month",\
+                            "pm2_5_norm", "pm10_norm", "temp", "precip", self.udf_humidity(col("humidity")).alias("humidity"), 
                             self.udf_agl(col("wind_agl")).cast('double').alias("wind_agl"), "wind_sp", "wind_gust") \
                     .na.fill(0.0, ["o3_val","no2_val","co_val","so2_val", "temp", "precip", "humidity", "wind_sp", "wind_gust", "pm2_5_norm", "pm10_norm", "wind_agl"])
 
@@ -125,7 +125,7 @@ class SparkEngine():
                      .select("timestamp", "temp", "precip", "humidity", "wind_sp", "wind_gust", self.udf_dir("wind_dir").cast("double").alias("wind_agl"), "city")
             
         aqicn = self.spark.read.format("csv").option("header", "false").schema(self.aqi_schema).load(p4) \
-                    .groupBy("timestamp", "city").agg(last("pm2_5").alias("pm2_5"))
+                    .groupBy("timestamp", "city").agg(last("pm2_5").alias("pm2_5")) \
                     .select("timestamp", "city", "pm2_5")
 
         if start and end:
@@ -150,9 +150,9 @@ class SparkEngine():
                         collect_list("temp").alias("temp"), \
                         collect_list("precip").alias("precip"), \
                         collect_list("humidity").alias("humidity"), \
-                        collect_list("wind_agl").alias("wind_agl")) \
+                        collect_list("wind_agl").alias("wind_agl"), \
                         collect_list("wind_sp").alias("wind_sp"), \
-                        collect_list("wind_gust").alias("wind_gust"), \
+                        collect_list("wind_gust").alias("wind_gust")) \
                      .orderBy("timestamp").limit(24).collect()
         res = []
         mx_val = np.array(p.max_values)
@@ -161,8 +161,9 @@ class SparkEngine():
         for d in final:
             dis_vectors = [np.zeros(dim, dtype=np.float).tolist()] * 25
             dis = d["district_code"]
-            values = np.array([d["o3_val"],d["no2_val"],d["co_val"],d["so2_val"],d["temp"],d["precip"],d["humidity"],d["wind_sp"],d["wind_gust"]])
-            values_norm = np.array([d["pm2_5_norm"],d["pm10_norm"],d["wind_agl"]])
+            values = np.array([float(d["o3_val"]),float(d["no2_val"]),float(d["co_val"]),float(d["so2_val"]),
+                              float(d["temp"]),float(d["precip"]),float(d["wind_sp"]),float(d["wind_gust"])])
+            values_norm = np.array([d["pm2_5_norm"],d["pm10_norm"],d["humidity"]])
             values = np.transpose(values)
             values_norm = np.transpose(values_norm)
             values = (values - mn_val) / del_val
@@ -189,9 +190,9 @@ class SparkEngine():
         # process vectors for china factors from weather forecasts & aqi cn data
         # "b_pm2_5", "s_pm2_5", "b_wdir", "b_humidity", "s_wdir", "s_humidity", "month", "hour", "is_holiday"
         # "s_temp","s_wsp","s_gust","s_precip","b_temp","b_wsp","b_gust","b_precip"
-        beijing_w_pred = w_pred.withColumn("is_holiday", self.udf_china_holiday(date_format(full_date("timestamp"), "E"), full_date("timestamp").cast(DateType))) \
-                                .withColumn("hour", hour(full_date("timestamp")).cast("double") / 23) \
-                                .withColumn("month", (month(full_date("timestamp")).cast("double") - 1) / 12) \
+        beijing_w_pred = w_pred.withColumn("is_holiday", self.udf_china_holiday(date_format(col("timestamp"), "E"), col("timestamp"))) \
+                                .withColumn("hour", hour(col("timestamp")).cast("double") / 23) \
+                                .withColumn("month", (month(col(("timestamp")).cast("double") - 1) / 12)) \
                                 .filter(col("city") == "beijing").orderBy("timestamp").limit(24).collect()
         shenyang_w_pred = w_pred.filter(col("city") == "shenyang").orderBy("timestamp").limit(24).collect()
         

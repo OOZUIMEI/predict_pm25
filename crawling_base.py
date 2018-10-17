@@ -91,7 +91,7 @@ class Crawling(object):
         parser.add_argument("-i", "--interval", default=1, type=int, help="interval time to activate crawling service")
         parser.add_argument("-si", "--save_interval", default=5, type=int, help="interval time to save data")
         # parser.add_argument("-s", "--start", default="2009-03-01 00:00:00", type=str)
-        parser.add_argument("-s", "--start", default="2018-10-15 00:00:00", type=str, help="the start crawling point")
+        parser.add_argument("-s", "--start", default="2018-10-16 00:00:00", type=str, help="the start crawling point")
         parser.add_argument("-c", "--city", type=str, default="seoul,beijing,shenyang", help="crawl data of a city")
         parser.add_argument("-e", "--end", type=str, help="the end crawling point")
         args = parser.parse_args()

@@ -80,6 +80,6 @@ def humidity(d):
             d_ = float(d) / 100
         except Exception as e:
             print(e, d)
-    else:
+    elif d:
         d_ = d * 1.0 / 100
     return d_

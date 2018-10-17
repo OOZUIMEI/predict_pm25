@@ -457,15 +457,16 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--pretrain", default=0, help="Pretrain model: only use of SAE networks", type=int)
 
     args = parser.parse_args()
-    # if not os.path.exists("missing.pkl"):
-    # sparkEngine = SparkEngine()
-    # preds, timestamp = get_prediction_real_time(sparkEngine)
+    sparkEngine = SparkEngine()
+    preds, timestamp = get_prediction_real_time(sparkEngine)
+    print(preds)
         # utils.save_file("missing.pkl", preds)
     # else:
     #     preds = utils.load_file("missing.pkl")
     # preds = np.reshape(np.squeeze(preds), (24, 25, 25))
     # prediction = get_districts_preds(preds)
     # print(prediction[0])
+    """
     if args.model == "GAN":
         train_gan(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, 
             args.grid_size, is_folder=bool(args.folder), is_test=bool(args.is_test), restore=bool(args.restore))
@@ -478,4 +479,4 @@ if __name__ == "__main__":
         run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore), args.model, bool(args.pretrain))
     else:
         run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore))
-    
+    """

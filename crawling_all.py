@@ -15,15 +15,12 @@ class CrawlingSingle(Crawling):
         self.china_aws = CrawlWeather()
     
     def execute(self, args):
-        t1 = threading.Thread(target=self.aws.execute, args=(args,))
-        t2 = threading.Thread(target=self.aqi.execute, args=(args,))
+        t1 = threading.Thread(target=self.aqi.execute, args=(args,))
         t3 = threading.Thread(target=self.china_aws.get_future, args=(args,))
         try:
             t1.start()
-            t2.start()   
             t3.start()
             t1.join()
-            t2.join() 
             t3.join()        
             print("Threads started")
         except Exception as e:
