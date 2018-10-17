@@ -222,7 +222,17 @@ class SparkEngine():
         return res, w_, china_vectors, timestamp
 
     def get_china_weather_factors(self, rows):
-        return [rows["wind_agl"],rows["humidity"]], [rows['temp'],rows["wind_sp"],rows["wind_gust"],rows["precip"]]
+        wsp = rows["wind_sp"].split(" ")
+        if wsp:
+            wsp = float(wsp[0])
+        else:
+            wsp = 0
+        wg = rows["wind_gust"].split(" ")
+        if wg:
+            wg = float(wg[0])
+        else:
+            wg = 0
+        return [rows["wind_agl"],rows["humidity"]], [rows['temp'], wsp, wg,rows["precip"]]
     
     def min_max_scaler(self, inputs, min_v, delta):
         return (inputs - min_v) / delta
