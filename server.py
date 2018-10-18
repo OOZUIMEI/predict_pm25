@@ -25,10 +25,10 @@ class Prediction(object):
         self.timestamp = None
         self.avg = None
         self.last_time = None
+        while True: 
+            self.predict()
 
-    @cherrypy.tools.accept(media="text/plain")
-    @cherrypy.expose
-    def GET(self):
+    def predict(self):
         now = utils.get_datetime_now()
         if not self.prediction or not self.last_time or (now - self.last_time).total_seconds() >= 1800:
             self.last_time = now
@@ -36,6 +36,11 @@ class Prediction(object):
             self.prediction = aggregate_predictions(preds)
             self.avg = np.mean(self.prediction, axis=1).tolist()
             self.timestamp = timestamp
+
+    @cherrypy.tools.accept(media="text/plain")
+    @cherrypy.expose
+    def GET(self):
+        self.predict()
         return json.dumps({"status": "OK", "data": self.prediction, "avg": self.avg, "timestamp": self.timestamp})
 
 
