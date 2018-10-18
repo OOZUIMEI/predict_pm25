@@ -346,13 +346,13 @@ def get_prediction_real_time(sparkEngine, url_weight="", dim=15):
         # repeat for 25 districts
         if w_pred:
             w_pred = np.repeat(np.expand_dims(w_pred, 1), p.grid_size, 1)
+            print(w_pred.shape)
             de_vectors = psv.convert_data_to_grid_exe(w_pred)
             # pad to fill top elements of decoder vectors
             de_vectors = np.pad(de_vectors, ((0, 0), (0, 0), (0, 0), (6, 0)), 'constant', constant_values=0)
         else:
             # know nothing about future weather forecast
             de_vectors = np.zeros((decoder_length, p.grid_size, p.grid_size, dim))
-        print(np.shape(sp_vectors), np.shape(de_vectors))
         sp_vectors = np.concatenate((sp_vectors, de_vectors), axis=0)
         # 4. Feed to model
         # model = BaselineModel(encoder_length=encoder_length, encode_vector_size=12, batch_size=1, decoder_length=decoder_length, rnn_layers=1,
