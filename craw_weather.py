@@ -118,7 +118,7 @@ class CrawlWeather(Crawling):
         crawl historical weather data of cities
     """
     def main(self, args):
-        filename = "craw_weather_%s_%s_%s.txt" % (args.city, utils.clear_datetime(args.start), utils.clear_datetime(args.end))
+        # filename = "craw_weather_%s_%s_%s.txt" % (args.city, utils.clear_datetime(args.start), utils.clear_datetime(args.end))
         start = datetime.strptime(args.start, pr.fm)
         if args.end:
             end = datetime.strptime(args.end, pr.fm)
