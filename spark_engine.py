@@ -137,7 +137,9 @@ class SparkEngine():
             #merge = merge.filter((col("timestamp") >= st_) & (col("timestamp") <= ed_))
             end = end + timedelta(days=1)
             ed2_ = end.strftime(p.fm)
-            w_pred = w_pred.filter((col("timestamp") >= ed_) & (col("timestamp") <= ed2_))
+        
+        else:
+            st_, ed_, ed2_ = None, None, None
         
         final = merge.groupBy("timestamp") \
                      .agg(collect_list("district_code").alias("district_code"), \
@@ -178,11 +180,15 @@ class SparkEngine():
                 dis_vectors[idx] = [1 if y > 1 else y if y > 0 else 0 for y in values[i]]
             res.append(dis_vectors)     
         
-        # future forecast
+        # future forecast of seoul
         seoul_w_pred = w_pred.withColumn("is_holiday", self.udf_holiday(date_format(col("timestamp"), "E"), col("timestamp"))) \
                              .withColumn("hour", hour(col("timestamp")).cast("double") / 23) \
                              .withColumn("month", (month(w_pred.timestamp).cast("double") - 1) / 12) \
-                             .filter(col("city") == "seoul").orderBy("timestamp").limit(24).collect()
+                             .filter(col("city") == "seoul")
+        if not ed_ is None and not ed2_ is None:
+            seoul_w_pred = seoul_w_pred.filter((col("timestamp") >= ed_) & (col("timestamp") <= ed2_))
+
+        seoul_w_pred = seoul_w_pred.orderBy("timestamp").limit(24).collect()
         w_ = []
         timestamp = []
         w_max = np.array(p.max_values[4:])
@@ -200,6 +206,9 @@ class SparkEngine():
         # process vectors for china factors from weather forecasts & aqi cn data
         # "b_pm2_5", "s_pm2_5", "b_wdir", "b_humidity", "s_wdir", "s_humidity", "month", "hour", "is_holiday"
         # "s_temp","s_wsp","s_gust","s_precip","b_temp","b_wsp","b_gust","b_precip"
+        if not st_ is None and not ed_ is None:
+            w_pred = w_pred.filter((col("timestamp") >= st_) & (col("timestamp") <= ed_))
+        
         beijing_w_pred = w_pred.filter(col("city") == "beijing")
         beijing_w_pred = beijing_w_pred.withColumn("is_holiday", self.udf_china_holiday(date_format(col("timestamp"), "E"), col("timestamp"))) \
                                        .withColumn("hour", hour(col("timestamp")).cast("double") / 23) \
