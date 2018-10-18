@@ -190,10 +190,10 @@ class SparkEngine():
         w_delta = w_max - w_min
         for x in seoul_w_pred:
             # normalize future forecast according to 0 -- 1 corresponding to min -- max of training set
-            dt_v = np.array([x['temp'],x["precip"],self.process_wind_no(x["wind_sp"]),self.process_wind_no(x["wind_gust"])])
+            dt_v = np.array([float(x['temp']),float(x["precip"]),self.process_wind_no(x["wind_sp"], "m/s"),self.process_wind_no(x["wind_gust"])])
             a = self.min_max_scaler(dt_v, w_min, w_delta)
             a = self.set_boundary(a)
-            a = a + [x["wind_agl"],x["humidity"]/100.0, x["is_holiday"],x["hour"],x["month"]]
+            a = a + [float(x["wind_agl"]),float(x["humidity"])/100.0, float(x["is_holiday"]),float(x["hour"]),float(x["month"])]
             timestamp.append(x['timestamp'])
             w_.append(a)
         
@@ -214,13 +214,12 @@ class SparkEngine():
         china_min = np.array(p.min_cn_values)
         china_delta = china_max - china_min
         for ab, ash, wb, wsh in zip(aqicn_be, aqicn_sh, beijing_w_pred, shenyang_w_pred):
-            ab_ = ab['pm2_5']
-            ash_ = ash['pm2_5']
+            ab_ = float(ab['pm2_5'])
+            ash_ = float(ash['pm2_5'])
             wb_1, wb_2 = self.get_china_weather_factors(wb)
-            wb_2 = self.min_max_scaler(np.array(wb_2), china_min, china_delta)
             wsh_1, wsh_2 = self.get_china_weather_factors(wsh)
-            wsh_2 = self.min_max_scaler(np.array(wsh_2), china_min, china_delta)
-            china_vector = [ab_] + [ash_] + wb_1 + wsh_1 + [wb["month"], wb["hour"], wb["is_holiday"]] + self.set_boundary(wb_2) + self.set_boundary(wsh_2)
+            wcn_2 = self.min_max_scaler(np.array(wsh_2 + wb_2), china_min, china_delta)
+            china_vector = [ab_] + [ash_] + wb_1 + wsh_1 + [float(wb["month"]), float(wb["hour"]), float(wb["is_holiday"])] + self.set_boundary(wcn_2)
             china_vectors.append(china_vector)
 
         return res, w_, china_vectors, timestamp
@@ -228,7 +227,7 @@ class SparkEngine():
     def get_china_weather_factors(self, rows):
         wsp = self.process_wind_no(rows["wind_sp"])
         wg = self.process_wind_no(rows["wind_gust"])
-        return [rows["wind_agl"],rows["humidity"]/100.0], [rows['temp'], wsp, wg,rows["precip"]]
+        return [float(rows["wind_agl"]),float(rows["humidity"])/100.0], [rows['temp'], wsp, wg, float(rows["precip"])]
     
     def min_max_scaler(self, inputs, min_v, delta):
         return (inputs - min_v) / delta
@@ -236,10 +235,20 @@ class SparkEngine():
     def set_boundary(self, inputs):
         return [1.0 if y > 1.0 else y if y > 0.0 else 0.0 for y in inputs]
 
-    def process_wind_no(self, w):
+    def process_wind_no(self, w, convert=""):
+        val = 0.0
         wsp = w.split(" ")
         if wsp:
-            wsp = float(wsp[0])
+            val = float(wsp[0])
         else:
-            wsp = 0.0
-        return wsp
+            val = 0.0
+        if "km" in w and val != 0.0:
+            if convert == "m/s":
+                val = val * 0.277778
+            else:
+                # convert to mph  
+                val = val * 0.621371  
+        elif convert == "m/s" and val != 0.0:
+            # default mph
+            val = val * 0.44704
+        return val
