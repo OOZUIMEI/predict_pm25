@@ -208,6 +208,7 @@ class SparkEngine():
         # "s_temp","s_wsp","s_gust","s_precip","b_temp","b_wsp","b_gust","b_precip"
         if not st_ is None and not ed_ is None:
             w_pred = w_pred.filter((col("timestamp") >= st_) & (col("timestamp") <= ed_))
+            aqicn = aqicn.filter((col("timestamp") >= st_) & (col("timestamp") <= ed_))
         
         beijing_w_pred = w_pred.filter(col("city") == "beijing")
         beijing_w_pred = beijing_w_pred.withColumn("is_holiday", self.udf_china_holiday(date_format(col("timestamp"), "E"), col("timestamp"))) \

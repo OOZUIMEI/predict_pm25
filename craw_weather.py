@@ -46,8 +46,11 @@ class CrawlWeather(Crawling):
                 ws_ = ws[0]
                 if dirs:
                     d_ = dirs[i].get_text()
-                else:
+                elif "km/h" in ws_:
+                    ws = ws_.split("km/h")
                     d_ = ws[1]
+                else:
+                    d_ = ""
                 g_ = g.get_text().rstrip(" mph")
                 c_ = c.get_text().rstrip("%")
                 h_ = h.get_text().rstrip("%")
@@ -118,7 +121,7 @@ class CrawlWeather(Crawling):
         crawl historical weather data of cities
     """
     def main(self, args):
-        # filename = "craw_weather_%s_%s_%s.txt" % (args.city, utils.clear_datetime(args.start), utils.clear_datetime(args.end))
+        #filename = "craw_weather_%s_%s_%s.txt" % (args.city, utils.clear_datetime(args.start), utils.clear_datetime(args.end))
         start = datetime.strptime(args.start, pr.fm)
         if args.end:
             end = datetime.strptime(args.end, pr.fm)
@@ -131,22 +134,27 @@ class CrawlWeather(Crawling):
         save_interval = args.save_interval
         counter = 0
         last_save = 0
+        if "," in args.city:
+            cities = args.city.split(",")
+        else:
+            cities = [args.city]
         while start <= end:
             now = utils.get_datetime_now()
             if (now - start_point).total_seconds() >= args.interval:
-                try:
-                    counter += 1
-                    date = "%s-%s-%s" % (start.year, self.format10(start.month), self.format10(start.day))
-                    html = self.craw_data(args.city, date)
-                    data = self.mine_data(date, html)
+                #try:
+                counter += 1
+                date = "%s-%s-%s" % (start.year, self.format10(start.month), self.format10(start.day))
+                for c in cities:
+                    html = self.craw_data(c, date)
+                    data = self.mine_data(date, html, c)
                     if data:
                         output += "\n".join(data) + "\n"
                     if (counter - last_save) == save_interval:
                         last_save = counter
                         self.write_log(output)
                         output = ""
-                except Exception as e:
-                    print(start.strftime(pr.fm), e)
+                #except Exception as e:
+                #    print(start.strftime(pr.fm), e)
                 start = start + timedelta(days=1)
                 start_point = now   
                 utils.update_progress(counter * 1.0 / length)
