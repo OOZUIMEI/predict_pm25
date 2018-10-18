@@ -126,7 +126,6 @@ class SparkEngine():
                             last("humidity").alias("humidity"),last("wind_sp").alias("wind_sp"), \
                             last("wind_gust").alias("wind_gust"),last("wind_dir").alias("wind_dir")) \
                      .select("timestamp", "temp", "precip", "humidity", "wind_sp", "wind_gust", self.udf_dir("wind_dir").cast("double").alias("wind_agl"), "city")
-        w_pred.show()
         aqicn = self.spark.read.format("csv").option("header", "false").schema(self.aqi_schema).load(p4) \
                     .groupBy("timestamp", "city").agg(last("pm2_5").alias("pm2_5")) \
                     .select("timestamp", "city", "pm2_5")

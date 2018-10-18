@@ -170,10 +170,10 @@ class CrawlWeather(Crawling):
             if (now - start_point).total_seconds() >= 0:
                 try:
                     # crawl 4 days forward for each city
-                    for c in cities:
-                        for i in xrange(4):
-                            start_point = start_point + timedelta(days=1)
-                            date = "%s-%s-%s" % (start_point.year, self.format10(start_point.month), self.format10(start_point.day))
+                    for i in xrange(4):
+                        start_point = start_point + timedelta(days=1)
+                        date = "%s-%s-%s" % (start_point.year, self.format10(start_point.month), self.format10(start_point.day))
+                        for c in cities:
                             html = self.craw_future(c, i)
                             data = self.mine_data(date, html, c)
                             if data:
