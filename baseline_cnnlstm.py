@@ -176,7 +176,13 @@ class BaselineModel(object):
                 outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, params, attention, self.use_cnn, self.use_gen_cnn, self.mtype, self.use_batch_norm, self.dropout)
             else:
                 dec_data = tf.reshape(dec, [self.batch_size, self.decoder_length, self.districts * self.decode_vector_size])
-                outputs = rnn_utils.execute_decoder(dec_data, enc_output, self.decoder_length, params, attention, self.dropout_placeholder)
+                # outputs = rnn_utils.execute_decoder(dec_data, enc_output, self.decoder_length, params, attention, self.dropout_placeholder)
+                dec_init = tf.layers.dense(enc_output, units=128, name="dec_init_hidden_state", activation=tf.nn.tanh)
+                dec_init = tf.concat([dec_init, attention], axis=1)
+                dec_init = tf.tile(dec_init, self.decoder_length)
+                dec_init = tf.tranpose(dec_init, [0, 2, 1])
+                dec_data = tf.concat([dec_data, dec_init], axis=2)
+                outputs = rnn_utils.execute_sequence(dec_data, self.e_params)
             outputs = tf.stack(outputs, axis=1)
         return outputs
     
@@ -207,7 +213,7 @@ class BaselineModel(object):
             pred = tf.layers.flatten(self.pred_placeholder)
         else:
             y = output
-            pred = self.pred_placeholder * 300
+            pred = self.pred_placeholder
         if self.loss is 'mse':
             loss_op = tf.losses.mean_squared_error
         else: 
