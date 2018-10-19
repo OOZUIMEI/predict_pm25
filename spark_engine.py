@@ -202,7 +202,6 @@ class SparkEngine():
             a = a + [float(x["wind_agl"]),float(x["humidity"])/100.0, float(x["is_holiday"]),float(x["hour"]),float(x["month"])]
             timestamp.append(x['timestamp'])
             w_.append(a)
-        
         # process vectors for china factors from weather forecasts & aqi cn data
         # "b_pm2_5", "s_pm2_5", "b_wdir", "b_humidity", "s_wdir", "s_humidity", "month", "hour", "is_holiday"
         # "s_temp","s_wsp","s_gust","s_precip","b_temp","b_wsp","b_gust","b_precip"
