@@ -207,7 +207,7 @@ class BaselineModel(object):
             pred = tf.layers.flatten(self.pred_placeholder)
         else:
             y = output
-            pred = self.pred_placeholder
+            pred = self.pred_placeholder * 300
         if self.loss is 'mse':
             loss_op = tf.losses.mean_squared_error
         else: 
