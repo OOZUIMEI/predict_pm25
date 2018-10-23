@@ -253,7 +253,7 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
     else:
         print('==> initializing models')
         with tf.device('/%s' % p.device):
-            model.init_ops()
+            model.init_ops(not is_test)
             init = tf.global_variables_initializer()
             saver = tf.train.Saver()
             

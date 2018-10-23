@@ -69,20 +69,20 @@ class MaskGan(BaselineModel):
         self.gmtype = 3
         self.optimizer = tf.train.AdamOptimizer(self.learning_rate, self.beta1)
 
-    def init_ops(self):
+    def init_ops(self, is_train=True):
         self.add_placeholders()
-        self.outputs = self.inference()
+        self.outputs = self.inference(is_train)
         # self.merged = tf.summary.merge_all()
 
-    def inference(self):
+    def inference(self, is_train=True):
         enc_output, dec, outputs, tanh_inputs, attention = self.create_generator(self.encoder_inputs, self.decoder_inputs, self.attention_inputs)
-        fake_preds, fake_rewards, real_preds = self.create_discriminator(enc_output, dec, outputs, attention)
-        # use tanh on generator output or not. because y = tanh(x) if x > 0 then y always belongs to [0, 1]
-        self.dis_loss = self.add_discriminator_loss(fake_preds, real_preds)
-        self.gen_loss = self.get_generator_loss(fake_preds, fake_rewards, tanh_inputs)
-        self.gen_op = self.train_generator(self.gen_loss)
-        self.dis_op = self.train_discriminator(self.dis_loss)
-        
+        if is_train:
+            fake_preds, fake_rewards, real_preds = self.create_discriminator(enc_output, dec, outputs, attention)
+            # use tanh on generator output or not. because y = tanh(x) if x > 0 then y always belongs to [0, 1]
+            self.dis_loss = self.add_discriminator_loss(fake_preds, real_preds)
+            self.gen_loss = self.get_generator_loss(fake_preds, fake_rewards, tanh_inputs)
+            self.gen_op = self.train_generator(self.gen_loss)
+            self.dis_op = self.train_discriminator(self.dis_loss)
         return tanh_inputs
        
     def create_generator(self, enc, dec, att):
@@ -206,13 +206,31 @@ class MaskGan(BaselineModel):
         # grads = tf.gradients(loss, vars_)
         return grads, vars_
 
+    def iterate(self, ct, index, train, total_gen_loss, total_dis_loss):
+        # just the starting points of encoding batch_size,
+        ct_t = ct[index]
+        # switch batchsize, => batchsize * encoding_length (x -> x + 24)
+        ct_t = np.asarray([range(int(x), int(x) + self.encoder_length) for x in ct_t])
+        dec_t = ct_t + self.decoder_length
+
+        feed = {
+            self.encoder_inputs : ct_t,
+            self.decoder_inputs: dec_t,
+        }
+        if self.use_attention:
+            feed[self.attention_inputs] = ct_t
+
+        if not train:
+            pred = session.run([self.outputs], feed_dict=feed)
+        else:
+            gen_loss, dis_loss, pred, _, _= session.run([self.gen_loss, self.dis_loss, self.outputs, self.gen_op, self.dis_op], feed_dict=feed)
+            total_gen_loss += gen_loss
+            total_dis_loss += dis_loss
+
+        return pred, total_gen_loss, total_dis_loss
+
     # using stride to reduce the amount of data to loop over time intervals
     def run_epoch(self, session, data, num_epoch=0, train_writer=None, verbose=False, train=False, shuffle=True, stride=4):
-        st = time.time()
-        if not train:
-            print("init train_op is none for test")
-            self.gen_op = tf.no_op()
-            self.dis_op = tf.no_op()
         dt_length = len(data)
         # print("data_size: ", dt_length)
         total_gen_loss = 0.0
@@ -234,34 +252,8 @@ class MaskGan(BaselineModel):
         total_steps = dt_length // cons_b
         for step in xrange(total_steps):
             index = range(step * cons_b, (step + 1) * cons_b, stride)
-            # just the starting points of encoding batch_size,
-            ct_t = ct[index]
-            # switch batchsize, => batchsize * encoding_length (x -> x + 24)
-            ct_t = np.asarray([range(int(x), int(x) + self.encoder_length) for x in ct_t])
-            dec_t = ct_t + self.decoder_length
+            pred, total_gen_loss, total_dis_loss = self.iterate(ct, index, train, total_gen_loss, total_dis_loss)
 
-            feed = {
-                self.encoder_inputs : ct_t,
-                self.decoder_inputs: dec_t,
-            }
-            if self.use_attention:
-                feed[self.attention_inputs] = ct_t
-
-            gen_loss, dis_loss, pred, _, _= session.run([self.gen_loss, self.dis_loss, self.outputs, self.gen_op, self.dis_op], feed_dict=feed)
-            
-            total_gen_loss += gen_loss
-            total_dis_loss += dis_loss
-            
-            if verbose:
-                sys.stdout.write('\r{} / {} gen_loss = {} | dis_loss = {}'.format(step, total_steps, total_gen_loss / (step + 1.0), total_dis_loss / (step + 1.0)))
-                sys.stdout.flush()
-
-            if not train:
-                preds.append(pred)
-        if verbose:
-            sys.stdout.write("\r")
-            dur = time.time() - st
-            print("Running time: %.2f" % dur)
         if train_writer is not None:
             total_gen_loss, total_dis_loss = total_gen_loss / total_steps, total_dis_loss / total_steps
             summary = tf.Summary()

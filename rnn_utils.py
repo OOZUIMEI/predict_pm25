@@ -224,7 +224,7 @@ def execute_decoder_dis(inputs, init_state, sequence_length, params, gamma, atte
     return predictions, rewards
 
 
-def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8, use_batch_norm=True, dropout=0.5):
+def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8, use_batch_norm=True, dropout=0.5, normalize=True):
     inp_shape = cnn_inputs.get_shape()
     inp_length = len(inp_shape) 
     upscale_k = (5, 5)
@@ -236,14 +236,6 @@ def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8, use_b
     if inp_length == 5:
         cnn_inputs = tf.reshape(cnn_inputs, [length, inp_shape[2], inp_shape[2], inp_shape[-1]])
     if mtype == 0:
-        # cnn_inputs = tf.transpose(cnn_inputs, [0,2,3,1])
-        # cnn_inputs = tf.expand_dims(cnn_inputs,4)
-        # cnn_outputs = tf.layers.conv3d(
-        #         inputs=cnn_inputs,                
-        #         strides=(1,2,2),
-        #         filters=1,
-        #         kernel_size=(inp_shape[-1],3,3)
-        # )
         cnn_outputs = get_cnn_unit(cnn_inputs, 32, upscale_k, name="basic_conv")
     elif mtype == 1:
         """
@@ -259,9 +251,10 @@ def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8, use_b
         """
             use structure of DCGAN with the mixture of both tranposed convolution and convolution for Generator output
         """
-        # normalize input to [-1, 1] in generator
-        cnn_inputs = tf.tanh(cnn_inputs)
-        # input should be 4 * 4 * 8 => 8 x 8 x 8 => 16 x 16 x 4 => 32 x 32 x 2 => 25x25x1
+        if normalize:
+            # normalize input to [-1, 1] in generator
+            cnn_inputs = tf.tanh(cnn_inputs)
+        # input should be 4 * 4 * 16 => 8 x 8 x 8 => 16 x 16 x 4 => 32 x 32 x 2 => 25x25x1
         conv1 = get_cnn_transpose_unit(cnn_inputs, max_filters, upscale_k, activation, "SAME", "transpose_conv1", use_batch_norm, dropout)
         conv2 = get_cnn_transpose_unit(conv1, max_filters / 2, upscale_k, activation, "SAME", "transpose_conv2", use_batch_norm, dropout)
         conv3 = get_cnn_transpose_unit(conv2, max_filters / 4, upscale_k, activation, "SAME", "transpose_conv3", use_batch_norm, dropout)
@@ -272,20 +265,12 @@ def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8, use_b
             use structure of DCGAN with the mixture of both tranposed convolution and convolution for discriminator
             use dropout and batch_normalization
         """
-        # normalize input to [-1, 1] in generator
-        cnn_inputs = tf.tanh(cnn_inputs)
+        if normalize:
+            # normalize input to [-1, 1] in generator
+            cnn_inputs = tf.tanh(cnn_inputs)
         # 25 x 25 x H => 8x8x8 => 4x4x8
         conv1 = get_cnn_unit(cnn_inputs, max_filters, (11,11), activation, "VALID", "rep_conv1", use_batch_norm, dropout)
         cnn_outputs = get_cnn_unit(conv1, max_filters, upscale_k, activation, "SAME", "rep_conv2", use_batch_norm, dropout)
-    # else:
-    #     """
-    #         Use for representation steps of both encoder and decoder
-    #         provide the cnn representation of input images from 25 x 25 => 4 * 4 * 64 dimension
-    #     """
-    #     cnn_inputs = tf.tanh(cnn_inputs)
-    #     # 25 x 25 x H => 8x8x8 => 4x4x8
-    #     conv1 = get_cnn_unit(cnn_inputs, max_filters, (11,11), activation, "VALID", "rep_conv1")
-    #     cnn_outputs = get_cnn_unit(conv1, max_filters, upscale_k, activation, "SAME", "rep_conv2")
     return cnn_outputs
 
 
