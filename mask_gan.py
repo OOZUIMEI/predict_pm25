@@ -83,7 +83,7 @@ class MaskGan(BaselineModel):
         self.gen_op = self.train_generator(self.gen_loss)
         self.dis_op = self.train_discriminator(self.dis_loss)
         
-        return outputs
+        return tanh_inputs
        
     def create_generator(self, enc, dec, att):
         with tf.variable_scope("generator", self.initializer, reuse=tf.AUTO_REUSE):

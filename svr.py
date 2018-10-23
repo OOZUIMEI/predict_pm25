@@ -9,11 +9,12 @@ import utils
 def process_data(data, time_lags=8):
     data = np.asarray(data, dtype=np.float32)
     dt_len = len(data)
-    pm2_5_ = [float(x) for x in data[:,0]]
+    # 0 is pm25 while 1 is pm10
+    pm2_5_ = [float(x) for x in data[:,1]]
     training_data = []
     labels = []
     history = 8
-    total = 20
+    total = 24
     for x in xrange(0, dt_len, time_lags):
         if x + total <= dt_len:
             dt = np.array(data[x:x+history,:])
@@ -62,6 +63,7 @@ for pr, lb in zip(preds, labels):
 
 rmse = rmse * 12
 mae = mae * 12
+"""
 # 8 mae: 19.73 # rmse: 25.83
 # 12 mae: 21.29 rmse: 27.72
 # 16 mae: 22.38 rmse: 29.04
@@ -69,5 +71,11 @@ mae = mae * 12
 # 24 mae: 23.81 rmse: 30.59
 
 
+# pm10 prediction
+# 8h mae: 13.72 rmse: 17.42
+# 16h mae: 14.97 rmse: 18.83
+# 24h mae: 15.74 rmse: 19.63
+
+"""
 print("mae: %.2f" % mae)
 print("rmse: %.2f" % rmse)

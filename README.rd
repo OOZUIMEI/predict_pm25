@@ -57,7 +57,7 @@ python train_sp.py -u vectors/sp_china_combined/sp_seoul_test_grid -au vectors/s
 
 # Neural nets
 Training:
-python train_sp.py -u vectors/sp_china_combined/sp_seoul_train_bin -au vectors/sp_china_combined/sp_china_train_bin  -w neural_nets -m "NN"
+python train_sp.py -u vectors/sp_china_combined/sp_seoul_train_bin -au vectors/sp_china_combined/sp_china_train_bin -w neural_nets -m "NN"
 Testing
 python train_sp.py -u vectors/sp_china_combined/sp_seoul_test_bin -au vectors/sp_china_combined/sp_china_test_bin  -w weights/neural_nets.weights -m "NN" -t 1
 
