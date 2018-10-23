@@ -24,10 +24,10 @@ def get_district_code(x):
 
 def normalize_pm(x):
     res = 0.0
-    if x > 500:
+    if x > 300:
         res = 1.0 
     else:
-        res = float(x) / 500
+        res = float(x) / 300
     return res
 
 

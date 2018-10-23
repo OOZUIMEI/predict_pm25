@@ -67,7 +67,7 @@ def evaluate_sp(url, url2, is_grid=True, grid_eval=True):
             else:
                 pred_t = d
         lb_i = i * 4 + 24
-        lbt = labels[lb_i:(lb_i+24),:,0]
+        lbt = labels[lb_i:(lb_i+24),:,1]
         if grid_eval:
             lbg = []
             for x in lbt:

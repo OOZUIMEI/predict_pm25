@@ -153,6 +153,7 @@ class BaselineModel(object):
             # embedding = tf.Variable(self.daitasets, name="embedding")
             dec = dec_f[:,:,:,:,self.df_ele:]
             dec.set_shape((self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.decode_vector_size))
+            # 0 is pm2.5 1 is pm10
             self.pred_placeholder = dec_f[:,:,:,:,0]
         else:
             enc.set_shape((self.batch_size, self.encoder_length, 25, self.encode_vector_size))
@@ -177,15 +178,26 @@ class BaselineModel(object):
                 outputs = tf.stack(outputs, axis=1)
             else: 
 
-                if self.e_params["fw_cell"] == "gru_block" or self.e_params["fw_cell"] == "rnn":
+                if "gru" in self.e_params["fw_cell"] or self.e_params["fw_cell"] == "rnn":
                     enc_output = tf.squeeze(enc_output[0], 0)
                 else:
                     enc_output = enc_output[-1]
-                input_hidden = self.rnn_hidden_units
+                dec_data = tf.transpose(dec,[0, 2, 1, 3])
+                dec_data = tf.reshape(dec_data, [self.batch_size, self.districts, self.decoder_length * self.decode_vector_size])
+                
                 if not attention is None:
                     enc_output = tf.concat([enc_output, attention], 1)
+                dec_data_u = tf.unstack(dec_data, axis=1)
+                outputs = []
+                for i, d in enumerate(dec_data_u):
+                    d_ = tf.concat([d, enc_output], axis=1)
+                    d_out = tf.layers.dense(d_, self.decoder_length, name="dec_init_hidden_state_%i" % i, activation=tf.nn.sigmoid)
+                    outputs.append(d_out)
+                outputs = tf.stack(outputs, axis=1)
+                outputs = tf.transpose(outputs, [0, 2, 1])
                 # dec_data = tf.reshape(dec, [self.batch_size, self.decoder_length, self.districts * self.decode_vector_size])
                 # outputs = rnn_utils.execute_decoder(dec_data, enc_output, self.decoder_length, params, attention, self.dropout_placeholder)
+                """
                 dec_data = tf.transpose(dec,[0, 2, 1, 3])
                 dec_data = tf.reshape(dec_data, [self.batch_size * self.districts, self.decoder_length, self.decode_vector_size])
                 dec_init = tf.layers.dense(enc_output, 128, name="dec_init_hidden_state", activation=tf.nn.tanh)
@@ -197,6 +209,7 @@ class BaselineModel(object):
                 outputs, _ = rnn_utils.execute_sequence(dec_data, self.e_params)
                 outputs = tf.layers.dense(outputs, 1, name="dec_hidden_output", activation=tf.nn.sigmoid)
                 outputs = tf.transpose(tf.reshape(outputs, [prp.batch_size, self.districts, self.decoder_length]), [0, 2, 1])
+                """
             #outputs = tf.stack(outputs, axis=1)
         return outputs
     

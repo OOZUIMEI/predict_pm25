@@ -25,8 +25,6 @@ class Prediction(object):
         self.timestamp = None
         self.avg = None
         self.last_time = None
-        while True: 
-            self.predict()
 
     def predict(self):
         now = utils.get_datetime_now()

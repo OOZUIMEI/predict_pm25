@@ -60,9 +60,9 @@ class MaskGan(BaselineModel):
         self.gamma = gamma
         self.learning_rate = learning_rate
         # set up multiple cnns layers to generate outputs
-        self.use_gen_cnn = False
-        self.dropout = 0.0
-        self.use_batch_norm = False
+        self.use_gen_cnn = True
+        self.dropout = 0.5
+        self.use_batch_norm = True
         self.strides = [4]
         self.beta1 = 0.5
         self.lamda = 100
@@ -83,7 +83,7 @@ class MaskGan(BaselineModel):
         self.gen_op = self.train_generator(self.gen_loss)
         self.dis_op = self.train_discriminator(self.dis_loss)
         
-        return outputs
+        return tanh_inputs
        
     def create_generator(self, enc, dec, att):
         with tf.variable_scope("generator", self.initializer, reuse=tf.AUTO_REUSE):
@@ -230,7 +230,7 @@ class MaskGan(BaselineModel):
             cons_b = self.batch_size * stride
         else:
             cons_b = self.batch_size
-
+            stride = 1
         total_steps = dt_length // cons_b
         for step in xrange(total_steps):
             index = range(step * cons_b, (step + 1) * cons_b, stride)
@@ -258,7 +258,6 @@ class MaskGan(BaselineModel):
 
             if not train:
                 preds.append(pred)
-
         if verbose:
             sys.stdout.write("\r")
             dur = time.time() - st
