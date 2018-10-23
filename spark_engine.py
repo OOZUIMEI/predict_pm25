@@ -134,13 +134,12 @@ class SparkEngine():
         if start and end:
             st_ = start.strftime(p.fm)
             ed_ = end.strftime(p.fm)
-            #merge = merge.filter((col("timestamp") >= st_) & (col("timestamp") <= ed_))
+            merge = merge.filter((col("timestamp") >= st_) & (col("timestamp") <= ed_))
             end = end + timedelta(days=1)
             ed2_ = end.strftime(p.fm)
         
         else:
             st_, ed_, ed2_ = None, None, None
-        
         final = merge.groupBy("timestamp") \
                      .agg(collect_list("district_code").alias("district_code"), \
                         collect_list("o3_val").alias("o3_val"), \
@@ -158,7 +157,8 @@ class SparkEngine():
                         collect_list("wind_agl").alias("wind_agl"), \
                         collect_list("wind_sp").alias("wind_sp"), \
                         collect_list("wind_gust").alias("wind_gust")) \
-                     .orderBy("timestamp").limit(24).collect()
+                     .orderBy("timestamp").limit(24)
+        final = final.collect()
         res = []
         mx_val = np.array(p.max_values)
         mn_val = np.array(p.min_values)
@@ -177,7 +177,7 @@ class SparkEngine():
             values = np.concatenate((values_norm_1, values, values_norm_2), axis=1)
             for i, x in enumerate(dis):
                 idx = int(x) - 1
-                dis_vectors[idx] = [1 if y > 1 else y if y > 0 else 0 for y in values[i]]
+                dis_vectors[idx] = [float(y) if float(y) > 0 and float(y) < 1 else (1 if float(y) >= 1 else 0) for y in values[i]]
             res.append(dis_vectors)     
         
         # future forecast of seoul
@@ -223,8 +223,8 @@ class SparkEngine():
         china_min = np.array(p.min_cn_values)
         china_delta = china_max - china_min
         for ab, ash, wb, wsh in zip(aqicn_be, aqicn_sh, beijing_w_pred, shenyang_w_pred):
-            ab_ = float(ab['pm2_5'])
-            ash_ = float(ash['pm2_5'])
+            ab_ = float(ab['pm2_5']) / 500
+            ash_ = float(ash['pm2_5']) / 500
             wb_1, wb_2 = self.get_china_weather_factors(wb)
             wsh_1, wsh_2 = self.get_china_weather_factors(wsh)
             wcn_2 = self.min_max_scaler(np.array(wsh_2 + wb_2), china_min, china_delta)

@@ -23,8 +23,8 @@ from NeuralNet import NeuralNetwork
 from adain import Adain
 from stack_autoencoder import StackAutoEncoder
 from mask_gan import MaskGan
-# import matplotlib
-# import matplotlib.pyplot as plt
+import matplotlib
+import matplotlib.pyplot as plt
 from  spark_engine import SparkEngine
 import district_neighbors as dd
 
@@ -342,7 +342,6 @@ def get_prediction_real_time(sparkEngine, url_weight="", dim=15):
         sp_vectors = psv.convert_data_to_grid_exe(vectors)
         if v_l < encoder_length:
             sp_vectors = np.pad(sp_vectors, ((encoder_length - v_l,0), (0,0), (0,0), (0, 0)), 'constant', constant_values=0)
-        
         # repeat for 25 districts
         if w_pred:
             w_pred = np.repeat(np.expand_dims(w_pred, 1), p.grid_size, 1)
@@ -371,6 +370,7 @@ def get_prediction_real_time(sparkEngine, url_weight="", dim=15):
             print('==> running model')
             preds = model.run_epoch(session, model.train, train=False, verbose=False, shuffle=False)
             preds = np.reshape(preds, (decoder_length, p.grid_size, p.grid_size))
+            utils.save_file("test_acc/current_preds", preds) 
             aggregate_predictions(preds)
             return preds, timestamp
     return [], []
@@ -480,12 +480,13 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--model", default="GAN")
     parser.add_argument("-rs", "--restore", default=0, help="Restore pre-trained model", type=int)
     parser.add_argument("-p", "--pretrain", default=0, help="Pretrain model: only use of SAE networks", type=int)
-    
+      
     args = parser.parse_args()
+    """ 
     sparkEngine = SparkEngine()
     preds, timestamp = get_prediction_real_time(sparkEngine)
     
-"""
+    """
     
     if args.model == "GAN":
         train_gan(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, 
@@ -499,4 +500,3 @@ if __name__ == "__main__":
         run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore), args.model, bool(args.pretrain))
     else:
         run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore))
-    """

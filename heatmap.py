@@ -7,6 +7,8 @@ https://matplotlib.org/2.0.2/examples/color/colormaps_reference.html
 https://matplotlib.org/2.0.2/examples/api/colorbar_only.html
 """
 import matplotlib
+matplotlib.use('Agg')
+
 import matplotlib.pyplot as plt
 from  matplotlib.colors  import ListedColormap, BoundaryNorm
 import matplotlib.image as mpimg
@@ -175,7 +177,7 @@ def visualize_real_fake(data, labels, map_):
                 pred_t = clear_interpolate_bound(pred_t, map_)
                 plt.imshow(pred_t, cmap=cmap, norm=norm)
                 idx+= 1
-    
+        """ 
         idx = 0
         st = d_i * 4 + 24
         y = labels[st:st + 24,:,0] * 300
@@ -189,8 +191,8 @@ def visualize_real_fake(data, labels, map_):
                 plt.imshow(grd, cmap=cmap, norm=norm)
                 idx+=1
         fig.subplots_adjust(top=1.3)
-        
-        plt.savefig("figures/gan_m/%i.png" % d_i, format="png", bbox_inches='tight', dpi=300)
+        """
+        plt.savefig("figures/gan_cnn2/%i.png" % d_i, format="png", bbox_inches='tight', dpi=300)
         if idx == 1000:
             break
 
@@ -212,7 +214,7 @@ if __name__ == "__main__":
     # seoulmap = mpimg.imread(pr.seoul_map)
     # ax.imshow(seoulmap, cmap=plt.cm.gray)
     # fig = plt.figure(figsize=(100, 100), tight_layout=True)
-    data = utils.load_file("test_sp/gan_case4")
+    data = utils.load_file("test_sp/gan_cnn2_fulldt_2400")
     labels = utils.load_file("vectors/sp_seoul_test_bin")
     labels = np.asarray(labels)
     visualize_real_fake(data, labels, map_)
