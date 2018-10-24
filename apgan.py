@@ -116,7 +116,7 @@ class APGan(MaskGan):
         return fake_val, fake_rewards, real_val
 
     # operate in each interation of an epoch
-    def iterate(self, ct, index, train, total_gen_loss, total_dis_loss):
+    def iterate(self, session, ct, index, train, total_gen_loss, total_dis_loss):
         # just the starting points of encoding batch_size,
         ct_t = ct[index]
         # switch batchsize, => batchsize * encoding_length (x -> x + 24)

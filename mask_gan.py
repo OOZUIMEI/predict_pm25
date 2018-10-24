@@ -206,7 +206,7 @@ class MaskGan(BaselineModel):
         # grads = tf.gradients(loss, vars_)
         return grads, vars_
 
-    def iterate(self, ct, index, train, total_gen_loss, total_dis_loss):
+    def iterate(self, session, ct, index, train, total_gen_loss, total_dis_loss):
         # just the starting points of encoding batch_size,
         ct_t = ct[index]
         # switch batchsize, => batchsize * encoding_length (x -> x + 24)
@@ -252,7 +252,7 @@ class MaskGan(BaselineModel):
         total_steps = dt_length // cons_b
         for step in xrange(total_steps):
             index = range(step * cons_b, (step + 1) * cons_b, stride)
-            pred, total_gen_loss, total_dis_loss = self.iterate(ct, index, train, total_gen_loss, total_dis_loss)
+            pred, total_gen_loss, total_dis_loss = self.iterate(ct, session, index, train, total_gen_loss, total_dis_loss)
 
         if train_writer is not None:
             total_gen_loss, total_dis_loss = total_gen_loss / total_steps, total_dis_loss / total_steps
