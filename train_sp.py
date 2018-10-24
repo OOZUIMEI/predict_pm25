@@ -23,6 +23,7 @@ from NeuralNet import NeuralNetwork
 from adain import Adain
 from stack_autoencoder import StackAutoEncoder
 from mask_gan import MaskGan
+from apgan import APGan
 import matplotlib
 import matplotlib.pyplot as plt
 from  spark_engine import SparkEngine
@@ -214,7 +215,8 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
 
 
 def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, decoder_length=24, decoder_size=4, grid_size=25, is_folder=False, is_test=False, restore=False):
-    model = MaskGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size, use_cnn=1)
+    # model = MaskGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size, use_cnn=1)
+    model = APGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
     #dv = p.gpu_devices.split(",")
     dv=[1]
     tconfig = get_gpu_options()

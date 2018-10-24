@@ -37,7 +37,8 @@ class APGan(MaskGan):
             self.gen_op = self.train_generator(self.gen_loss)
             self.dis_op = self.train_discriminator(self.dis_loss)
         return fake_outputs
-       
+    
+    # generate output images
     def create_generator(self, enc, dec, att):
         with tf.variable_scope("generator", self.initializer, reuse=tf.AUTO_REUSE):
             # shape:  batch_size x decoder_length x grid_size x grid_size
@@ -62,7 +63,9 @@ class APGan(MaskGan):
             cnn_dec_input = tf.layers.flatten(cnn_dec_input)
             cnn_shape = cnn.get_shape()
             dec_data = tf.reshape(cnn_dec_input, [pr.batch_size, self.decoder_length, int(cnn_shape[-1])])
-            _, fn_state = rnn_utils.execute_sequence(dec_data, self.e_params)
+            enc_outputs, _ = rnn_utils.execute_sequence(dec_data, self.e_params)
+            # add attentional layer here to measure the importance of each timestep.
+            fn_state = self.get_softmax_attention(enc_outputs)
             # dec_input with shape bs x 3hidden_size
             dec_input = tf.concat([enc_output, fn_state], axis=1)
             if not attention is None:

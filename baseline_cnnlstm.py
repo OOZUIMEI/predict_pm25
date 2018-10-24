@@ -224,12 +224,18 @@ class BaselineModel(object):
             # inputs = tf.unstack(inputs, self.attention_length, 1)
             outputs, _ = rnn_utils.execute_sequence(inputs, params)
             # outputs = tf.stack(outputs, axis=1)
-            attention_logits = tf.squeeze(tf.layers.dense(outputs, units=1, activation=None, name="attention_logits"))
-            attention = tf.nn.softmax(attention_logits)
-            outputs = tf.transpose(outputs, [2, 0, 1])
-            outputs = tf.multiply(outputs, attention)
-            outputs = tf.transpose(outputs, [1, 2, 0])
-            outputs = tf.reduce_sum(outputs, axis=1)
+            outputs = self.get_softmax_attention(outputs)
+        return outputs
+    
+    # return attentional vector of a set of vectors
+    # compute softmax -> multiple softmax score with original vectors -> reduce_sum
+    def get_softmax_attention(self, inputs):
+        attention_logits = tf.squeeze(tf.layers.dense(inputs, units=1, activation=None, name="attention_logits"))
+        attention = tf.nn.softmax(attention_logits)
+        outputs = tf.transpose(inputs, [2, 0, 1])
+        outputs = tf.multiply(outputs, attention)
+        outputs = tf.transpose(outputs, [1, 2, 0])
+        outputs = tf.reduce_sum(outputs, axis=1)
         return outputs
     
     # add loss function
