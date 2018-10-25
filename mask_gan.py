@@ -54,11 +54,12 @@ https://github.com/soumith/ganhacks
 
 class MaskGan(BaselineModel):
 
-    def __init__(self, gamma=0.9, learning_rate=0.0002, *args, **kwargs):
-        super(self.__class__, self).__init__(*args, **kwargs)
+    def __init__(self, gamma=0.9, learning_rate=0.0002, use_cnn=True, **kwargs):
+        super(MaskGan, self).__init__(**kwargs)
         self.gen_loss_type = 1
         self.gamma = gamma
         self.learning_rate = learning_rate
+        self.use_cnn = use_cnn
         # set up multiple cnns layers to generate outputs
         self.use_gen_cnn = True
         self.dropout = 0.5
@@ -89,7 +90,7 @@ class MaskGan(BaselineModel):
         with tf.variable_scope("generator", self.initializer, reuse=tf.AUTO_REUSE):
             # shape:  batch_size x decoder_length x grid_size x grid_size
             enc, dec = self.lookup_input(enc, dec)
-            enc_output = self.exe_encoder(enc, False, 0.0)
+            enc_output, _ = self.exe_encoder(enc, False, 0.0)
             attention = None
             if self.use_attention:
                 # batch size x rnn_hidden_size
@@ -223,7 +224,7 @@ class MaskGan(BaselineModel):
         if not train:
             pred = session.run([self.outputs], feed_dict=feed)
         else:
-            gen_loss, dis_loss, pred, _, _= session.run([self.gen_loss, self.dis_loss, self.outputs, self.gen_op, self.dis_op], feed_dict=feed)
+            gen_loss, dis_loss, _, _, _= session.run([self.gen_loss, self.dis_loss, self.outputs, self.gen_op, self.dis_op], feed_dict=feed)
             total_gen_loss += gen_loss
             total_dis_loss += dis_loss
 
@@ -253,7 +254,9 @@ class MaskGan(BaselineModel):
         for step in xrange(total_steps):
             index = range(step * cons_b, (step + 1) * cons_b, stride)
             pred, total_gen_loss, total_dis_loss = self.iterate(session, ct, index, train, total_gen_loss, total_dis_loss)
-
+            if not train:
+                preds.append(pred)      
+      
         if train_writer is not None:
             total_gen_loss, total_dis_loss = total_gen_loss / total_steps, total_dis_loss / total_steps
             summary = tf.Summary()
