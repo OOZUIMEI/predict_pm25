@@ -31,9 +31,9 @@ class APGan(MaskGan):
     def inference(self, is_train=True):
         fake_outputs, conditional_vectors = self.create_generator(self.encoder_inputs, self.decoder_inputs, self.attention_inputs)
         if is_train:
-            fake_preds, fake_rewards, real_preds = self.create_discriminator(fake_outputs, conditional_vectors)
-            self.dis_loss = self.add_discriminator_loss(fake_preds, real_preds)
-            self.gen_loss = self.get_generator_loss(fake_preds, fake_rewards, fake_outputs)
+            fake_vals, fake_rewards, real_vals = self.create_discriminator(fake_outputs, conditional_vectors)
+            self.dis_loss = self.add_discriminator_loss(fake_vals, real_vals)
+            self.gen_loss = self.get_generator_loss(fake_vals, fake_rewards, fake_outputs)
             self.gen_op = self.train_generator(self.gen_loss)
             self.dis_op = self.train_discriminator(self.dis_loss)
         return fake_outputs
@@ -43,13 +43,13 @@ class APGan(MaskGan):
         with tf.variable_scope("generator", self.initializer, reuse=tf.AUTO_REUSE):
             # shape:  batch_size x decoder_length x grid_size x grid_size
             enc, dec = self.lookup_input(enc, dec)
-            enc_output = self.exe_encoder(enc, False, 0.0)
+            _, enc_outputs = self.exe_encoder(enc, False, 0.0)
             attention = None
             if self.use_attention:
                 # batch size x rnn_hidden_size
                 inputs = tf.nn.embedding_lookup(self.attention_embedding, att)
                 attention = self.get_attention_rep(inputs)
-            conditional_vectors = self.add_conditional_layer(dec, enc_output, attention)
+            conditional_vectors = self.add_conditional_layer(dec, enc_outputs, attention)
             outputs = self.exe_decoder(conditional_vectors)
         return outputs, conditional_vectors
     
@@ -57,48 +57,52 @@ class APGan(MaskGan):
         return np.random.uniform(-1., 1., size=[x, y, z])
     
     # the conditional layer that concat all attention vectors => produces a single vector
-    def add_conditional_layer(self, dec, enc_output, attention=None):
+    def add_conditional_layer(self, dec, enc_outputs, attention=None):
         with tf.name_scope("conditional"):
             cnn_dec_input = rnn_utils.get_cnn_rep(dec, mtype=self.mtype, use_batch_norm=self.use_batch_norm, dropout=self.dropout)
             cnn_dec_input = tf.layers.flatten(cnn_dec_input)
-            cnn_shape = cnn.get_shape()
+            cnn_shape = cnn_dec_input.get_shape()
             dec_data = tf.reshape(cnn_dec_input, [pr.batch_size, self.decoder_length, int(cnn_shape[-1])])
-            enc_outputs, _ = rnn_utils.execute_sequence(dec_data, self.e_params)
+            dec_rep, _ = rnn_utils.execute_sequence(dec_data, self.e_params)
+            dec_rep = self.get_softmax_attention(dec_rep)
             # add attentional layer here to measure the importance of each timestep.
-            fn_state = self.get_softmax_attention(enc_outputs)
+            enc_outputs = self.get_softmax_attention(enc_outputs)
             # dec_input with shape bs x 3hidden_size
-            dec_input = tf.concat([enc_output, fn_state], axis=1)
+            dec_input = tf.concat([enc_outputs, dec_rep], axis=1)
             if not attention is None:
                 dec_input = tf.concat([dec_input, attention], axis=1)
             # dec_hidden_vectors with shape bs x 128
-            dec_hidden_vectors = tf.layers.dense(dec_input, self.rnn_hidden_units, "conditional_layer", activation=tf.nn.tanh)
+            dec_hidden_vectors = tf.layers.dense(dec_input, self.rnn_hidden_units, name="conditional_layer", activation=tf.nn.tanh)
             return dec_hidden_vectors
     
     #perform decoder to produce outputs of the generator
     def exe_decoder(self, dec_hidden_vectors):
         with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             dec_inputs_vectors = tf.tile(dec_hidden_vectors, [1, self.decoder_length])
+            dec_inputs_vectors = tf.reshape(dec_inputs_vectors, [pr.batch_size, self.rnn_hidden_units, self.decoder_length])
             dec_inputs_vectors = tf.transpose(dec_inputs_vectors, [0, 2, 1])
             # dec_hidden_vectors with shape bs x 24 x 256
             dec_inputs_vectors = tf.concat([dec_inputs_vectors, self.z], axis=2)
-            dec_outputs = tf.layers.dense(dec_hidden_vectors, 256, "generation_hidden_seed", activation=tf.nn.tanh)
+            dec_outputs = tf.layers.dense(dec_inputs_vectors, 256, name="generation_hidden_seed", activation=tf.nn.tanh)
             dec_outputs = tf.unstack(dec_outputs, axis=1)
             gen_outputs = []
             for d in dec_outputs:
-                out = rnn_utils.get_cnn_rep(d, 2, tf.nn.relu, 8, self.use_batch_norm, self.dropout, False)
+                d_ = tf.reshape(d, [pr.batch_size, 4, 4, 16])
+                out = rnn_utils.get_cnn_rep(d_, 2, tf.nn.relu, 8, self.use_batch_norm, self.dropout, False)
                 gen_outputs.append(out)
             outputs = tf.stack(gen_outputs, axis=1)
             outputs = tf.tanh(tf.layers.flatten(outputs))
+            outputs = tf.reshape(outputs, [pr.batch_size, self.decoder_length, pr.grid_size * pr.grid_size])
         return outputs
 
     def validate_output(self, inputs, conditional_vectors, is_fake=True):
-        inputs = tf.reshape(inputs, [pr.batch_size * self.decoder_length, pr.grid_size, pr.grid_size])
+        inputs = tf.reshape(inputs, [pr.batch_size * self.decoder_length, pr.grid_size, pr.grid_size, 1])
         inputs_rep = rnn_utils.get_cnn_rep(inputs, 3, tf.nn.leaky_relu, 8, self.use_batch_norm, self.dropout, False)
         inputs_rep = tf.layers.flatten(inputs_rep)
         output = tf.layers.dense(inputs_rep, 1, name="validation_value")
         # reshape from bs * decoder_length x 1 => bs x  decoder_length
         output = tf.reshape(output, [pr.batch_size, self.decoder_length])
-        rewards = []
+        rewards = [None] * self.decoder_length
         if is_fake:
             pred_value = tf.log_sigmoid(output)
             pred_values = tf.unstack(pred_value, axis=1)

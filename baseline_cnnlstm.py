@@ -103,7 +103,7 @@ class BaselineModel(object):
         # embedding = tf.Variable(self.datasets, name="Embedding")
         # check if dtype is grid then just look up index from the datasets 
         enc, dec = self.lookup_input(self.encoder_inputs, self.decoder_inputs)
-        enc_output = self.exe_encoder(enc)
+        enc_output, _ = self.exe_encoder(enc)
         attention = None
         if self.use_attention:
             # batch size x rnn_hidden_size
@@ -137,10 +137,10 @@ class BaselineModel(object):
                 enc_data = tf.reshape(enc, [self.batch_size, self.encoder_length, self.districts * self.encode_vector_size])
                 # enc_data = tf.unstack(enc, axis=1)
             # then push through lstm
-            _, enc_output = rnn_utils.execute_sequence(enc_data, self.e_params)
+            enc_output, fn_state = rnn_utils.execute_sequence(enc_data, self.e_params)
             if self.rnn_layers > 1:
-                enc_output = enc_output[-1]
-        return enc_output
+                fn_state = fn_state[-1]
+        return fn_state, enc_output
 
     # mapping input indices to dataset
     def lookup_input(self, enc, dec):
