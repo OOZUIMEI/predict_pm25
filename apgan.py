@@ -16,7 +16,7 @@ import rnn_utils
 class APGan(MaskGan):
 
     def __init__(self, **kwargs):
-        super(self.__class__, self).__init__(**kwargs)
+        super(APGan, self).__init__(**kwargs)
         # set up multiple cnns layers to generate outputs
         self.use_gen_cnn = True
         self.dropout = 0.0

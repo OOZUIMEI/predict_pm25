@@ -54,8 +54,8 @@ https://github.com/soumith/ganhacks
 
 class MaskGan(BaselineModel):
 
-    def __init__(self, gamma=0.9, learning_rate=0.0002, *args, **kwargs):
-        super(self.__class__, self).__init__(*args, **kwargs)
+    def __init__(self, gamma=0.9, learning_rate=0.0002, **kwargs):
+        super(MaskGan, self).__init__(**kwargs)
         self.gen_loss_type = 1
         self.gamma = gamma
         self.learning_rate = learning_rate
