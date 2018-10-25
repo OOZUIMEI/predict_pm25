@@ -132,17 +132,14 @@ class MaskGan(BaselineModel):
             real_preds, _ = rnn_utils.execute_decoder_dis(dec_real, enc_output, self.decoder_length, params, self.gamma, attention, False, mtype=self.gmtype, use_batch_norm=self.use_batch_norm, dropout=self.dropout)
         return tf.squeeze(tf.stack(fake_preds, axis=1), [2]), fake_rewards, tf.squeeze(tf.stack(real_preds, axis=1), [2])
 
-
     def get_generator_loss(self, fake_preds, fake_rewards, outputs):
-        if self.use_gen_cnn:
-            outputs = tf.tanh(outputs)
-        if self.gen_loss_type == 0:
-            # use log(G)
-            gen_loss = self.add_generator_loss(fake_preds, fake_rewards)
-        else: 
-            # use mse of G & labels
-            labels = tf.reshape(self.pred_placeholder, shape=(self.batch_size, self.decoder_length, self.grid_square))
-            gen_loss = self.add_generator_loss(fake_preds, fake_rewards, outputs, labels)
+        # if self.gen_loss_type == 0:
+        ## use log(G)
+        #gen_loss = self.add_generator_loss(fake_preds, fake_rewards)
+        # else: 
+        # use mse of G & labels
+        labels = tf.reshape(self.pred_placeholder, shape=(self.batch_size, self.decoder_length, self.grid_square))
+        gen_loss = self.add_generator_loss(fake_preds, fake_rewards, outputs, labels)
         return gen_loss
 
     # add generation loss
@@ -184,12 +181,12 @@ class MaskGan(BaselineModel):
         with tf.name_scope("train_generator"):
             gen_optimizer = tf.train.AdamOptimizer(self.learning_rate, self.beta1)
             gen_vars = [v for v in tf.trainable_variables() if v.op.name.startswith("generator")]
-            if self.gen_loss_type == 0:
-                # gradient ascent, maximum reward  => descent with minimizing the loss
-                gen_grads = tf.gradients(-loss, gen_vars)
-            else:
-                # using mse without critic
-                gen_grads = tf.gradients(loss, gen_vars)
+            # if self.gen_loss_type == 0:
+            ## gradient ascent, maximum reward  => ascent the generator loss
+            # gen_grads = tf.gradients(-loss, gen_vars)
+            # else:
+            # using mse without critic
+            gen_grads = tf.gradients(loss, gen_vars)
             gen_grads, _ = tf.clip_by_global_norm(gen_grads, 10.)
             gen_train_op = gen_optimizer.apply_gradients(zip(gen_grads, gen_vars))
             return gen_train_op
@@ -243,8 +240,8 @@ class MaskGan(BaselineModel):
             ct = ct[r]
       
         if train and len(self.strides) > 1:
-            np.random.shuffle(strides)
-            stride = strides[0]
+            np.random.shuffle(self.strides)
+            stride = self.strides[0]
         if self.batch_size >= stride:
             cons_b = self.batch_size * stride
         else:
