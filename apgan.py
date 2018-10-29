@@ -70,10 +70,12 @@ class APGan(MaskGan):
     # use log_sigmoid instead of log because fake_vals is w * x + b (not the probability value)
     def add_generator_loss(self, fake_vals, outputs, labels, fake_rewards=None):
         if not fake_rewards is None:
+            print("Using combined loss function")
             loss_values = tf.losses.mean_squared_error(labels, outputs)
             advatages = tf.abs(fake_rewards)
             loss = tf.reduce_mean(tf.multiply(loss_values, tf.stop_gradient(advatages)))
         else:
+            print("Using reinsforcement learning")
             mse_loss = tf.losses.mean_squared_error(labels, outputs)
             sigmoid_loss = self.alpha * tf.log_sigmoid(fake_vals)
              # normal lossmse + (-log(D(G)))
@@ -123,7 +125,7 @@ class APGan(MaskGan):
     # just decide whether an image is fake or real
     # calculate the outpute validation of discriminator
     # output is the value of a dense layer w * x + b
-    def validate_output(self, inputs, conditional_vectors, is_fake=False):
+    def validate_output(self, inputs, conditional_vectors):
         conditional_vectors = tf.reshape(conditional_vectors, [pr.batch_size * self.decoder_length, self.rnn_hidden_units])
         inputs = tf.reshape(inputs, [pr.batch_size * self.decoder_length, pr.grid_size, pr.grid_size, 1])
         inputs_rep = rnn_utils.get_cnn_rep(inputs, 3, tf.nn.leaky_relu, 8, self.use_batch_norm, self.dropout, False)
@@ -132,15 +134,15 @@ class APGan(MaskGan):
         output = tf.layers.dense(inputs_rep, 1, name="validation_value")
         output = tf.reshape(output, [pr.batch_size, self.decoder_length])
         rewards = None
-        if is_fake:
-            rewards = [None] * self.decoder_length
-            pred_value = tf.log_sigmoid(output)
-            pred_values = tf.unstack(pred_value, axis=1)
-            for i in xrange(self.decoder_length - 1, -1,-1):
-                rewards[i] = pred_values[i]
-                if i != (self.decoder_length - 1):
-                    for j in xrange(i + 1, self.decoder_length):
-                        rewards[i] += np.power(self.gamma, (j - i)) * rewards[i]
+        # if is_fake:
+        #     rewards = [None] * self.decoder_length
+        #     pred_value = tf.log_sigmoid(output)
+        #     pred_values = tf.unstack(pred_value, axis=1)
+        #     for i in xrange(self.decoder_length - 1, -1,-1):
+        #         rewards[i] = pred_values[i]
+        #         if i != (self.decoder_length - 1):
+        #             for j in xrange(i + 1, self.decoder_length):
+        #                 rewards[i] += np.power(self.gamma, (j - i)) * rewards[i]
         return output, rewards   
 
     def create_discriminator(self, fake_outputs, conditional_vectors):
