@@ -2,7 +2,7 @@ bs4
 requests
 lxml
 cherrypy
-pyspark
+#pyspark
 matplotlib
 sklearn
 scipy

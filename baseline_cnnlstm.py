@@ -131,7 +131,7 @@ class BaselineModel(object):
                 # last_dim = cnn_shape[-1] * cnn_shape[-2]
                 # last_dim = int(cnn_shape[-1]) / self.encoder_length
                 last_dim = int(cnn_shape[-1])
-                enc_data = tf.reshape(cnn, [self.batch_size, self.encoder_length, int(last_dim)])
+                enc_data = tf.reshape(cnn, [self.batch_size, self.encoder_length, last_dim])
                 # enc_data = tf.unstack(enc_data, axis=1)
             else:
                 enc_data = tf.reshape(enc, [self.batch_size, self.encoder_length, self.districts * self.encode_vector_size])

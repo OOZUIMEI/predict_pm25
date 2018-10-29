@@ -149,12 +149,8 @@ class MaskGan(BaselineModel):
         r_ = tf.squeeze(tf.stack(rewards, axis=1))
         advantages = tf.abs(r_)
         # fake_labels = tf.constant(1, shape=[self.batch_size, self.decoder_length])
-        if labels is not None:
-            loss_values = tf.losses.mean_squared_error(labels, outputs)
-        else:
-            loss_values = tf.log_sigmoid(fake_preds)
+        loss_values = tf.losses.mean_squared_error(labels, outputs)
         loss = tf.reduce_mean(tf.multiply(loss_values, tf.stop_gradient(advantages)))
-        tf.summary.scalar("gen_loss", loss)
         return loss
 
     # regular discriminator loss function

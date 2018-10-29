@@ -1,17 +1,21 @@
 from __future__ import print_function
 from __future__ import division
 
-import sys
-import copy
-import time
 import numpy as np
 import tensorflow as tf
 
 from mask_gan import MaskGan
 import properties as pr
-import utils
 import rnn_utils
 
+
+# https://github.com/soumith/ganhacks/issues/14
+# https://stats.stackexchange.com/questions/251279/why-discriminator-converges-to-1-2-in-generative-adversarial-networks
+# https://towardsdatascience.com/understanding-and-optimizing-gans-going-back-to-first-principles-e5df8835ae18
+# https://stackoverflow.com/questions/42690721/how-to-interpret-the-discriminators-loss-and-the-generators-loss-in-generative
+# https://www.inference.vc/instance-noise-a-trick-for-stabilising-gan-training/
+# flip labels
+# add noise to input & label
 
 class APGan(MaskGan):
 
@@ -32,9 +36,9 @@ class APGan(MaskGan):
     def inference(self, is_train=True):
         fake_outputs, conditional_vectors = self.create_generator(self.encoder_inputs, self.decoder_inputs, self.attention_inputs)
         if is_train:
-            fake_vals, fake_rewards, real_vals = self.create_discriminator(fake_outputs, conditional_vectors)
+            fake_vals, real_vals, fake_rewards = self.create_discriminator(fake_outputs, conditional_vectors)
             self.dis_loss = self.add_discriminator_loss(fake_vals, real_vals)
-            self.gen_loss = self.get_generator_loss(fake_vals, fake_outputs)
+            self.gen_loss = self.get_generator_loss(fake_vals, fake_outputs, fake_rewards)
             self.gen_op = self.train_generator(self.gen_loss)
             self.dis_op = self.train_discriminator(self.dis_loss)
         return fake_outputs
@@ -56,18 +60,25 @@ class APGan(MaskGan):
     
     def sample_z(self, x, y, z):
         return np.random.uniform(-1., 1., size=[x, y, z])
-      
-    def get_generator_loss(self, fake_preds, outputs):
+    
+    def get_generator_loss(self, fake_preds, outputs, fake_rewards=None):
         labels = tf.reshape(self.pred_placeholder, shape=(self.batch_size, self.decoder_length, self.grid_square))
-        gen_loss = self.add_generator_loss(fake_preds, outputs, labels)
+        gen_loss = self.add_generator_loss(fake_preds, outputs, labels, fake_rewards)
         return gen_loss
     
     # add generation loss
-    def add_generator_loss(self, fake_vals, outputs, labels):
-        mse_loss = tf.losses.mean_squared_error(labels, outputs)
-        sigmoid_loss = self.alpha * tf.log_sigmoid(fake_vals)
-        loss_values = mse_loss + sigmoid_loss
-        loss = tf.reduce_mean(loss_values)
+    # use log_sigmoid instead of log because fake_vals is w * x + b (not the probability value)
+    def add_generator_loss(self, fake_vals, outputs, labels, fake_rewards=None):
+        if not fake_rewards is None:
+            loss_values = tf.losses.mean_squared_error(labels, outputs)
+            advatages = tf.abs(fake_rewards)
+            loss = tf.reduce_mean(tf.multiply(loss_values, tf.stop_gradient(advatages)))
+        else:
+            mse_loss = tf.losses.mean_squared_error(labels, outputs)
+            sigmoid_loss = self.alpha * tf.log_sigmoid(fake_vals)
+             # normal lossmse + (-log(D(G)))
+            loss_values = mse_loss - sigmoid_loss
+            loss = tf.reduce_mean(loss_values)
         return loss
     
     # the conditional layer that concat all attention vectors => produces a single vector
@@ -95,7 +106,7 @@ class APGan(MaskGan):
             dec_inputs_vectors = tf.tile(dec_hidden_vectors, [1, self.decoder_length])
             dec_inputs_vectors = tf.reshape(dec_inputs_vectors, [pr.batch_size, self.rnn_hidden_units, self.decoder_length])
             dec_inputs_vectors = tf.transpose(dec_inputs_vectors, [0, 2, 1])
-            # dec_hidden_vectors with shape bs x 24 x 256
+            # dec_inputs_vectors with shape bs x 24 x 256: concatenation of conditional layer vector & uniform random 128D
             dec_inputs_vectors = tf.concat([dec_inputs_vectors, self.z], axis=2)
             dec_outputs = tf.layers.dense(dec_inputs_vectors, 256, name="generation_hidden_seed", activation=tf.nn.tanh)
             dec_outputs = tf.unstack(dec_outputs, axis=1)
@@ -109,23 +120,28 @@ class APGan(MaskGan):
             outputs = tf.reshape(outputs, [pr.batch_size, self.decoder_length, pr.grid_size * pr.grid_size])
         return outputs
 
-    def validate_output(self, inputs, conditional_vectors, is_fake=True):
+    # just decide whether an image is fake or real
+    # calculate the outpute validation of discriminator
+    # output is the value of a dense layer w * x + b
+    def validate_output(self, inputs, conditional_vectors, is_fake=False):
+        conditional_vectors = tf.reshape(conditional_vectors, [pr.batch_size * self.decoder_length, self.rnn_hidden_units])
         inputs = tf.reshape(inputs, [pr.batch_size * self.decoder_length, pr.grid_size, pr.grid_size, 1])
         inputs_rep = rnn_utils.get_cnn_rep(inputs, 3, tf.nn.leaky_relu, 8, self.use_batch_norm, self.dropout, False)
         inputs_rep = tf.layers.flatten(inputs_rep)
+        inputs_rep = tf.concat([inputs_rep, conditional_vectors], axis=1)
         output = tf.layers.dense(inputs_rep, 1, name="validation_value")
-        # reshape from bs * decoder_length x 1 => bs x  decoder_length
         output = tf.reshape(output, [pr.batch_size, self.decoder_length])
-        rewards = [None] * self.decoder_length
-        # if is_fake:
-        #     pred_value = tf.log_sigmoid(output)
-        #     pred_values = tf.unstack(pred_value, axis=1)
-        #     for i in xrange(self.decoder_length - 1, -1,-1):
-        #         rewards[i] = pred_value
-        #         if i != (self.decoder_length - 1):
-        #             for j in xrange(i + 1, self.decoder_length):
-        #                 rewards[i] += np.power(self.gamma, (j - i)) * rewards[i]
-        return output, rewards        
+        rewards = None
+        if is_fake:
+            rewards = [None] * self.decoder_length
+            pred_value = tf.log_sigmoid(output)
+            pred_values = tf.unstack(pred_value, axis=1)
+            for i in xrange(self.decoder_length - 1, -1,-1):
+                rewards[i] = pred_values[i]
+                if i != (self.decoder_length - 1):
+                    for j in xrange(i + 1, self.decoder_length):
+                        rewards[i] += np.power(self.gamma, (j - i)) * rewards[i]
+        return output, rewards   
 
     def create_discriminator(self, fake_outputs, conditional_vectors):
         with tf.variable_scope("discriminator", self.initializer, reuse=tf.AUTO_REUSE):
@@ -133,8 +149,7 @@ class APGan(MaskGan):
             real_inputs = self.pred_placeholder
             fake_val, fake_rewards = self.validate_output(fake_outputs, conditional_vectors)
             real_val, _ = self.validate_output(real_inputs, conditional_vectors)
-
-        return fake_val, fake_rewards, real_val
+        return fake_val, real_val, fake_rewards
 
     # operate in each interation of an epoch
     def iterate(self, session, ct, index, train, total_gen_loss, total_dis_loss):

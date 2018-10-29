@@ -24,9 +24,10 @@ from adain import Adain
 from stack_autoencoder import StackAutoEncoder
 from mask_gan import MaskGan
 from apgan import APGan
+from mask_gan_2 import MaskGan2
 import matplotlib
 import matplotlib.pyplot as plt
-from  spark_engine import SparkEngine
+# from  spark_engine import SparkEngine
 import district_neighbors as dd
 
 
@@ -174,7 +175,7 @@ def save_gan_preds(url_weight, preds):
         name_s = name.group(1)
     else: 
         name_s = url_weight
-    pr_s = shape[0] * pr.batch_size
+    pr_s = shape[0] * p.batch_size
     preds = np.reshape(preds, (pr_s, shape[-2], shape[-1]))
     utils.save_file("test_sp/%s" % name_s, preds)
 
@@ -201,12 +202,15 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
         if not is_test:
             print('==> starting training')
             train_f = train_writer
+            suffix = p.weight_saving_break
             for epoch in xrange(p.total_iteration):
                 _ = model.run_epoch(session, train, offset + epoch, train_f, train=True, verbose=False)
-                if epoch % 10 == 0:
-                    utils.update_progress((epoch + 1) * 1.0 / p.total_iteration)
-                    saver.save(session, 'weights/%s.weights' % url_weight)
-            saver.save(session, 'weights/%s.weights' % url_weight)
+                tmp_e = epoch + 1
+                if tmp_e % 100 == 0:
+                    suffix = math.ceil(float(tmp_e) / p.weight_saving_break)
+                    # utils.update_progress((epoch + 1) * 1.0 / p.total_iteration)
+                    saver.save(session, 'weights/%s_%i.weights' % (url_weight, suffix))
+            saver.save(session, 'weights/%s_%i.weights' % (url_weight, suffix))
         else:
             # saver.restore(session, url_weight)
             print('==> running model')
@@ -216,7 +220,8 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
 
 def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, decoder_length=24, decoder_size=4, grid_size=25, is_folder=False, is_test=False, restore=False):
     # model = MaskGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size, use_cnn=1)
-    model = APGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
+    # model = APGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
+    model = MaskGan2(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
     #dv = p.gpu_devices.split(",")
     dv=[1]
     tconfig = get_gpu_options()
