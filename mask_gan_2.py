@@ -71,10 +71,21 @@ class MaskGan2(APGan):
             real_val, _ = self.validate_output(real_inputs, conditional_vectors)
         return fake_val, real_val, fake_rewards
     
-    # regular discriminator loss function
+    # using wgan loss for discriminator
     def add_discriminator_loss(self, fake_preds, real_preds):
         dis_loss_fake = tf.reduce_mean(fake_preds)
         dis_loss_real = tf.reduce_mean(real_preds)
         dis_loss = dis_loss_fake - dis_loss_real
         tf.summary.scalar("dis_loss", dis_loss)
         return dis_loss
+
+    # rewrite discriminator training for wgan
+    def train_discriminator(self, loss):
+        with tf.name_scope("train_discriminator"):
+            dis_optimizer = tf.train.AdamOptimizer(self.learning_rate, self.beta1)
+            dis_vars = [v for v in tf.trainable_variables() if v.op.name.startswith("discriminator")]
+            dis_grads = tf.gradients(loss, dis_vars)
+            dis_train_op = dis_optimizer.apply_gradients(zip(dis_grads, dis_vars))
+            dis_grads = [p.assign(tf.clip_by_value(p, -0.01, 0.01)) for p in dis_vars]
+            dis_train_op  = tf.group(dis_train_op, dis_grads)
+            return dis_train_op
