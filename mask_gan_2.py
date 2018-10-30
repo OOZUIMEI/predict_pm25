@@ -70,3 +70,11 @@ class MaskGan2(APGan):
             fake_val, fake_rewards = self.validate_output(fake_outputs, conditional_vectors, self.use_rewards)
             real_val, _ = self.validate_output(real_inputs, conditional_vectors)
         return fake_val, real_val, fake_rewards
+    
+    # regular discriminator loss function
+    def add_discriminator_loss(self, fake_preds, real_preds):
+        dis_loss_fake = tf.reduce_mean(fake_preds)
+        dis_loss_real = tf.reduce_mean(real_preds)
+        dis_loss = dis_loss_fake - dis_loss_real
+        tf.summary.scalar("dis_loss", dis_loss)
+        return dis_loss

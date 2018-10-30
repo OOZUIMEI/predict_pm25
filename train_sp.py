@@ -6,6 +6,7 @@ index of N/A in one_hot feature 0,41,73,112,129,146
 import utils
 import tensorflow as tf
 import numpy as np
+import math
 import os
 import sys
 import time

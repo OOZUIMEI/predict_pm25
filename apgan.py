@@ -71,15 +71,16 @@ class APGan(MaskGan):
     def add_generator_loss(self, fake_vals, outputs, labels, fake_rewards=None):
         mse_loss = tf.losses.mean_squared_error(labels, outputs)
         if not fake_rewards is None:
-            print("Using combined loss function")
+            print("Using reinsforcement learning")
             advatages = tf.abs(fake_rewards)
             loss = tf.reduce_mean(tf.multiply(mse_loss, tf.stop_gradient(advatages)))
         else:
-            print("Using reinsforcement learning")
-            # sigmoid_loss = self.alpha * tf.log_sigmoid(fake_vals)
-            sigmoid_loss = self.alpha * tf.losses.sigmoid_cross_entropy(fake_vals, tf.constant(1., shape=[self.batch_size, self.decoder_length]))
-             # normal lossmse + (-log(D(G)))
+            print("Using combined loss function")
+            sigmoid_loss = self.alpha * tf.log_sigmoid(fake_vals)
+            # sigmoid_loss = self.alpha * tf.losses.sigmoid_cross_entropy(fake_vals, tf.constant(1., shape=[self.batch_size, self.decoder_length]))
+            # normal lossmse + (-log(D(G)))
             loss_values = mse_loss - sigmoid_loss
+            #loss_values = sigmoid_loss
             loss = tf.reduce_mean(loss_values)
         return loss
     
