@@ -14,7 +14,7 @@ class MaskGan2(APGan):
 
     def __init__(self, **kwargs):
         super(MaskGan2, self).__init__(**kwargs)
-        self.use_rewards = True
+        self.use_rewards = False
         
     #perform decoder to produce outputs of the generator
     def exe_decoder(self, dec_hidden_vectors):
