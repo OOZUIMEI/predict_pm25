@@ -45,8 +45,33 @@ python process_sp_vector.py -u vectors/spatiotemporal/china_combined/sp_seoul_te
 python process_sp_vector.py -u ~/Documents/datasets/spatio_temporal_ck/sample_seoul_bin -u1 ~/Documents/datasets/spatio_temporal_ck/sample_seoul_grid -t 1
 
 
-Train Spatiotemporal Seoul-China
-python train_sp.py -u vectors/spatiotemporal/sample_sp_grid -au vectors/spatiotemporal/china_combined/sp_china_test_bin -w "test_gan" -f 1 -e 15 -ds 9
+# Dataset description
+Input data
+- the original binary data have a shape "data_size x 15" (#vector_features~PM2.5, PM10, ...)
+- a grid is the visualized heat map of air pollution status that is an image with shape 25 x 25
+- by using converting function from original data to grid data, we get grid data with shape data_size x 25 x 25 x 15 
+- it's same for both test and train, only different in data_size
+- before running model, indices of sequences are generated which are 24 steps of encoding & 24 steps of decoding.
+- indices are used for looking up corresponding vectors from the dataset above (ds x 25 x 25 x 15)
+- then, running data will have a shape of 24 x 25 x 25 x 15 for both encoding and decoding phase
+- decoding data are stripped off 6 first elements (PM2.5, PM10, ...), which can be measured at the certain time, and only kept weather condition features => shape: 24 x 25 x 25 x 9
+- don't forget to mention batch_size dimension then the every tensor will have shape batch_size x 24 x 25 x 25 x ....
+
+Output prediction:
+- we generate 24 images ahead so outputs are tensors which shape are batch_size x 24 x 25 x 25
+
+In case of not using grid type training, we can remove 25 x 25 dimensions and replace it with 25 (#standing for the number of districts) 
+=> encoding: batch_size x 24 x 25 x 15
+=> decoding: batch_size x 24 x 25 x 9
+=> output: batch_size x 24 x 25
+
+
+# Training LSTM-CNN
+Training
+python train_sp.py -u vectors/sp_china_combined/seoul_1 -au vectors/sp_china_combined/china_1 -w gan_cuda_transcnn -m "CNN_LSTM" 
+Testesting
+python train_sp.py -u vectors/sp_china_combined/sp_seoul_test_grid -au vectors/sp_china_combined/sp_china_test_bin -w weights/gan_cuda.weights -rs 1 -t 1 -m "CNN_LSTM"
+
 
 # GAN Training and Testing
 Train GAN 
