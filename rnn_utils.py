@@ -274,6 +274,20 @@ def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8, use_b
     return cnn_outputs
 
 
+# get multiscale convolution output
+def get_multiscale_conv(inputs, filters, kernel=[7,5,3,1], activation=tf.nn.relu, is_trans=False, prefix="msf"):
+    convs = []
+    for k in kernel:
+        if not is_trans:
+            conv1 = get_cnn_unit(inputs, filters, (k, k), activation, "SAME", "%s_%ix%i" % (prefix, k,k), strides=(1,1))
+        else:
+            conv1 = get_cnn_transpose_unit(inputs, filters, (k, k), activation, "SAME", "%s_%ix%i" % (prefix, k,k), strides=(1,1))
+        convs.append(conv1)
+    conv_ = tf.concat(convs, axis=-1)
+    return conv_
+
+
+# get convolution output
 def get_cnn_unit(cnn_inputs, filters, kernel, activation=tf.nn.relu, padding="VALID", name="", use_batch_norm=False, dropout=0.0, strides=(2,2)):
     cnn_outputs = tf.layers.conv2d(
         inputs=cnn_inputs,
@@ -306,3 +320,4 @@ def get_cnn_transpose_unit(cnn_inputs, filters, kernel, activation=tf.nn.relu, p
     if use_batch_norm:
         cnn_outputs = tf.layers.batch_normalization(cnn_outputs, name=name + "_bn", fused=True)
     return cnn_outputs
+

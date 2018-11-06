@@ -79,6 +79,11 @@ python train_sp.py -u vectors/sp_china_combined/seoul_1 -au vectors/sp_china_com
 Test GAN
 python train_sp.py -u vectors/sp_china_combined/sp_seoul_test_grid -au vectors/sp_china_combined/sp_china_test_bin -w weights/gan_cuda.weights -rs 1 -t 1 -e 15 -ds 9
 
+# GAN training and testing with regular data (not grid)
+python train_sp.py -u vectors/sp_china_combined/sp_seoul_train_bin -au vectors/sp_china_combined/sp_china_train_bin -w cap 
+Test GAN
+python train_sp.py -u vectors/sp_china_combined/sp_seoul_test_grid -au vectors/sp_china_combined/sp_china_test_bin -w weights/*.weights -rs 1 -t 1
+
 
 # Neural nets
 Training:
