@@ -27,6 +27,13 @@ class CAPGan(APGan):
         self.encoder_length = 25
         self.decoder_length = 25
 
+    def set_data(self, datasets, train, valid, attention_vectors=None):
+        dtl = len(datasets)
+        self.datasets = datasets[dtl/2:]
+        self.train = train
+        self.valid = valid
+        self.attention_vectors = attention_vectors
+    
     # mapping input indices to dataset
     def lookup_input(self, enc, dec):
         enc = tf.nn.embedding_lookup(self.embedding, enc)
@@ -44,13 +51,15 @@ class CAPGan(APGan):
         msf1 = rnn_utils.get_multiscale_conv(feature_remap, 16, activation=activation, prefix="msf1")
         # input (64, 25, 25, 64) output (64, 11, 11, 64)
         msf1_down = rnn_utils.get_cnn_unit(msf1, 64, (5,5), activation, padding="VALID", name="down_sample_1")
-        # input (64, 11, 11, 64) output (64, 11, 11, 128)
-        msf2 = rnn_utils.get_multiscale_conv(msf1_down, 32, activation=activation, prefix="msf21")
-        msf2 = rnn_utils.get_multiscale_conv(msf2, 32, activation=activation, prefix="msf22")
-        msf2_down = rnn_utils.get_cnn_unit(msf2, 128, (5,5), activation, padding="VALID",name="down_sample_2")
-        msf3 = rnn_utils.get_multiscale_conv(msf2_down, 64, [5,3,1], activation, prefix="msf31")
-        msf3 = rnn_utils.get_multiscale_conv(msf3, 64, [5,3,1], activation, prefix="msf32")
-        msf3 = tf.layers.flatten(msf3)
+        # input (64, 11, 11, 64) output (64, 11, 11, 64)
+        msf2 = rnn_utils.get_multiscale_conv(msf1_down, 16, activation=activation, prefix="msf21")
+        # msf2 = rnn_utils.get_multiscale_conv(msf2, 32, activation=activation, prefix="msf22")
+        # input (64, 11, 11, 64) output (64, 3, 3, 64)
+        msf2_down = rnn_utils.get_cnn_unit(msf2, 64, (5,5), activation, padding="VALID",name="down_sample_2")
+        # input (64, 3, 3, 64) output (64, 3, 3, 64)
+        # msf3 = rnn_utils.get_multiscale_conv(msf2_down, , [5,3,1], activation, prefix="msf31")
+        # msf3 = rnn_utils.get_multiscale_conv(msf3, 64, [5,3,1], activation, prefix="msf32")
+        msf3 = tf.layers.flatten(msf2_down)
         hidden_output = tf.layers.dense(msf3, 256, tf.nn.tanh, name="hidden_1")
         hidden_output = tf.layers.dense(msf3, 128, tf.nn.tanh, name="hidden_2")
         return hidden_output
