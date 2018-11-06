@@ -225,6 +225,7 @@ class MaskGan(BaselineModel):
 
     # using stride to reduce the amount of data to loop over time intervals
     def run_epoch(self, session, data, num_epoch=0, train_writer=None, verbose=False, train=False, shuffle=True, stride=4):
+        st = time.time()
         dt_length = len(data)
         # print("data_size: ", dt_length)
         total_gen_loss = 0.0
@@ -256,6 +257,8 @@ class MaskGan(BaselineModel):
             summary.value.add(tag= "Generator Loss", simple_value=total_gen_loss)
             summary.value.add(tag= "Discriminator Loss", simple_value=total_dis_loss)
             train_writer.add_summary(summary, num_epoch)
+        dur = time.time() - st
+        #print("%.4f" % dur)
         return preds
 
     # reference from cifa_multiple_gpu code
