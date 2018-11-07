@@ -57,7 +57,7 @@ class CAPGan(APGan):
         msf2 = rnn_utils.get_multiscale_conv(msf1_down, 8, activation=activation, prefix="msf21")
         # msf2 = rnn_utils.get_multiscale_conv(msf2, 32, activation=activation, prefix="msf22")
         # input (64, 11, 11, 64) output (64, 3, 3, 64)
-        msf2_down = rnn_utils.get_cnn_unit(msf1_down, 32, (5,5), activation, padding="VALID",name="down_sample_2")
+        msf2_down = rnn_utils.get_cnn_unit(msf2, 32, (5,5), activation, padding="VALID",name="down_sample_2")
         # input (64, 3, 3, 64) output (64, 3, 3, 64)
         msf3 = rnn_utils.get_multiscale_conv(msf2_down, 8, [3,1], activation, prefix="msf31")
         msf3 = rnn_utils.get_multiscale_conv(msf3, 8, [3,1], activation, prefix="msf32")
