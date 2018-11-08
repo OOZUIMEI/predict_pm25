@@ -32,7 +32,7 @@ class APGan(MaskGan):
         self.gmtype = 3
         self.z_dim = [pr.batch_size, self.decoder_length, 128]
         self.z = tf.placeholder(tf.float32, shape=self.z_dim) 
-        self.flag = tf.placeholder(tf.int32)       
+        self.flag = tf.placeholder(tf.float32, shape=[self.batch_size, 1])       
 
     def inference(self, is_train=True):
         fake_outputs, conditional_vectors = self.create_generator(self.encoder_inputs, self.decoder_inputs, self.attention_inputs)
@@ -168,7 +168,7 @@ class APGan(MaskGan):
             self.encoder_inputs : ct_t,
             self.decoder_inputs: dec_t,
             self.z: self.sample_z(),
-            self.flag: np.random.randint(0, 1, 1)[0]
+            self.flag: np.asarray(float(x) for x in np.random.randint(0, 1, [pr.batch_size, 1]))
         }
         if self.use_attention:
             feed[self.attention_inputs] = np.asarray([range(int(x), int(x) + self.attention_length) for x in idx])
