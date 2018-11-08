@@ -26,8 +26,9 @@ class CAPGan(APGan):
         self.z = tf.placeholder(tf.float32, shape=self.z_dim)
         self.encoder_length = 25
         self.decoder_length = 25
+        self.attention_length = 72
         self.alpha = 0.0001
-        
+
 
     def set_data(self, datasets, train, valid, attention_vectors=None):
         dtl = len(datasets)
