@@ -27,6 +27,7 @@ class CAPGan(APGan):
         self.encoder_length = 25
         self.decoder_length = 25
         self.alpha = 0.0001
+        
 
     def set_data(self, datasets, train, valid, attention_vectors=None):
         dtl = len(datasets)
@@ -45,25 +46,32 @@ class CAPGan(APGan):
         dec = dec_f[:,:,:,self.df_ele:]
         dec.set_shape((self.batch_size, self.encoder_length, 25, self.decode_vector_size))
         self.pred_placeholder = dec_f[:,:,:,:2]
+        enc = self.normalize_abs_one(enc)
+        dec = self.normalize_abs_one(dec)
         return enc, dec
     
-    def add_msf_networks(self, inputs, activation=tf.nn.tanh):
+    def add_msf_networks(self, inputs, activation=tf.nn.tanh, is_dis=False):
         feature_remap = rnn_utils.get_cnn_unit(inputs, 32, (1,1), activation, padding="SAME", name="feature_remap", strides=(1,1))
         # input (64, 25, 25, 64) output (64, 25, 25, 64)
         msf1 = rnn_utils.get_multiscale_conv(feature_remap, 16, activation=activation, prefix="msf1")
         # input (64, 25, 25, 64) output (64, 11, 11, 64)
         msf1_down = rnn_utils.get_cnn_unit(msf1, 32, (5,5), activation, padding="VALID", name="down_sample_1")
         # input (64, 11, 11, 64) output (64, 11, 11, 64)
-        msf2 = rnn_utils.get_multiscale_conv(msf1_down, 8, activation=activation, prefix="msf21")
+        if not is_dis:
+            msf2 = rnn_utils.get_multiscale_conv(msf1_down, 8, activation=activation, prefix="msf21")
         # msf2 = rnn_utils.get_multiscale_conv(msf2, 32, activation=activation, prefix="msf22")
         # input (64, 11, 11, 64) output (64, 3, 3, 64)
         msf2_down = rnn_utils.get_cnn_unit(msf2, 32, (5,5), activation, padding="VALID",name="down_sample_2")
         # input (64, 3, 3, 64) output (64, 3, 3, 64)
-        msf3 = rnn_utils.get_multiscale_conv(msf2_down, 8, [3,1], activation, prefix="msf31")
-        msf3 = rnn_utils.get_multiscale_conv(msf3, 8, [3,1], activation, prefix="msf32")
-        msf3 = tf.layers.flatten(msf2_down)
+        if not is_dis:
+            msf3 = rnn_utils.get_multiscale_conv(msf2_down, 8, [3,1], activation, prefix="msf31")
+            # msf3 = rnn_utils.get_multiscale_conv(msf3, 8, [3,1], activation, prefix="msf32")
+            msf3 = tf.layers.flatten(msf3)
+        else:
+            msf3 = tf.layers.flatten(msf2_down)
         # hidden_output = tf.layers.dense(msf3, 256, tf.nn.tanh, name="hidden_1")
         hidden_output = tf.layers.dense(msf3, 128, tf.nn.tanh, name="hidden_2")
+        hidden_output = tf.nn.dropout(hidden_output, 0.5)
         return hidden_output
 
     def exe_encoder(self, enc):
@@ -96,7 +104,7 @@ class CAPGan(APGan):
             ups16 = rnn_utils.get_cnn_transpose_unit(ups8, 64, (5,5), name="up_scale2", strides=(2,2))
             ups32 = rnn_utils.get_cnn_transpose_unit(ups16, 32, (7,7), name="up_scale3", strides=(2,2))
             msf1 = rnn_utils.get_multiscale_conv(ups32, 16, prefix="decoder_msf")
-            cnn_outputs = rnn_utils.get_cnn_unit(msf1, 2, (8, 8), tf.nn.relu, "VALID", "cnn_gen_output", strides=(1,1))
+            cnn_outputs = rnn_utils.get_cnn_unit(msf1, 2, (8, 8), tf.nn.relu, "VALID", "cnn_gen_output", dropout=0.5, strides=(1,1))
             cnn_outputs = tf.tanh(cnn_outputs)
         return cnn_outputs
 
@@ -132,8 +140,12 @@ class CAPGan(APGan):
 
     # regular discriminator loss function
     def add_discriminator_loss(self, fake_preds, real_preds):
-        real_labels = tf.constant(0.9, shape=[self.batch_size, 1])
-        fake_labels = tf.zeros([self.batch_size, 1])
+        # real_labels = tf.constant(0.9, shape=[self.batch_size, 1])
+        # fake_labels = tf.zeros([self.batch_size, 1])
+        real_labels = np.random.uniform(0.8, 1., [self.batch_size, 1])
+        fake_labels = np.random.uniform(0., 0.2, [self.batch_size, 1])
+        if self.flag: 
+            real_labels, fake_labels = fake_labels, real_labels
         dis_loss_fake = tf.reduce_mean(tf.losses.sigmoid_cross_entropy(fake_labels, fake_preds))
         dis_loss_real = tf.reduce_mean(tf.losses.sigmoid_cross_entropy(real_labels, real_preds))
         dis_loss = dis_loss_real + dis_loss_fake
@@ -144,7 +156,7 @@ class CAPGan(APGan):
     # calculate the outpute validation of discriminator
     # output is the value of a dense layer w * x + b
     def validate_output(self, inputs, conditional_vectors):
-        hidden_output = self.add_msf_networks(inputs, tf.nn.leaky_relu)
+        hidden_output = self.add_msf_networks(inputs, tf.nn.leaky_relu, True)
         hidden_output = tf.concat([hidden_output, conditional_vectors], axis=1)
         output = tf.layers.dense(hidden_output, 1, name="validation_value")
         return output   
@@ -156,3 +168,8 @@ class CAPGan(APGan):
             fake_val = self.validate_output(fake_outputs, conditional_vectors)
             real_val = self.validate_output(real_inputs, conditional_vectors)
         return fake_val, real_val, None
+
+    # normalize inputs to [-1,1]
+    def normalize_abs_one(self, inputs):
+        inputs = (inputs - 0.5) * 2
+        return inputs

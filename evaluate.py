@@ -79,43 +79,60 @@ def evaluate_sp(url, url2, is_grid=True, grid_eval=True):
             lbg = lbt.flatten()
         pred_t = np.asarray(pred_t)
         pred_t = pred_t.flatten()
-        mse = mean_squared_error(lbg, pred_t)
-        loss_mae += mean_absolute_error(lbg, pred_t)
-        loss_rmse += sqrt(mse)
+        mae, mse = get_evaluation(pred_t, lbg)
+        loss_mae += mae
+        loss_rmse += mse
         utils.update_progress((i + 1.0) / dtl)
     loss_mae = loss_mae / lt * 300
-    loss_rmse = loss_rmse / lt * 300
+    loss_rmse = sqrt(loss_rmse / lt) * 300
     print("MAE: %.2f" % loss_mae)
     print("RMSE: %.2f" % loss_rmse)
 
 
-def evaluate_reg(url, url2, lags=24):
+# predict multiple dimension
+# pm2.5, pm10
+def evaluate_multi(url, url2, time_lags=24):
     preds = utils.load_file(url)
     preds = np.array(preds)
-    lt = preds.shape[0] * preds.shape[1]
-    preds = np.reshape(preds.flatten(), (lt, preds.shape[2], preds.shape[-1]))
+    st = 2050
+    preds = preds[st:,:,:,:]
+    lt = len(preds)
     labels = utils.load_file(url2)
     labels = np.array(labels)
 
-    loss_mae = 0.0
-    loss_rmse = 0.0
+    loss_mae0, loss_mae1 = 0.0, 0.0
+    loss_rmse0, loss_rmse1 = 0.0, 0.0
+    m = 0
     for i, d in enumerate(preds):
-        lb_i = i * 4 + 24
-        lbt = labels[lb_i:(lb_i+24),:,0]
-        if lags != 24:
-            d = d[:lags,:]
-            lbt = lbt[:lags,:]
-        lbg = np.array(lbt)
-        lbg = lbg.flatten()
-        pred_t = d.flatten()
-        mse = mean_squared_error(lbg, pred_t)
-        loss_mae += mean_absolute_error(lbg, pred_t)
-        loss_rmse += sqrt(mse)
+        lb_i = (st + i) * 4 + 25
+        mae0, mse0 = get_evaluation(d[:time_lags,:,0], labels[lb_i:(lb_i+time_lags),:,0])
+        mae1, mse1 = get_evaluation(d[:time_lags,:,1], labels[lb_i:(lb_i+time_lags),:,1])
+        loss_rmse0 += mse0 
+        loss_rmse1 += mse1
+        loss_mae0 += mae0
+        loss_mae1 += mae1
+        print(d[:time_lags,:,0])
+        if (mae0 * 300) < 30:
+            m += 1
+            # print("11",i)
+        break
+    loss_mae0 = loss_mae0 / lt * 300
+    loss_mae1 = loss_mae1 / lt * 300
+    loss_rmse0 = sqrt(loss_rmse0 / lt) * 300
+    loss_rmse1 = sqrt(loss_rmse1 / lt) * 300
+    print("MAE PM2.5: %.2f" % loss_mae0)
+    print("RMSE PM2.5: %.2f" % loss_rmse0)
+    print("MAE PM10: %.2f" % loss_mae1)
+    print("RMSE PM10: %.2f" % loss_rmse1)
+    print(m)
 
-    loss_mae = loss_mae / lt * 300
-    loss_rmse = loss_rmse / lt * 300
-    print("MAE: %.2f" % loss_mae)
-    print("RMSE: %.2f" % loss_rmse)
+def get_evaluation(pr, lb):
+    pr = pr.flatten()
+    lb = lb.flatten()
+    mse = mean_squared_error(pr, lb)
+    mae = mean_absolute_error(pr, lb)
+    return mae, mse
+
 
 
 if __name__ == "__main__":
@@ -136,4 +153,30 @@ if __name__ == "__main__":
         # Neural nets: MAE: 61.27 RMSE: 66.95
         evaluate_sp(args.url, args.url2, bool(args.grid), bool(args.grid_eval))
     else:
-        evaluate_reg(args.url, args.url2, args.time_lags)
+        # after 1200 epochs
+        # MAE PM2.5: 61.14
+        # RMSE PM2.5: 72.95
+        # MAE PM10: 31.79
+        # RMSE PM10: 38.19
+        
+        # after 600 epochs
+        # MAE PM2.5: 55.30
+        # RMSE PM2.5: 68.33
+        # MAE PM10: 29.06
+        # RMSE PM10: 35.72
+
+        # NONE china
+        # after 600 epoch 
+        # MAE PM2.5: 54.68
+        # RMSE PM2.5: 67.80
+        # MAE PM10: 29.03
+        # RMSE PM10: 35.60
+
+        # after 1200 epoch 
+        # MAE PM2.5: 54.95
+        # RMSE PM2.5: 67.96
+        # MAE PM10: 29.05
+        # RMSE PM10: 35.62
+
+        
+        evaluate_multi(args.url, args.url2)
