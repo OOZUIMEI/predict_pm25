@@ -52,7 +52,7 @@ class CAPGan(APGan):
         dec += noise2
         return enc, dec
     
-    def add_msf_networks(self, inputs, activation=tf.nn.tanh, is_dis=False):
+    def add_msf_networks(self, inputs, activation=tf.nn.relu, is_dis=False):
         feature_remap = rnn_utils.get_cnn_unit(inputs, 32, (1,1), activation, padding="SAME", name="feature_remap", strides=(1,1))
         # input (64, 25, 25, 64) output (64, 25, 25, 64)
         msf1 = rnn_utils.get_multiscale_conv(feature_remap, 16, activation=activation, prefix="msf1")
@@ -113,6 +113,7 @@ class CAPGan(APGan):
             # cnn_outputs = tf.tanh(cnn_outputs)
             cnn_outputs = tf.layers.flatten(cnn_outputs)
             cnn_outputs = tf.layers.dense(cnn_outputs, 625, name="final_hidden_layer", activation=tf.nn.tanh)
+            cnn_outputs = tf.reshape(cnn_outputs, [pr.batch_size, self.decoder_length, 25])
         return cnn_outputs
 
     # generate output images
