@@ -31,8 +31,7 @@ class APGan(MaskGan):
         self.lamda = 100
         self.gmtype = 3
         self.z_dim = [pr.batch_size, self.decoder_length, 128]
-        self.z = tf.placeholder(tf.float32, shape=self.z_dim) 
-        self.flag = tf.placeholder(tf.float32, shape=[self.batch_size, 1])       
+        self.z = tf.placeholder(tf.float32, shape=self.z_dim)    
 
     def inference(self, is_train=True):
         fake_outputs, conditional_vectors = self.create_generator(self.encoder_inputs, self.decoder_inputs, self.attention_inputs)
@@ -60,7 +59,7 @@ class APGan(MaskGan):
         return outputs, conditional_vectors
     
     def sample_z(self):
-        return np.random.normal(-1., 1., size=self.z_dim)
+        return np.random.uniform(-1., 1., size=self.z_dim)
         # return np.random.normal(0., 1., size=self.z_dim)
     
     def get_generator_loss(self, fake_preds, outputs, fake_rewards=None):
@@ -168,7 +167,7 @@ class APGan(MaskGan):
             self.encoder_inputs : ct_t,
             self.decoder_inputs: dec_t,
             self.z: self.sample_z(),
-            self.flag: np.asarray(float(x) for x in np.random.randint(0, 1, [pr.batch_size, 1]))
+            # self.flag: np.asarray(float(x) for x in np.random.randint(0, 1, [pr.batch_size, 1]))
         }
         if self.use_attention:
             feed[self.attention_inputs] = np.asarray([range(int(x), int(x) + self.attention_length) for x in idx])

@@ -9,13 +9,10 @@ import properties as pr
 import rnn_utils
 
 
-# https://github.com/soumith/ganhacks/issues/14
-# https://stats.stackexchange.com/questions/251279/why-discriminator-converges-to-1-2-in-generative-adversarial-networks
-# https://towardsdatascience.com/understanding-and-optimizing-gans-going-back-to-first-principles-e5df8835ae18
-# https://stackoverflow.com/questions/42690721/how-to-interpret-the-discriminators-loss-and-the-generators-loss-in-generative
-# https://www.inference.vc/instance-noise-a-trick-for-stabilising-gan-training/
+# https://medium.com/nanonets/how-to-use-deep-learning-when-you-have-limited-data-part-2-data-augmentation-c26971dc8ced
 # flip labels
 # add noise to input & label
+# transform inputs: flip_top_down, left_right, random_crop, translation, add gaussian noise
 
 class CAPGan(APGan):
 
@@ -27,8 +24,10 @@ class CAPGan(APGan):
         self.encoder_length = 25
         self.decoder_length = 25
         self.attention_length = 72
+        self.use_attention = False
         self.alpha = 0.0001
-
+        self.augment_configs = ["gaussian_noise", "flip_top_down", "flip_left_right", "random_crop"]
+        self.flag = tf.placeholder(tf.float32, shape=[self.batch_size, 1])
 
     def set_data(self, datasets, train, valid, attention_vectors=None):
         dtl = len(datasets)
@@ -46,9 +45,11 @@ class CAPGan(APGan):
         dec_f.set_shape((self.batch_size, self.encoder_length, 25, self.encode_vector_size))
         dec = dec_f[:,:,:,self.df_ele:]
         dec.set_shape((self.batch_size, self.encoder_length, 25, self.decode_vector_size))
-        self.pred_placeholder = dec_f[:,:,:,:2]
-        enc = self.normalize_abs_one(enc)
-        dec = self.normalize_abs_one(dec)
+        self.pred_placeholder = dec_f[:,:,:,0]
+        noise1 = tf.random_normal(shape=tf.shape(enc), mean=0., stddev=1.) / 100
+        noise2 = tf.random_normal(shape=tf.shape(dec), mean=0., stddev=1.) / 100
+        enc += noise1
+        dec += noise2
         return enc, dec
     
     def add_msf_networks(self, inputs, activation=tf.nn.tanh, is_dis=False):
@@ -60,6 +61,8 @@ class CAPGan(APGan):
         # input (64, 11, 11, 64) output (64, 11, 11, 64)
         if not is_dis:
             msf2 = rnn_utils.get_multiscale_conv(msf1_down, 8, activation=activation, prefix="msf21")
+        else: 
+            msf2 = msf1_down
         # msf2 = rnn_utils.get_multiscale_conv(msf2, 32, activation=activation, prefix="msf22")
         # input (64, 11, 11, 64) output (64, 3, 3, 64)
         msf2_down = rnn_utils.get_cnn_unit(msf2, 32, (5,5), activation, padding="VALID",name="down_sample_2")
@@ -95,18 +98,21 @@ class CAPGan(APGan):
             dec_hidden_vectors = tf.layers.dense(dec_input, self.rnn_hidden_units, name="conditional_layer", activation=tf.nn.tanh)
             return dec_hidden_vectors
     
-    #perform decoder to produce outputs of the generator
+    #perform dec  oder to produce outputs of the generator
     def exe_decoder(self, dec_hidden_vectors):
         with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             # dec_inputs_vectors with shape bs x 256: concatenation of conditional layer vector & uniform random 128D
             dec_inputs_vectors = tf.concat([dec_hidden_vectors, self.z], axis=1)
+            dec_inputs_vectors = tf.layers.dense(dec_hidden_vectors, 256, activation=tf.nn.tanh, name="input_hidden")
             dec_inputs_vectors = tf.reshape(dec_inputs_vectors, [pr.batch_size, 4, 4, 16])
             ups8 = rnn_utils.get_cnn_transpose_unit(dec_inputs_vectors, 128, (3,3), name="up_scale1", strides=(2,2))
             ups16 = rnn_utils.get_cnn_transpose_unit(ups8, 64, (5,5), name="up_scale2", strides=(2,2))
             ups32 = rnn_utils.get_cnn_transpose_unit(ups16, 32, (7,7), name="up_scale3", strides=(2,2))
             msf1 = rnn_utils.get_multiscale_conv(ups32, 16, prefix="decoder_msf")
-            cnn_outputs = rnn_utils.get_cnn_unit(msf1, 2, (8, 8), tf.nn.relu, "VALID", "cnn_gen_output", dropout=0.5, strides=(1,1))
-            cnn_outputs = tf.tanh(cnn_outputs)
+            cnn_outputs = rnn_utils.get_cnn_unit(msf1, 1, (8, 8), tf.nn.relu, "VALID", "cnn_gen_output", dropout=0.5, strides=(1,1))
+            # cnn_outputs = tf.tanh(cnn_outputs)
+            cnn_outputs = tf.layers.flatten(cnn_outputs)
+            cnn_outputs = tf.layers.dense(cnn_outputs, 625, name="final_hidden_layer", activation=tf.nn.tanh)
         return cnn_outputs
 
     # generate output images
@@ -118,8 +124,11 @@ class CAPGan(APGan):
             enc_outputs = self.exe_encoder(enc)
             # get decoder representation
             dec_outputs = self.get_decoder_representation(dec)
-            inputs = tf.nn.embedding_lookup(self.attention_embedding, att)
-            attention = self.get_attention_rep(inputs)
+            if self.use_attention:
+                inputs = tf.nn.embedding_lookup(self.attention_embedding, att)
+                attention = self.get_attention_rep(inputs)
+            else:
+                attention = None
             conditional_vectors = self.add_conditional_layer(dec_outputs, enc_outputs, attention)
             outputs = self.exe_decoder(conditional_vectors)
         return outputs, conditional_vectors
@@ -172,3 +181,34 @@ class CAPGan(APGan):
     def normalize_abs_one(self, inputs):
         inputs = (inputs - 0.5) * 2
         return inputs
+    
+    def sample_z(self):
+        norms = np.random.normal(0.25, 0.125, self.z_dim)
+        norms = self.normalize_abs_one(norms)
+        return norms
+    
+     # operate in each interation of an epoch
+    def iterate(self, session, ct, index, train, total_gen_loss, total_dis_loss):
+        # just the starting points of encoding batch_size,
+        idx = ct[index]
+        # switch batchsize, => batchsize * encoding_length (x -> x + 24)
+        ct_t = np.asarray([range(int(x), int(x) + self.encoder_length) for x in idx])
+        dec_t = ct_t + self.decoder_length
+
+        feed = {
+            self.encoder_inputs : ct_t,
+            self.decoder_inputs: dec_t,
+            self.z: self.sample_z(),
+            self.flag: np.asarray(float(x) for x in np.random.randint(0, 1, [pr.batch_size, 1]))
+        }
+        if self.use_attention:
+            feed[self.attention_inputs] = np.asarray([range(int(x), int(x) + self.attention_length) for x in idx])
+
+        if not train:
+            pred = session.run([self.outputs], feed_dict=feed)
+        else:
+            gen_loss, dis_loss, pred, _, _= session.run([self.gen_loss, self.dis_loss, self.outputs, self.gen_op, self.dis_op], feed_dict=feed)
+            total_gen_loss += gen_loss
+            total_dis_loss += dis_loss
+
+        return pred, total_gen_loss, total_dis_loss

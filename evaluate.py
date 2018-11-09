@@ -105,13 +105,14 @@ def evaluate_multi(url, url2, time_lags=24):
     m = 0
     for i, d in enumerate(preds):
         lb_i = (st + i) * 4 + 25
+        
         mae0, mse0 = get_evaluation(d[:time_lags,:,0], labels[lb_i:(lb_i+time_lags),:,0])
         mae1, mse1 = get_evaluation(d[:time_lags,:,1], labels[lb_i:(lb_i+time_lags),:,1])
         loss_rmse0 += mse0 
         loss_rmse1 += mse1
         loss_mae0 += mae0
         loss_mae1 += mae1
-        # print(d[:time_lags,:,0])
+        # print(d[:time_lags,:,0], labels[lb_i-25:(lb_i-25+time_lags),:,0])
         if (mae0 * 300) < 30:
             m += 1
             # print("11",i)
@@ -124,7 +125,14 @@ def evaluate_multi(url, url2, time_lags=24):
     print("RMSE PM2.5: %.2f" % loss_rmse0)
     print("MAE PM10: %.2f" % loss_mae1)
     print("RMSE PM10: %.2f" % loss_rmse1)
-    print(m)
+    labels0 = labels[:,:,0].flatten()
+    labels1 = labels[:,:,1].flatten()
+    std0 = np.std(labels0)
+    std1 = np.std(labels1)
+    m0 = np.mean(labels0)
+    m1 = np.mean(labels1)
+    print(m0, std0)
+    print(m1, std1)
 
 def get_evaluation(pr, lb):
     pr = pr.flatten()
@@ -153,30 +161,10 @@ if __name__ == "__main__":
         # Neural nets: MAE: 61.27 RMSE: 66.95
         evaluate_sp(args.url, args.url2, bool(args.grid), bool(args.grid_eval))
     else:
-        # after 1200 epochs
-        # MAE PM2.5: 61.14
-        # RMSE PM2.5: 72.95
-        # MAE PM10: 31.79
-        # RMSE PM10: 38.19
-        
-        # after 600 epochs
-        # MAE PM2.5: 55.30
-        # RMSE PM2.5: 68.33
-        # MAE PM10: 29.06
-        # RMSE PM10: 35.72
-
-        # NONE china
-        # after 600 epoch 
-        # MAE PM2.5: 54.68
-        # RMSE PM2.5: 67.80
-        # MAE PM10: 29.03
-        # RMSE PM10: 35.60
-
-        # after 1200 epoch 
-        # MAE PM2.5: 54.95
-        # RMSE PM2.5: 67.96
-        # MAE PM10: 29.05
-        # RMSE PM10: 35.62
-
-        
+        # train_data
+        # pm25: 0.24776679025820308, 0.11997866025609479
+        # pm10: 0.13238910415838293, 0.07497394009926399
+        # test data 
+        # (0.25498451500807523, 0.12531802770836317)
+        # (0.12908470683363008, 0.06754419659245953)
         evaluate_multi(args.url, args.url2)
