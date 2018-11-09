@@ -112,7 +112,9 @@ def get_gpu_options():
     if "gpu" in p.device:
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=p.gpu_fraction)
         os.environ["CUDA_VISIBLE_DEVICES"]=p.gpu_devices
-    configs = tf.ConfigProto(allow_soft_placement=True, gpu_options=gpu_options)
+    else:
+        device_count={"GPU":0}
+    configs = tf.ConfigProto(allow_soft_placement=True, gpu_options=gpu_options, device_count=device_count)
     return configs
 
 
@@ -126,7 +128,6 @@ def main(url_feature="", attention_url="", url_weight="sp", batch_size=128, enco
         init = tf.global_variables_initializer()
         saver = tf.train.Saver()
     utils.assert_url(url_feature)
-
     tconfig = get_gpu_options()
     sum_dir = 'summaries'
     if not utils.check_file(sum_dir):

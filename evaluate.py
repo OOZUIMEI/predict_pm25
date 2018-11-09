@@ -105,17 +105,17 @@ def evaluate_multi(url, url2, time_lags=24):
     m = 0
     for i, d in enumerate(preds):
         lb_i = (st + i) * 4 + 25
-        mae0, mse0 = get_evaluation(d[:time_lags,:], labels[lb_i:(lb_i+time_lags),:,0])
+        mae0, mse0 = get_evaluation(d[:time_lags,:]-0.125, labels[lb_i:(lb_i+time_lags),:,0])
         # mae1, mse1 = get_evaluation(d[:time_lags,:,1], labels[lb_i:(lb_i+time_lags),:,1])
         loss_rmse0 += mse0 
         # loss_rmse1 += mse1
         loss_mae0 += mae0
         # loss_mae1 += mae1
-        #print(d[:time_lags,:]*300, labels[lb_i-25:(lb_i-25+time_lags),:,0]*300)
+        # print(d[:time_lags,:]*300)
         if (mae0 * 300) < 30:
             m += 1
             # print("11",i)
-        #break
+        # break
     loss_mae0 = loss_mae0 / lt * 300
     loss_mae1 = loss_mae1 / lt * 300
     loss_rmse0 = sqrt(loss_rmse0 / lt) * 300
@@ -124,14 +124,14 @@ def evaluate_multi(url, url2, time_lags=24):
     print("RMSE PM2.5: %.2f" % loss_rmse0)
     print("MAE PM10: %.2f" % loss_mae1)
     print("RMSE PM10: %.2f" % loss_rmse1)
-    labels0 = labels[:,:,0].flatten()
-    labels1 = labels[:,:,1].flatten()
-    std0 = np.std(labels0)
-    std1 = np.std(labels1)
-    m0 = np.mean(labels0)
-    m1 = np.mean(labels1)
-    print(m0, std0)
-    print(m1, std1)
+    # labels0 = labels[:,:,0].flatten()
+    # labels1 = labels[:,:,1].flatten()
+    # std0 = np.std(labels0)
+    # std1 = np.std(labels1)
+    # m0 = np.mean(labels0)
+    # m1 = np.mean(labels1)
+    # print(m0, std0)
+    # print(m1, std1)
 
 def get_evaluation(pr, lb):
     pr = pr.flatten()
