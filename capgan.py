@@ -25,7 +25,7 @@ class CAPGan(APGan):
         self.decoder_length = 25
         self.attention_length = 72
         self.use_attention = False
-        self.alpha = 0.0001
+        self.alpha = 0.001
         self.augment_configs = ["gaussian_noise", "flip_top_down", "flip_left_right", "random_crop"]
         self.flag = tf.placeholder(tf.float32, shape=[self.batch_size, 1])
 
@@ -45,7 +45,7 @@ class CAPGan(APGan):
         dec_f.set_shape((self.batch_size, self.encoder_length, 25, self.encode_vector_size))
         dec = dec_f[:,:,:,self.df_ele:]
         dec.set_shape((self.batch_size, self.encoder_length, 25, self.decode_vector_size))
-        self.pred_placeholder = dec_f[:,:,:,0]
+        self.pred_placeholder = tf.reshape(dec_f[:,:,:,0], [pr.batch_size, self.decoder_length, 25, 1])
         noise1 = tf.random_normal(shape=tf.shape(enc), mean=0., stddev=1.) / 100
         noise2 = tf.random_normal(shape=tf.shape(dec), mean=0., stddev=1.) / 100
         enc += noise1
@@ -113,7 +113,8 @@ class CAPGan(APGan):
             # cnn_outputs = tf.tanh(cnn_outputs)
             cnn_outputs = tf.layers.flatten(cnn_outputs)
             cnn_outputs = tf.layers.dense(cnn_outputs, 625, name="final_hidden_layer", activation=tf.nn.tanh)
-            cnn_outputs = tf.reshape(cnn_outputs, [pr.batch_size, self.decoder_length, 25])
+            cnn_outputs = cnn_outputs / 2 + 0.5
+            cnn_outputs = tf.reshape(cnn_outputs, [pr.batch_size, self.decoder_length, 25, 1])
         return cnn_outputs
 
     # generate output images
@@ -200,7 +201,7 @@ class CAPGan(APGan):
             self.encoder_inputs : ct_t,
             self.decoder_inputs: dec_t,
             self.z: self.sample_z(),
-            self.flag: np.asarray(float(x) for x in np.random.randint(0, 1, [pr.batch_size, 1]))
+            self.flag: np.asarray(np.random.randint(0, 1, [pr.batch_size, 1]), dtype=np.float32)
         }
         if self.use_attention:
             feed[self.attention_inputs] = np.asarray([range(int(x), int(x) + self.attention_length) for x in idx])

@@ -94,8 +94,8 @@ def evaluate_sp(url, url2, is_grid=True, grid_eval=True):
 def evaluate_multi(url, url2, time_lags=24):
     preds = utils.load_file(url)
     preds = np.array(preds)
-    st = 0
-    preds = preds[st:,:,:,:]
+    st = 2050
+    preds = preds[st:,:,:]
     lt = len(preds)
     labels = utils.load_file(url2)
     labels = np.array(labels)
@@ -105,18 +105,17 @@ def evaluate_multi(url, url2, time_lags=24):
     m = 0
     for i, d in enumerate(preds):
         lb_i = (st + i) * 4 + 25
-        
-        mae0, mse0 = get_evaluation(d[:time_lags,:,0], labels[lb_i:(lb_i+time_lags),:,0])
-        mae1, mse1 = get_evaluation(d[:time_lags,:,1], labels[lb_i:(lb_i+time_lags),:,1])
+        mae0, mse0 = get_evaluation(d[:time_lags,:], labels[lb_i:(lb_i+time_lags),:,0])
+        # mae1, mse1 = get_evaluation(d[:time_lags,:,1], labels[lb_i:(lb_i+time_lags),:,1])
         loss_rmse0 += mse0 
-        loss_rmse1 += mse1
+        # loss_rmse1 += mse1
         loss_mae0 += mae0
-        loss_mae1 += mae1
-        # print(d[:time_lags,:,0], labels[lb_i-25:(lb_i-25+time_lags),:,0])
+        # loss_mae1 += mae1
+        print(d[:time_lags,:]*300, labels[lb_i-25:(lb_i-25+time_lags),:,0]*300)
         if (mae0 * 300) < 30:
             m += 1
             # print("11",i)
-        # break
+        break
     loss_mae0 = loss_mae0 / lt * 300
     loss_mae1 = loss_mae1 / lt * 300
     loss_rmse0 = sqrt(loss_rmse0 / lt) * 300

@@ -179,7 +179,7 @@ def save_gan_preds(url_weight, preds):
         name_s = url_weight
     pr_s = shape[0] * p.batch_size
     if shape[-1] == 1:
-        preds = np.reshape(preds, (pr_s, shape[-2], shape[-1]))
+        preds = np.reshape(preds, (pr_s, shape[-3], shape[-2]))
     else:
         preds = np.reshape(preds, (pr_s, shape[-3], shape[-2], shape[-1]))
     utils.save_file("test_sp/%s" % name_s, preds)
