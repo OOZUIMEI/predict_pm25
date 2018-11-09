@@ -25,7 +25,7 @@ class CAPGan(APGan):
         self.decoder_length = 25
         self.attention_length = 72
         self.use_attention = False
-        self.alpha = 0.001
+        self.alpha = 0.005
         self.augment_configs = ["gaussian_noise", "flip_top_down", "flip_left_right", "random_crop"]
         self.flag = tf.placeholder(tf.float32, shape=[self.batch_size, 1])
 
@@ -48,8 +48,8 @@ class CAPGan(APGan):
         self.pred_placeholder = tf.reshape(dec_f[:,:,:,0], [pr.batch_size, self.decoder_length, 25, 1])
         noise1 = tf.random_normal(shape=tf.shape(enc), mean=0., stddev=1.) / 100
         noise2 = tf.random_normal(shape=tf.shape(dec), mean=0., stddev=1.) / 100
-        enc += noise1
-        dec += noise2
+        #enc += noise1
+        #dec += noise2
         return enc, dec
     
     def add_msf_networks(self, inputs, activation=tf.nn.relu, is_dis=False):
@@ -112,8 +112,8 @@ class CAPGan(APGan):
             cnn_outputs = rnn_utils.get_cnn_unit(msf1, 1, (8, 8), tf.nn.relu, "VALID", "cnn_gen_output", dropout=0.5, strides=(1,1))
             # cnn_outputs = tf.tanh(cnn_outputs)
             cnn_outputs = tf.layers.flatten(cnn_outputs)
-            cnn_outputs = tf.layers.dense(cnn_outputs, 625, name="final_hidden_layer", activation=tf.nn.tanh)
-            cnn_outputs = cnn_outputs / 2 + 0.5
+            cnn_outputs = tf.layers.dense(cnn_outputs, 625, name="final_hidden_layer", activation=tf.nn.sigmoid)
+            # cnn_outputs = cnn_outputs / 2 + 0.5
             cnn_outputs = tf.reshape(cnn_outputs, [pr.batch_size, self.decoder_length, 25, 1])
         return cnn_outputs
 
@@ -184,10 +184,10 @@ class CAPGan(APGan):
         inputs = (inputs - 0.5) * 2
         return inputs
     
-    def sample_z(self):
-        norms = np.random.normal(0.25, 0.125, self.z_dim)
-        norms = self.normalize_abs_one(norms)
-        return norms
+    #def sample_z(self):
+    #    norms = np.random.normal(0.25, 0.125, self.z_dim)
+    #    norms = self.normalize_abs_one(norms)
+    #    return norms
     
      # operate in each interation of an epoch
     def iterate(self, session, ct, index, train, total_gen_loss, total_dis_loss):
