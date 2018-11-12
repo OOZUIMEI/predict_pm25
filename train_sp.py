@@ -391,7 +391,7 @@ def get_prediction_real_time(sparkEngine, url_weight="", dim=15):
     
 
 # call neural networks, stack autoencoder, or adain 
-def run_neural_nets(url_feature="", attention_url="", url_weight="sp", encoder_length=24, encoder_size=15, decoder_length=24, decoder_size=9, is_test=False, restore=False, model="NN", pre_train=False):
+def run_neural_nets(url_feature="", attention_url="", url_weight="sp", encoder_length=24, encoder_size=15, decoder_length=8, decoder_size=9, is_test=False, restore=False, model="NN", pre_train=False):
     if model == "NN":
         model = NeuralNetwork(encoder_length=encoder_length, encoder_vector_size=encoder_size, decoder_length=decoder_length, decoder_vector_size=decoder_size)
     elif model == "SAE":

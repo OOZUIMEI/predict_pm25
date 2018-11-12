@@ -19,14 +19,6 @@ class  Adain(NeuralNetwork):
         }
         self.dtype = "dis"
 
-    def lookup_input(self):
-        enc = tf.nn.embedding_lookup(self.embedding, self.encoder_inputs)
-        enc.set_shape((pr.batch_size, self.encoder_length, 25, self.encoder_vector_size))
-        dec_f = tf.nn.embedding_lookup(self.embedding, self.decoder_inputs)
-        dec_f.set_shape((pr.batch_size, self.encoder_length, 25, self.encoder_vector_size))
-        self.pred_placeholder = dec_f[:,7,:,0]
-        return enc
-
     def inference(self):
         enc = self.lookup_input()        
         with tf.variable_scope("encoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):

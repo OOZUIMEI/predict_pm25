@@ -31,19 +31,18 @@ class StackAutoEncoder(Adain):
         self.train_ae_2 = train_ae_2
 
         with tf.variable_scope("prediction_layer", initializer=self.initializer, reuse=tf.AUTO_REUSE):
-            outputs = self.add_single_net(output_ae_2, self.decoder_length * 25, tf.nn.sigmoid, "prediction_sigmoid")
-            outputs = tf.reshape(outputs, shape=(pr.batch_size, self.decoder_length, 25))
+            outputs = self.add_single_net(output_ae_2, 25, tf.nn.sigmoid, "prediction_sigmoid")
+            outputs = tf.reshape(outputs, shape=(pr.batch_size, 25))
             
         return outputs
     
     # lookup input's vectors from datasets
     def process_inputs(self):
-        enc, _, _ = self.lookup_input()
+        enc = self.lookup_input()
         enc = tf.gather(enc, range(self.encoder_length - self.time_intervals, self.encoder_length), axis=1)
         # enc: b x 8 x 25 x H
         enc = tf.transpose(enc, [0, 2, 1, 3])
         enc = tf.layers.flatten(enc, name="encoder_flatten") # B X D
-
         return enc
 
     # build stack autoencoder netoworkds
@@ -89,14 +88,13 @@ class StackAutoEncoder(Adain):
                 for step in xrange(total_steps/2, total_steps):
                     index = range(step * cons_b, (step + 1) * cons_b, stride)
                     # just the starting points of encoding batch_size,
-                    ct_t = ct[index]
-                    ct_t = np.asarray([range(int(x), int(x) + self.encoder_length) for x in ct_t])
-                    dec_t = ct_t + self.decoder_length
+                    ct_ = ct[index]
+                    ct_t = np.asarray([range(int(x), int(x) + self.encoder_length) for x in ct_])
+                    dec_t = np.asarray([range(int(x) + self.encoder_length, int(x) + self.encoder_length + self.decoder_length) for x in ct_])
 
                     feed = {
                         self.encoder_inputs : ct_t,
-                        self.decoder_inputs: dec_t,
-                        self.attention_inputs: ct_t
+                        self.decoder_inputs: dec_t
                     }
                     session.run([self.train_ae_0, self.train_ae_1, self.train_ae_2], feed_dict=feed)
 
@@ -104,14 +102,13 @@ class StackAutoEncoder(Adain):
         for step in xrange(total_steps):
             index = range(step * cons_b, (step + 1) * cons_b, stride)
             # just the starting points of encoding batch_size,
-            ct_t = ct[index]
-            ct_t = np.asarray([range(int(x), int(x) + self.encoder_length) for x in ct_t])
-            dec_t = ct_t + self.decoder_length
+            ct_ = ct[index]
+            ct_t = np.asarray([range(int(x), int(x) + self.encoder_length) for x in ct_])
+            dec_t = np.asarray([range(int(x) + self.encoder_length, int(x) + self.encoder_length + self.decoder_length) for x in ct_])
 
             feed = {
                 self.encoder_inputs : ct_t,
-                self.decoder_inputs: dec_t,
-                self.attention_inputs: ct_t
+                self.decoder_inputs: dec_t
             }
             
             l, pred, _= session.run([self.loss, self.output, train_op], feed_dict=feed)

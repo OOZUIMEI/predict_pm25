@@ -7,6 +7,7 @@ import  utils
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 
+# old eval
 def evaluate(pred, labs, rg, is_classify=False, verbose=True):
     l = len(pred)
     if is_classify:
@@ -35,22 +36,19 @@ def evaluate(pred, labs, rg, is_classify=False, verbose=True):
 
 
 # evaluate grid training
-def evaluate_sp(url, url2, is_grid=True, grid_eval=True):
+def evaluate_sp(url, url2, is_grid=False, grid_eval=False, decoder_length=8):
     map_ = heatmap.build_map()
     data = utils.load_file(url)
     if type(data) is list:
         data = np.asarray(data)
-    if len(data.shape) == 4:
-        lt = data.shape[0] * data.shape[1]
-    else:
-        lt = data.shape[0]
+    lt = data.shape[0] * data.shape[1]
     if is_grid:
         data = np.reshape(data, (lt, data.shape[-2], 25, 25))
     else:
         data = np.reshape(data, (lt, data.shape[-2], 25))
+    dtl = len(data)
     labels = utils.load_file(url2)
     labels = np.asarray(labels)
-    dtl = len(data)
     loss_mae = 0.0
     loss_rmse = 0.0
     for i, d in enumerate(data):
@@ -66,8 +64,8 @@ def evaluate_sp(url, url2, is_grid=True, grid_eval=True):
                     pred_t.append(d_t)
             else:
                 pred_t = d
-        lb_i = i * 4 + 24
-        lbt = labels[lb_i:(lb_i+24),:,1]
+        lb_i = i * 4 + decoder_length
+        lbt = labels[lb_i:(lb_i+decoder_length),:,1]
         if grid_eval:
             lbg = []
             for x in lbt:
@@ -79,6 +77,33 @@ def evaluate_sp(url, url2, is_grid=True, grid_eval=True):
             lbg = lbt.flatten()
         pred_t = np.asarray(pred_t)
         pred_t = pred_t.flatten()
+        mae, mse = get_evaluation(pred_t, lbg)
+        loss_mae += mae
+        loss_rmse += mse
+        utils.update_progress((i + 1.0) / dtl)
+    loss_mae = loss_mae / lt * 300
+    loss_rmse = sqrt(loss_rmse / lt) * 300
+    print("MAE: %.2f" % loss_mae)
+    print("RMSE: %.2f" % loss_rmse)
+
+
+# evaluate grid training
+def evaluate_single_pred(url, url2, decoder_length=8):
+    data = utils.load_file(url)
+    if type(data) is list:
+        data = np.asarray(data)
+    lt = data.shape[0] * data.shape[1]
+    data = np.reshape(data, (lt, 25))
+    dtl = len(data)
+    labels = utils.load_file(url2)
+    labels = np.asarray(labels)
+    loss_mae = 0.0
+    loss_rmse = 0.0
+    for i, d in enumerate(data):
+        pred_t = np.asarray(d).flatten()
+        lb_i = i * 4 + decoder_length
+        lbt = labels[lb_i:(lb_i+decoder_length),:,1]
+        lbg = lbt[decoder_length - 1,:].flatten()
         mae, mse = get_evaluation(pred_t, lbg)
         loss_mae += mae
         loss_rmse += mse
@@ -105,7 +130,7 @@ def evaluate_multi(url, url2, time_lags=24):
     m = 0
     for i, d in enumerate(preds):
         lb_i = (st + i) * 4 + 25
-        mae0, mse0 = get_evaluation(d[:time_lags,:]-0.125, labels[lb_i:(lb_i+time_lags),:,0])
+        mae0, mse0 = get_evaluation(d[:time_lags,:], labels[lb_i:(lb_i+time_lags),:,0])
         # mae1, mse1 = get_evaluation(d[:time_lags,:,1], labels[lb_i:(lb_i+time_lags),:,1])
         loss_rmse0 += mse0 
         # loss_rmse1 += mse1
@@ -155,10 +180,13 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     if args.task == 0:
-        # ADAIN: MAE: 75.96 RMSE: 79.24
+        # ADAIN 8h: MAE: 
         # SAE MAE: 78.66 RMSE: 89.31
-        # Neural nets: MAE: 61.27 RMSE: 66.95
+        # Neural nets 8h: MAE: 38.66 RMSE: 45.67
+        # MAE PM2.5: 32.47 RMSE PM2.5: 43.5
         evaluate_sp(args.url, args.url2, bool(args.grid), bool(args.grid_eval))
+    elif args.task == 1:
+        evaluate_single_pred(args.url, args.url2)
     else:
         # train_data
         # pm25: 0.24776679025820308, 0.11997866025609479
