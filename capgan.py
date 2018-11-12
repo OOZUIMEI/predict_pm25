@@ -46,8 +46,8 @@ class CAPGan(APGan):
         dec = dec_f[:,:,:,self.df_ele:]
         dec.set_shape((self.batch_size, self.encoder_length, 25, self.decode_vector_size))
         self.pred_placeholder = tf.reshape(dec_f[:,:,:,0], [pr.batch_size, self.decoder_length, 25, 1])
-        noise1 = tf.random_normal(shape=tf.shape(enc), mean=0., stddev=1.) / 100
-        noise2 = tf.random_normal(shape=tf.shape(dec), mean=0., stddev=1.) / 100
+        #noise1 = tf.random_normal(shape=tf.shape(enc), mean=0., stddev=1.) / 100
+        #noise2 = tf.random_normal(shape=tf.shape(dec), mean=0., stddev=1.) / 100
         #enc += noise1
         #dec += noise2
         return enc, dec
@@ -184,10 +184,10 @@ class CAPGan(APGan):
         inputs = (inputs - 0.5) * 2
         return inputs
     
-    #def sample_z(self):
-    #    norms = np.random.normal(0.25, 0.125, self.z_dim)
-    #    norms = self.normalize_abs_one(norms)
-    #    return norms
+    def sample_z(self):
+        norms = np.random.normal(0.25, 0.125, self.z_dim)
+        norms = self.normalize_abs_one(norms)
+        return norms
     
      # operate in each interation of an epoch
     def iterate(self, session, ct, index, train, total_gen_loss, total_dis_loss):
