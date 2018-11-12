@@ -109,6 +109,7 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
 
 def get_gpu_options():
     gpu_options = None
+    device_count = None
     if "gpu" in p.device:
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=p.gpu_fraction)
         os.environ["CUDA_VISIBLE_DEVICES"]=p.gpu_devices

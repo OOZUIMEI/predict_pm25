@@ -181,7 +181,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.task == 0:
         # ADAIN 8h: MAE: 
-        # SAE MAE: 78.66 RMSE: 89.31
+        # SAE MAE 8h: MAE: 39.32 RMSE: 44.17
         # Neural nets 8h: MAE: 38.66 RMSE: 45.67
         # MAE PM2.5: 32.47 RMSE PM2.5: 43.5
         evaluate_sp(args.url, args.url2, bool(args.grid), bool(args.grid_eval))

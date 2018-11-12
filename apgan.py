@@ -31,7 +31,8 @@ class APGan(MaskGan):
         self.lamda = 100
         self.gmtype = 3
         self.z_dim = [pr.batch_size, self.decoder_length, 128]
-        self.z = tf.placeholder(tf.float32, shape=self.z_dim)    
+        self.z = tf.placeholder(tf.float32, shape=self.z_dim)   
+        self.flag = tf.placeholder(tf.float32, shape=[self.batch_size, 1]) 
 
     def inference(self, is_train=True):
         fake_outputs, conditional_vectors = self.create_generator(self.encoder_inputs, self.decoder_inputs, self.attention_inputs)
@@ -155,6 +156,18 @@ class APGan(MaskGan):
             real_val, _ = self.validate_output(real_inputs, conditional_vectors)
         return fake_val, real_val, fake_rewards
 
+    # regular discriminator loss function
+    def add_discriminator_loss(self, fake_preds, real_preds):
+        # real_labels = tf.constant(0.9, shape=[self.batch_size, 1])
+        # fake_labels = tf.zeros([self.batch_size, 1])
+        real_labels = np.absolute(self.flag - np.random.uniform(0.8, 1., [self.batch_size, 1]))
+        fake_labels = np.absolute(self.flag - np.random.uniform(0., 0.2, [self.batch_size, 1]))
+        dis_loss_fake = tf.reduce_mean(tf.losses.sigmoid_cross_entropy(fake_labels, fake_preds))
+        dis_loss_real = tf.reduce_mean(tf.losses.sigmoid_cross_entropy(real_labels, real_preds))
+        dis_loss = dis_loss_real + dis_loss_fake
+        tf.summary.scalar("dis_loss", dis_loss)
+        return dis_loss
+    
     # operate in each interation of an epoch
     def iterate(self, session, ct, index, train, total_gen_loss, total_dis_loss):
         # just the starting points of encoding batch_size,
@@ -167,7 +180,7 @@ class APGan(MaskGan):
             self.encoder_inputs : ct_t,
             self.decoder_inputs: dec_t,
             self.z: self.sample_z(),
-            # self.flag: np.asarray(float(x) for x in np.random.randint(0, 1, [pr.batch_size, 1]))
+            self.flag: np.asarray(np.random.randint(0, 1, [pr.batch_size, 1]), dtype=np.float32)
         }
         if self.use_attention:
             feed[self.attention_inputs] = np.asarray([range(int(x), int(x) + self.attention_length) for x in idx])

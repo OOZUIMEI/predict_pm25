@@ -113,7 +113,7 @@ python train_sp.py -u vectors/sp_china_combined/sp_seoul_test_bin  -w weights/ad
 
 
 #SAE
-python train_sp.py -u vectors/sp_china_combined/sp_seoul_train_bin -w sae -m "SAE" -p 1
+python train_sp.py -u vectors/sp_china_combined/sp_seoul_train_bin -w sae -m "SAE" -p 1 -dl 8 
 
 
 # start visualization server

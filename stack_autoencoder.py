@@ -69,8 +69,6 @@ class StackAutoEncoder(Adain):
     
     # operation of each epoch
     def run_epoch(self, session, data, num_epoch=0, train_writer=None, train_op=None, verbose=True, train=False, shuffle=True, stride=4):
-        if train_op is None:
-            train_op = tf.no_op()
         dt_length = len(data)
         # print("data_size: ", dt_length)
         cons_b = pr.batch_size * stride
@@ -81,8 +79,10 @@ class StackAutoEncoder(Adain):
             r = np.random.permutation(dt_length)
             ct = ct[r]
         preds = []
-        # pretrain if needed
-        if self.pre_train:
+        if train_op is None:
+            train_op = tf.no_op()
+        elif self.pre_train:
+            # pretrain if needed
             # only pretrain with the second half of data
             for pr_i in xrange(self.pre_train_iter):
                 for step in xrange(total_steps/2, total_steps):
