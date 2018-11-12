@@ -24,13 +24,13 @@ class  Adain(NeuralNetwork):
         enc, _, china_att = self.lookup_input()
         self.lstm_cell = "cudnn_lstm"
         # first represent china as a vectors
-        with tf.variable_scope("china_attention", initializer=self.initializer, reuse=tf.AUTO_REUSE):
-            china_att_rep = self.get_attention_rep(china_att, self.attention_length, self.params["fw_cell"], self.params["fw_cell_size"])
-            att_shape = china_att_rep.get_shape()
-            china_att_out = tf.reshape(tf.tile(china_att_rep, [1, self.encoder_length * 25]), shape=(att_shape[0], self.encoder_length, 25, att_shape[-1]))
+        # with tf.variable_scope("china_attention", initializer=self.initializer, reuse=tf.AUTO_REUSE):
+        #     china_att_rep = self.get_attention_rep(china_att, self.attention_length, self.params["fw_cell"], self.params["fw_cell_size"])
+        #     att_shape = china_att_rep.get_shape()
+        #     china_att_out = tf.reshape(tf.tile(china_att_rep, [1, self.encoder_length * 25]), shape=(att_shape[0], self.encoder_length, 25, att_shape[-1]))
 
-        enc_inputs = tf.concat([enc, china_att_out], axis=3)
-        enc_inputs = tf.transpose(enc_inputs, [0, 2, 1, 3])
+        # enc_inputs = tf.concat([enc, china_att_out], axis=3)
+        enc_inputs = tf.transpose(enc, [0, 2, 1, 3])
         
         with tf.variable_scope("encoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             # feed data stations to a single net then concat with lstm layers
