@@ -19,19 +19,16 @@ class  Adain(NeuralNetwork):
         }
         self.dtype = "dis"
 
-    def inference(self):
-        
-        enc, _, china_att = self.lookup_input()
-        self.lstm_cell = "cudnn_lstm"
-        # first represent china as a vectors
-        # with tf.variable_scope("china_attention", initializer=self.initializer, reuse=tf.AUTO_REUSE):
-        #     china_att_rep = self.get_attention_rep(china_att, self.attention_length, self.params["fw_cell"], self.params["fw_cell_size"])
-        #     att_shape = china_att_rep.get_shape()
-        #     china_att_out = tf.reshape(tf.tile(china_att_rep, [1, self.encoder_length * 25]), shape=(att_shape[0], self.encoder_length, 25, att_shape[-1]))
+    def lookup_input(self):
+        enc = tf.nn.embedding_lookup(self.embedding, self.encoder_inputs)
+        enc.set_shape((pr.batch_size, self.encoder_length, 25, self.encoder_vector_size))
+        dec_f = tf.nn.embedding_lookup(self.embedding, self.decoder_inputs)
+        dec_f.set_shape((pr.batch_size, self.encoder_length, 25, self.encoder_vector_size))
+        self.pred_placeholder = dec_f[:,7,:,0]
+        return enc
 
-        # enc_inputs = tf.concat([enc, china_att_out], axis=3)
-        enc_inputs = tf.transpose(enc, [0, 2, 1, 3])
-        
+    def inference(self):
+        enc = self.lookup_input()        
         with tf.variable_scope("encoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             # feed data stations to a single net then concat with lstm layers
             # feed outputs to double net
@@ -62,7 +59,7 @@ class  Adain(NeuralNetwork):
                 attention_vectors = tf.reduce_sum(attention_vectors, axis=1)
                 current = tf.concat([current, attention_vectors], axis=1)
                 with tf.name_scope("prediction_%i" % x):
-                    pred = tf.layers.dense(current, units=self.decoder_length, activation=tf.nn.sigmoid, name="predictions")
+                    pred = tf.layers.dense(current, units=1, activation=tf.nn.sigmoid, name="predictions")
                     pred = tf.layers.dropout(pred, self.dropout_placeholder)
                     tf.get_variable_scope().reuse_variables()
                 outputs.append(pred)

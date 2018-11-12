@@ -430,6 +430,9 @@ def run_neural_nets(url_feature="", attention_url="", url_weight="sp", encoder_l
         if dataset:
             dataset = np.asarray(dataset, dtype=np.float32)
             lt = len(dataset)
+            st = int(lt/2)
+            lt = lt - st
+            dataset = dataset[st:,:,:]
             train, valid = utils.process_data_grid(lt, p.batch_size, encoder_length, decoder_length, is_test)
             if attention_url:
                 attention_data = utils.load_file(attention_url)
