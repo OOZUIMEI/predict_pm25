@@ -79,7 +79,7 @@ python train_sp.py -u vectors/sp_china_combined/seoul_1 -au vectors/sp_china_com
 Test GAN
 python train_sp.py -u vectors/sp_china_combined/sp_seoul_test_grid -au vectors/sp_china_combined/sp_china_test_bin -w weights/gan_cuda.weights -rs 1 -t 1 -e 15 -ds 9
 
-# GAN training and testing with regular data (not grid)
+# CAPGAN - GAN training and testing with regular data (not grid)
 python train_sp.py -u vectors/sp_china_combined/sp_seoul_train_bin -au vectors/sp_china_combined/sp_china_train_bin -w cap 
 Test GAN
 python train_sp.py -u vectors/sp_china_combined/sp_seoul_test_grid -au vectors/sp_china_combined/sp_china_test_bin -w weights/*.weights -rs 1 -t 1
@@ -91,7 +91,7 @@ python train_sp.py -u vectors/sp_china_combined/sp_seoul_train_bin -au vectors/s
 Testing
 python train_sp.py -u vectors/sp_china_combined/sp_seoul_test_bin -au vectors/sp_china_combined/sp_china_test_bin  -w weights/lstm_only.weights -m "CNN_LSTM" -cnn 0 -dt "dis" -t 1
 
-# LSTM with grid
+# LSTM with gridvi 
 Training 
 python train_sp.py -u vectors/sp_china_combined/seoul_1 -au vectors/sp_china_combined/china_1  -w lstm_only_grid -m "CNN_LSTM" -cnn 0 -l mse
 Testing

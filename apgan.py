@@ -147,7 +147,8 @@ class APGan(MaskGan):
         #         rewards[i] = pred_values[i]
         #         if i != (self.decoder_length - 1):
         #             for j in xrange(i + 1, self.decoder_length):
-        #                 rewards[i] += np.power(self.gamma, (j - i)) * rewards[i]
+        #                 rewards[i] += np.power(self.gamma, (j - i)) * rew
+        # ards[i]
         return output, rewards   
 
     def create_discriminator(self, fake_outputs, conditional_vectors):

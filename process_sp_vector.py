@@ -138,6 +138,35 @@ def convert_data_to_grid(url, out_url, url_att="", out_url_att="", part=1):
         utils.save_file(att_out_url_name, att_part)
 
 
+# hour: [0,8759], 
+# day: [0,364]
+def convert_transport_data(url):
+    print("Converting: %s" % url)
+    name = url.split("/")[-1]
+    name = name.split(".")[0]
+    data = utils.load_file(url, False)
+    year_length = (int(data[-1].rstrip("\n").split(",")[-1]) + 1) * 24
+    days = [[0] * 1024] * year_length
+    old_h = -1
+    old_d = -1
+    one_hour = []
+    for x in data[1:]:
+        rows = x.rstrip("\n").split(",")
+        d = int(rows[-1])
+        h = int(rows[-2]) % 24
+        idx = int(rows[1])
+        if old_h != h:
+            if old_h != -1:
+                days[old_d*24 + old_h] = one_hour
+            one_hour = [0]  * 1024
+        if idx < 1024:
+            one_hour[idx] = float(rows[2])
+        old_h = h
+        old_d = d
+    days[old_d*24 + old_h] = one_hour
+    utils.save_file("vectors/transportation/%s.pkl" % name, days)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-p", "--prefix", help="prefix to fix")
@@ -153,9 +182,10 @@ if __name__ == "__main__":
 
     if args.task == 0:
         parse_vector(args.url, args.url1, args.dim)
-    else:
+    elif args.task == 1:
         convert_data_to_grid(args.url, args.url1, args.aurl, args.aurl1, args.part)
-        
+    else:
+        convert_transport_data(args.url)
 
 
 
