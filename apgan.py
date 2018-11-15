@@ -22,7 +22,7 @@ class APGan(MaskGan):
     def __init__(self, **kwargs):
         super(APGan, self).__init__(**kwargs)
         # alpha is used for generator loss function
-        self.alpha = 0.01
+        self.alpha = 0.005
         self.use_gen_cnn = True
         self.dropout = 0.0
         self.use_batch_norm = False
@@ -118,11 +118,13 @@ class APGan(MaskGan):
             gen_outputs = []
             for d in dec_outputs:
                 d_ = tf.reshape(d, [pr.batch_size, 4, 4, 16])
-                out = rnn_utils.get_cnn_rep(d_, 2, tf.nn.relu, 8, self.use_batch_norm, self.dropout, False)
+                out = rnn_utils.get_cnn_rep(d_, 2, tf.nn.relu, 8, self.use_batch_norm, 0.5, False)
                 gen_outputs.append(out)
             outputs = tf.stack(gen_outputs, axis=1)
             outputs = tf.tanh(tf.layers.flatten(outputs))
             outputs = tf.reshape(outputs, [pr.batch_size, self.decoder_length, pr.grid_size * pr.grid_size])
+            #outputs = tf.layers.dense(outputs, 625, activation=tf.nn.sigmoid, name="final_hidden_layer")
+            #outputs = tf.nn.dropout(outputs, 0.5)
         return outputs
 
     # just decide whether an image is fake or real
@@ -160,8 +162,8 @@ class APGan(MaskGan):
     def add_discriminator_loss(self, fake_preds, real_preds):
         # real_labels = tf.constant(0.9, shape=[self.batch_size, 1])
         # fake_labels = tf.zeros([self.batch_size, 1])
-        real_labels = np.absolute(self.flag - np.random.uniform(0.8, 1., [self.batch_size, 1]))
-        fake_labels = np.absolute(self.flag - np.random.uniform(0., 0.2, [self.batch_size, 1]))
+        real_labels = np.absolute(self.flag - np.random.uniform(0.8, 1., [self.batch_size, self.decoder_length]))
+        fake_labels = np.absolute(self.flag - np.random.uniform(0., 0.2, [self.batch_size, self.decoder_length]))
         dis_loss_fake = tf.reduce_mean(tf.losses.sigmoid_cross_entropy(fake_labels, fake_preds))
         dis_loss_real = tf.reduce_mean(tf.losses.sigmoid_cross_entropy(real_labels, real_preds))
         dis_loss = dis_loss_real + dis_loss_fake

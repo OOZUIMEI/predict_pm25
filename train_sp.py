@@ -180,10 +180,10 @@ def save_gan_preds(url_weight, preds):
     else: 
         name_s = url_weight
     pr_s = shape[0] * p.batch_size
-    if shape[-1] == 1:
+    if shape[-1] == 1 and len(shape) == 4:
         preds = np.reshape(preds, (pr_s, shape[-3], shape[-2]))
     else:
-        preds = np.reshape(preds, (pr_s, shape[-3], shape[-2], shape[-1]))
+        preds = np.reshape(preds, (pr_s, shape[-2], shape[-1]))
     utils.save_file("test_sp/%s" % name_s, preds)
 
 
@@ -227,9 +227,9 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
 
 def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, decoder_length=24, decoder_size=4, grid_size=25, is_folder=False, is_test=False, restore=False):
     # model = MaskGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size, use_cnn=1)
-    # model = APGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
+    model = APGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
     # model = MaskGan2(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
-    model = CAPGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
+    # model = CAPGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
     #dv = p.gpu_devices.split(",")
     dv=[1]
     tconfig = get_gpu_options()

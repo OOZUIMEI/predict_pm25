@@ -36,12 +36,12 @@ def evaluate(pred, labs, rg, is_classify=False, verbose=True):
 
 
 # evaluate grid training
-def evaluate_sp(url, url2, is_grid=False, grid_eval=False, decoder_length=8):
+def evaluate_sp(url, url2, is_grid=False, grid_eval=False, decoder_length=24):
     map_ = heatmap.build_map()
     data = utils.load_file(url)
     if type(data) is list:
-        data = np.asarray(data)
-    lt = data.shape[0] * data.shape[1]
+        data = np.asarray(data) 
+    lt = len(data)
     if is_grid:
         data = np.reshape(data, (lt, data.shape[-2], 25, 25))
     else:
@@ -65,7 +65,7 @@ def evaluate_sp(url, url2, is_grid=False, grid_eval=False, decoder_length=8):
             else:
                 pred_t = d
         lb_i = i * 4 + decoder_length
-        lbt = labels[lb_i:(lb_i+decoder_length),:,1]
+        lbt = labels[lb_i:(lb_i+decoder_length),:,0]
         if grid_eval:
             lbg = []
             for x in lbt:
