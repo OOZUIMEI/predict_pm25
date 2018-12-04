@@ -19,8 +19,8 @@ class TNet(TGAN):
 
     def inference(self, is_train=True):
         fake_outputs, _ = self.create_generator(self.encoder_inputs, self.decoder_inputs, self.attention_inputs)
+        self.gen_loss = self.get_generator_loss(None, fake_outputs)
         if is_train:
-            self.gen_loss = self.get_generator_loss(None, fake_outputs)
             self.gen_op = self.train_generator(self.gen_loss)
         return fake_outputs
     

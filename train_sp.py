@@ -123,7 +123,7 @@ def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size
     if model_name == "APNET":
         model = APNet(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
     elif model_name == "TNET": 
-        model = TGAN(encoder_length=8, decoder_length=8, grid_size=32)
+        model = TNet(encoder_length=8, decoder_length=8, grid_size=32)
     else:
         model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, rnn_layers=rnn_layers,
                             dtype=dtype, grid_size=grid_size, use_cnn=use_cnn, loss=loss)
