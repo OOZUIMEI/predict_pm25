@@ -72,7 +72,8 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
                 print('Epoch {}'.format(epoch))
                 start = time.time()
                 global_t = offset + epoch
-                train_loss, _ = model.run_epoch(session, train, global_t, train_f,train_op=model.train_op, train=True)
+
+                train_loss, _ = model.run_epoch(session, train, global_t, train_f, train=True)
                 print('Training loss: {}'.format(train_loss))
 
                 valid_loss, _ = model.run_epoch(session, valid, global_t, train_writer=valid_f)
@@ -128,7 +129,7 @@ def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size
                             dtype=dtype, grid_size=grid_size, use_cnn=use_cnn, loss=loss)
     print('==> initializing models')
     with tf.device('/%s' % p.device):
-        model.init_ops()
+        model.init_ops(is_train=(not is_test))
         init = tf.global_variables_initializer()
         saver = tf.train.Saver()
     utils.assert_url(url_feature)
@@ -523,9 +524,9 @@ if __name__ == "__main__":
     if "GAN" in args.model:
         train_gan(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, 
             args.grid_size, is_folder=bool(args.folder), is_test=bool(args.is_test), restore=bool(args.restore), model_name=args.model)
-    elif args.model == "CNN_LSTM":
+    elif args.model in ["CNN_LSTM", "TNET", "APNET"] :
         train_baseline(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
-        args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn),  restore=bool(args.restore), model=args.model)
+        args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn),  restore=bool(args.restore), model_name=args.model)
     elif args.model == "ADAIN":
         run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore), args.model)
     elif args.model == "SAE":

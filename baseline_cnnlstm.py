@@ -79,11 +79,12 @@ class BaselineModel(object):
         self.valid = valid
         self.attention_vectors = attention_vectors
 
-    def init_ops(self):
+    def init_ops(self, is_train=True):
        self.add_placeholders()
        self.output = self.inference()
        self.loss_op = self.add_loss(self.output)
-       self.train_op = model_utils.add_training_op(self.loss_op, self.learning_rate)
+       if is_train:
+           self.train_op = model_utils.add_training_op(self.loss_op, self.learning_rate)
        self.merged = tf.summary.merge_all()
     
     # preserve memory for tensors
@@ -279,9 +280,7 @@ class BaselineModel(object):
             session.run(att_ops)
     
     # operation of each epoch
-    def run_epoch(self, session, data, num_epoch=0, train_writer=None, train_op=None, verbose=True, train=False, shuffle=True, stride=4):
-        if train_op is None:
-            train_op = tf.no_op()
+    def run_epoch(self, session, data, num_epoch=0, train_writer=None, verbose=True, train=False, shuffle=True, stride=4):
         dt_length = len(data)
         # print("data_size: ", dt_length)
         cons_b = self.batch_size * stride
@@ -310,7 +309,7 @@ class BaselineModel(object):
             if self.use_attention:
                 feed[self.attention_inputs] = ct_t
 
-            loss, pred, _= session.run([self.loss_op, self.output, train_op], feed_dict=feed)
+            loss, pred, _= session.run([self.loss_op, self.output, self.train_op], feed_dict=feed)
             
             total_loss.append(loss)
             if verbose and step % verbose == 0:
