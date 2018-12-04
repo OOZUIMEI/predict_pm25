@@ -134,13 +134,14 @@ class CAPGan(APGan):
     # add generation loss
     # use log_sigmoid instead of log because fake_vals is w * x + b (not the probability value)
     def add_generator_loss(self, fake_vals, outputs, labels, fake_rewards=None):
-        mse_loss = tf.losses.mean_squared_error(labels, outputs)
-        sigmoid_loss = self.alpha * tf.log_sigmoid(fake_vals)        
-        # normal lossmse + (-log(D(G)))
-        loss_values = mse_loss - sigmoid_loss
-        #loss_values = sigmoid_loss
-        loss = tf.reduce_mean(loss_values)
-        return loss 
+        loss = tf.losses.mean_squared_error(labels, outputs)
+        if self.alpha:
+            sigmoid_loss = self.alpha * tf.log_sigmoid(fake_vals)        
+            # normal lossmse + (-log(D(G)))
+            loss_values = loss - sigmoid_loss
+            #loss_values = sigmoid_loss
+            loss = tf.reduce_mean(loss_values)
+        return loss
     
     def get_generator_loss(self, fake_preds, outputs, fake_rewards=None):
         gen_loss = self.add_generator_loss(fake_preds, outputs, self.pred_placeholder, fake_rewards)

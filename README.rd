@@ -1,3 +1,41 @@
+If you want to use my code, please cite my paper at
+@article{DBLP:journals/corr/abs-1804-07891,
+  author    = {Tien{-}Cuong Bui and
+               Van{-}Duc Le and
+               Sang{-}Kyun Cha},
+  title     = {A Deep Learning Approach for Air Pollution Forecasting in South Korea
+               Using Encoder-Decoder Networks {\&} {LSTM}},
+  journal   = {CoRR},
+  volume    = {abs/1804.07891},
+  year      = {2018},
+  url       = {http://arxiv.org/abs/1804.07891},
+  archivePrefix = {arXiv},
+  eprint    = {1804.07891},
+  timestamp = {Mon, 13 Aug 2018 16:48:29 +0200},
+  biburl    = {https://dblp.org/rec/bib/journals/corr/abs-1804-07891},
+  bibsource = {dblp computer science bibliography, https://dblp.org}
+}
+
+And:
+
+@article{DBLP:journals/corr/abs-1804-07891,
+  author    = {Tien{-}Cuong Bui and
+               Van{-}Duc Le and
+               Sang{-}Kyun Cha},
+  title     = {A Deep Learning Approach for Air Pollution Forecasting in South Korea
+               Using Encoder-Decoder Networks {\&} {LSTM}},
+  journal   = {CoRR},
+  volume    = {abs/1804.07891},
+  year      = {2018},
+  url       = {http://arxiv.org/abs/1804.07891},
+  archivePrefix = {arXiv},
+  eprint    = {1804.07891},
+  timestamp = {Mon, 13 Aug 2018 16:48:29 +0200},
+  biburl    = {https://dblp.org/rec/bib/journals/corr/abs-1804-07891},
+  bibsource = {dblp computer science bibliography, https://dblp.org}
+}
+
+
 Regular model training
 # train normal:
 

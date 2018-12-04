@@ -36,7 +36,7 @@ def evaluate(pred, labs, rg, is_classify=False, verbose=True):
 
 
 # evaluate grid training
-def evaluate_sp(url, url2, is_grid=False, grid_eval=False, decoder_length=24):
+def evaluate_sp(url, url2, is_grid=True, grid_eval=True, decoder_length=24):
     map_ = heatmap.build_map()
     data = utils.load_file(url)
     if type(data) is list:
@@ -53,6 +53,7 @@ def evaluate_sp(url, url2, is_grid=False, grid_eval=False, decoder_length=24):
     labels = np.asarray(labels)
     loss_mae = 0.0
     loss_rmse = 0.0
+    r2_total = 0.0
     for i, d in enumerate(data):
         pred_t  = []
         if is_grid:
@@ -79,14 +80,17 @@ def evaluate_sp(url, url2, is_grid=False, grid_eval=False, decoder_length=24):
             lbg = lbt.flatten()
         pred_t = np.asarray(pred_t)
         pred_t = pred_t.flatten()
-        mae, mse = get_evaluation(pred_t, lbg)
+        mae, mse, r2 = get_evaluation(pred_t, lbg)
         loss_mae += mae
         loss_rmse += mse
-        utils.update_progress((i + 1.0) / dtl)
-    loss_mae = loss_mae / dtl * 300
-    loss_rmse = sqrt(loss_rmse / dtl) * 300
+        r2_total += r2
+        utils.update_progress((i + 1.0) / lt)
+    loss_mae = loss_mae / lt * 300
+    loss_rmse = sqrt(loss_rmse / lt) * 300
+    r2_total = r2_total / lt
     print("MAE: %.2f" % loss_mae)
     print("RMSE: %.2f" % loss_rmse)
+    print("R2 Score: %.2f" % r2_total)
 
 
 # evaluate grid training
@@ -101,19 +105,23 @@ def evaluate_single_pred(url, url2, decoder_length=8):
     labels = np.asarray(labels)
     loss_mae = 0.0
     loss_rmse = 0.0
+    r2_total = 0.0
     for i, d in enumerate(data):
         pred_t = np.asarray(d).flatten()
         lb_i = i * 4 + decoder_length
         lbt = labels[lb_i:(lb_i+decoder_length),:,0]
         lbg = lbt[decoder_length - 1,:].flatten()
-        mae, mse = get_evaluation(pred_t, lbg)
+        mae, mse, r2 = get_evaluation(pred_t, lbg)
         loss_mae += mae
         loss_rmse += mse
+        r2_total += r2
         utils.update_progress((i + 1.0) / dtl)
     loss_mae = loss_mae / lt * 300
     loss_rmse = sqrt(loss_rmse / lt) * 300
+    r2_total = r2_total / lt
     print("MAE: %.2f" % loss_mae)
     print("RMSE: %.2f" % loss_rmse)
+    print("RMSE: %.2f" % r2_total)
 
 
 # predict multiple dimension
@@ -121,36 +129,33 @@ def evaluate_single_pred(url, url2, decoder_length=8):
 def evaluate_multi(url, url2, time_lags=24):
     preds = utils.load_file(url)
     preds = np.array(preds)
-    st = 2000
-    preds = preds[st:,:,:]
     lt = len(preds)
     labels = utils.load_file(url2)
     labels = np.array(labels)
 
     loss_mae0, loss_mae1 = 0.0, 0.0
     loss_rmse0, loss_rmse1 = 0.0, 0.0
-    m = 0
+    r2_0, r2_1 = 0.0, 0.0
     for i, d in enumerate(preds):
-        lb_i = (st + i) * 4 + 25
-        mae0, mse0 = get_evaluation(d[:time_lags,:], labels[lb_i:(lb_i+time_lags),:,0])
+        lb_i = i * 4 + time_lags + 1
+        mae0, mse0, r2 = get_evaluation(d[:time_lags,:], labels[lb_i:(lb_i+time_lags),:,0])
         # mae1, mse1 = get_evaluation(d[:time_lags,:,1], labels[lb_i:(lb_i+time_lags),:,1])
         loss_rmse0 += mse0 
         # loss_rmse1 += mse1
         loss_mae0 += mae0
         # loss_mae1 += mae1
-        # print(d[:time_lags,:]*300)
-        if (mae0 * 300) < 30:
-            m += 1
-            # print("11",i)
-        # break
+        r2_0 += r2
     loss_mae0 = loss_mae0 / lt * 300
     loss_mae1 = loss_mae1 / lt * 300
     loss_rmse0 = sqrt(loss_rmse0 / lt) * 300
     loss_rmse1 = sqrt(loss_rmse1 / lt) * 300
+    r2_0 = r2_0 / lt
     print("MAE PM2.5: %.2f" % loss_mae0)
     print("RMSE PM2.5: %.2f" % loss_rmse0)
-    print("MAE PM10: %.2f" % loss_mae1)
-    print("RMSE PM10: %.2f" % loss_rmse1)
+    print("R2 Score: %.2f" % r2_0)
+    
+    # print("MAE PM10: %.2f" % loss_mae1)
+    # print("RMSE PM10: %.2f" % loss_rmse1)
     # labels0 = labels[:,:,0].flatten()
     # labels1 = labels[:,:,1].flatten()
     # std0 = np.std(labels0)
@@ -160,13 +165,42 @@ def evaluate_multi(url, url2, time_lags=24):
     # print(m0, std0)
     # print(m1, std1)
 
+
+# predict multiple dimension
+# pm2.5, pm10
+def evaluate_transportation(url, url2):
+    preds = utils.load_file(url)
+    preds = np.array(preds)
+    lt = len(preds)
+    labels = utils.load_file(url2)
+    labels = np.array(labels)
+    labels = labels.reshape(len(labels), 32, 32)
+    shape = np.shape(preds)
+    pred_length = shape[1]
+    loss_mae0 = 0.0
+    loss_rmse0 = 0.0
+    r2_total = 0.0
+    for i, d in enumerate(preds):
+        lb_i = i + 8
+        mae0, mse0, r2 = get_evaluation(d, labels[lb_i:(pred_length+lb_i),:,:])
+        loss_rmse0 += mse0 
+        loss_mae0 += mae0
+        r2_total += r2
+    loss_mae0 = loss_mae0 / lt * 131
+    loss_rmse0 = sqrt(loss_rmse0 / lt) * 131
+    r2_total = r2_total / lt
+    print("MAE: %.2f" % loss_mae0)
+    print("RMSE: %.2f" % loss_rmse0)
+    print("R2 Score: %.2f" % r2_total)
+
+
 def get_evaluation(pr, lb):
     pr = pr.flatten()
     lb = lb.flatten()
     mse = mean_squared_error(pr, lb)
     mae = mean_absolute_error(pr, lb)
-    return mae, mse
-
+    r2 = r2_score(lb, pr)
+    return mae, mse, r2
 
 
 if __name__ == "__main__":
@@ -189,6 +223,8 @@ if __name__ == "__main__":
         evaluate_sp(args.url, args.url2, bool(args.grid), bool(args.grid_eval))
     elif args.task == 1:
         evaluate_single_pred(args.url, args.url2)
+    elif args.task == 2:
+        evaluate_transportation(args.url, args.url2)
     else:
         # train_data
         # pm25: 0.24776679025820308, 0.11997866025609479

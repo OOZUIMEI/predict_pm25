@@ -145,6 +145,7 @@ def convert_transport_data(url):
     name = url.split("/")[-1]
     name = name.split(".")[0]
     data = utils.load_file(url, False)
+    print(data[-1])
     year_length = (int(data[-1].rstrip("\n").split(",")[-1]) + 1) * 24
     days = [[0] * 1024] * year_length
     old_h = -1

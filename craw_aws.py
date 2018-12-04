@@ -105,7 +105,6 @@ class CrawAWS(Crawling):
             # how long from last crawled date to now?
             if (now - start).total_seconds() > crawler_range:
                 tmp = start
-                print(tmp)
                 st = "00"
                 ed = "24"
                 if crawler_range != 86400:

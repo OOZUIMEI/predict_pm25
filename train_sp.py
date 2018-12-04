@@ -28,6 +28,9 @@ from apgan import APGan
 from mask_gan_2 import MaskGan2
 from capgan import CAPGan
 from tgan import TGAN
+from tnet import TNet
+from apnet import APNet
+
 import matplotlib
 import matplotlib.pyplot as plt
 # from  spark_engine import SparkEngine
@@ -64,14 +67,12 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
             best_val_loss = float('inf')
             # best_overall_val_loss = float('inf')
             print('==> starting training')
-            train_losses = []
             train_f, valid_f = train_writer
             for epoch in xrange(p.total_iteration):
                 print('Epoch {}'.format(epoch))
                 start = time.time()
                 global_t = offset + epoch
                 train_loss, _ = model.run_epoch(session, train, global_t, train_f,train_op=model.train_op, train=True)
-                train_losses.append(train_loss)
                 print('Training loss: {}'.format(train_loss))
 
                 valid_loss, _ = model.run_epoch(session, valid, global_t, train_writer=valid_f)
@@ -88,9 +89,6 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
                 if (epoch - best_val_epoch) > p.early_stopping:
                     break
                 print('Total time: {}'.format(time.time() - start))
-            tm = utils.clear_datetime(datetime.strftime(utils.get_datetime_now(), "%Y-%m-%d %H:%M:%S"))
-            l_fl = "train_loss/train_loss_%s_%s" % (url_weight, tm)
-            utils.save_file(l_fl, train_losses)
         else:
             # saver.restore(session, url_weight)
             print('==> running model')
@@ -103,7 +101,6 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
                 name_s = name.group(1)
             else:
                 name_s = url_weight
-            utils.save_file("test_sp/%s_loss.txt" % name_s, l_str, use_pickle=False)
             utils.save_file("test_sp/%s" % name_s, preds)
     return global_t
 
@@ -120,10 +117,15 @@ def get_gpu_options():
     return configs
 
 
-def main(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, rnn_layers=1,
-        dtype="grid", is_folder=False, is_test=False, use_cnn=True, restore=False):
-    model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, rnn_layers=rnn_layers,
-                        dtype=dtype, grid_size=grid_size, use_cnn=use_cnn, loss=loss)
+def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, rnn_layers=1,
+        dtype="grid", is_folder=False, is_test=False, use_cnn=True, restore=False, model_name=""):
+    if model_name == "APNET":
+        model = APNet(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
+    elif model_name == "TNET": 
+        model = TGAN(encoder_length=8, decoder_length=8, grid_size=32)
+    else:
+        model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, rnn_layers=rnn_layers,
+                            dtype=dtype, grid_size=grid_size, use_cnn=use_cnn, loss=loss)
     print('==> initializing models')
     with tf.device('/%s' % p.device):
         model.init_ops()
@@ -183,6 +185,10 @@ def save_gan_preds(url_weight, preds):
     pr_s = shape[0] * p.batch_size
     if shape[-1] == 1 and len(shape) == 4:
         preds = np.reshape(preds, (pr_s, shape[-3], shape[-2]))
+    elif shape[1] == 1:
+        shape = list(shape)
+        shape = [pr_s] + shape[3:]
+        preds = np.reshape(preds, tuple(shape))
     else:
         preds = np.reshape(preds, (pr_s, shape[-2], shape[-1]))
     utils.save_file("test_sp/%s" % name_s, preds)
@@ -222,7 +228,7 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
         else:
             # saver.restore(session, url_weight)
             print('==> running model')
-            preds = model.run_epoch(session, train, train=False, verbose=False, shuffle=False)
+            _, preds = model.run_epoch(session, train, train=False, verbose=False, shuffle=False)
             save_gan_preds(url_weight, preds)
 
 
@@ -513,13 +519,13 @@ if __name__ == "__main__":
     preds, timestamp = get_prediction_real_time(sparkEngine)
     
     """
-    
+    print(args.model)
     if "GAN" in args.model:
         train_gan(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, 
             args.grid_size, is_folder=bool(args.folder), is_test=bool(args.is_test), restore=bool(args.restore), model_name=args.model)
     elif args.model == "CNN_LSTM":
-        main(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
-        args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn),  restore=bool(args.restore))
+        train_baseline(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
+        args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn),  restore=bool(args.restore), model=args.model)
     elif args.model == "ADAIN":
         run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore), args.model)
     elif args.model == "SAE":

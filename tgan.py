@@ -1,7 +1,6 @@
 from __future__ import print_function
 from __future__ import division
 
-import numpy as np
 import tensorflow as tf
 
 from capgan import CAPGan
@@ -29,6 +28,7 @@ class TGAN(CAPGan):
         self.encoder_length = encoder_length
         self.decoder_length = decoder_length
         self.attention_length = attention_length
+        self.strides = [1,2]
         self.use_attention = True
 
     def set_data(self, datasets, train, valid, attention_vectors=None):
@@ -77,6 +77,10 @@ class TGAN(CAPGan):
         enc, dec, att = self.lookup_input(enc, dec, att)
         with tf.variable_scope("generator", self.initializer, reuse=tf.AUTO_REUSE):
             enc_outputs = self.exe_encoder(enc)
+            """
+                because transportation is a local problem => weather data don't need to be converted to grid heatmap
+                Use simple lstm gru to visualize the fluctuation of weather feature => an attentional vector
+            """
             att = tf.reshape(tf.transpose(att, [0, 2, 1, 3]), [pr.batch_size * 25, self.attention_length, 9])
             att_outputs, _ = rnn_utils.execute_sequence(att, self.e_params)
             att_outputs = self.get_softmax_attention(att_outputs)
@@ -101,7 +105,7 @@ class TGAN(CAPGan):
     
     # generator cnn layers
     def add_msf_networks(self, inputs, activation=tf.nn.relu, is_dis=False):
-        # input (64, encode_length, 32, 32, 1) output (64, encode_length, 32, 32, 64)
+        # input (64, encode_length, 32, 32, 1) output (64, encod'e_length, 32, 32, 64)
         msf1 = rnn_utils.get_multiscale_conv3d(inputs, 16, activation=activation, prefix="msf1")
         # input (64, encode_length, 32, 32, 64) output (64, encode_length/2, 16, 16, 32)
         msf1_down = rnn_utils.get_cnn3d_unit(msf1, 32, (5,5,5), activation, padding="SAME", name="down_sample_1", strides=(2,2,2))

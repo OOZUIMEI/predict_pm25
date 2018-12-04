@@ -235,10 +235,13 @@ class MaskGan(BaselineModel):
         if shuffle:
             r = np.random.permutation(dt_length)
             ct = ct[r]
-      
-        if train and len(self.strides) > 1:
-            np.random.shuffle(self.strides)
+
+        if train:
+            np.random.shuffle(self.strides)        
+        
+        if len(self.strides) > 1:
             stride = self.strides[0]
+        
         if self.batch_size >= stride:
             cons_b = self.batch_size * stride
         else:
@@ -259,7 +262,7 @@ class MaskGan(BaselineModel):
             train_writer.add_summary(summary, num_epoch)
         dur = time.time() - st
         #print("%.4f" % dur)
-        return preds
+        return total_gen_loss, preds
 
     # reference from cifa_multiple_gpu code
     def average_gradients(self, tower_grads):
