@@ -237,8 +237,8 @@ class MaskGan(BaselineModel):
             r = np.random.permutation(dt_length)
             ct = ct[r]
 
-        if train:
-            np.random.shuffle(self.strides)        
+        # if train:
+        #     np.random.shuffle(self.strides)        
         
         if len(self.strides) > 1:
             stride = self.strides[0]

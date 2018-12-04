@@ -100,7 +100,8 @@ class TGAN(CAPGan):
     
     def exe_encoder(self, enc):
         with tf.variable_scope("encoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
-            hidden_output = self.add_msf_networks(enc)
+            msf_output = self.add_msf_networks(enc)
+            hidden_output = self.add_hidden_layers(msf_output)
         return hidden_output
     
     # generator cnn layers
@@ -122,9 +123,12 @@ class TGAN(CAPGan):
         msf3 = tf.layers.flatten(msf3)
         # else:
         #     msf3 = tf.layers.flatten(msf2_down)
-        hidden_output = tf.layers.dense(msf3, 512, tf.nn.tanh, name="hidden_1")
+        return msf3
+
+    def add_hidden_layers(self, input_vectors):
+        hidden_output = tf.layers.dense(input_vectors, 512, tf.nn.tanh, name="hidden_1")
         hidden_output = tf.nn.dropout(hidden_output, 0.5)
-        hidden_output = tf.layers.dense(msf3, 256, tf.nn.tanh, name="hidden_2")
+        hidden_output = tf.layers.dense(hidden_output, 256, tf.nn.tanh, name="hidden_2")
         hidden_output = tf.nn.dropout(hidden_output, 0.5)
         return hidden_output
 

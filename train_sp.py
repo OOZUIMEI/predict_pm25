@@ -28,6 +28,8 @@ from apgan import APGan
 from mask_gan_2 import MaskGan2
 from capgan import CAPGan
 from tgan import TGAN
+from tganlstm import TGANLSTM
+from tnetlstm import TNetLSTM
 from tnet import TNet
 from apnet import APNet
 
@@ -124,6 +126,8 @@ def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size
         model = APNet(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
     elif model_name == "TNET": 
         model = TNet(encoder_length=8, decoder_length=8, grid_size=32)
+    elif model_name == "TNETLSTM": 
+        model = TNetLSTM(encoder_length=8, decoder_length=8, grid_size=32)
     else:
         model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, rnn_layers=rnn_layers,
                             dtype=dtype, grid_size=grid_size, use_cnn=use_cnn, loss=loss)
@@ -243,8 +247,10 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
         model = MaskGan2(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
     elif model_name == "CAPGAN":
         model = CAPGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
-    else:
+    elif model_name == "TGAN":
         model = TGAN(encoder_length=8, decoder_length=8, grid_size=32)
+    else:
+        model = TGANLSTM(encoder_length=8, decoder_length=8, grid_size=32)
     #dv = p.gpu_devices.split(",")
     dv=[1]
     tconfig = get_gpu_options()
@@ -524,7 +530,7 @@ if __name__ == "__main__":
     if "GAN" in args.model:
         train_gan(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, 
             args.grid_size, is_folder=bool(args.folder), is_test=bool(args.is_test), restore=bool(args.restore), model_name=args.model)
-    elif args.model in ["CNN_LSTM", "TNET", "APNET"] :
+    elif args.model in ["CNN_LSTM", "TNET", "TNETLSTM", "APNET"] :
         train_baseline(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
         args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn),  restore=bool(args.restore), model_name=args.model)
     elif args.model == "ADAIN":
@@ -533,5 +539,5 @@ if __name__ == "__main__":
         run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore), args.model, bool(args.pretrain))
     elif args.model == "NN":
         run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore))
-    elif args.model == "TGAN":
+    elif args.model == "TGAN" or args.model == "TGANLSTM":
         train_gan(args.feature, "", args.url_weight, args.batch_size, args.encoder_length, 1, args.decoder_length, 1, 32, False, is_test=bool(args.is_test), restore=bool(args.restore), model_name=args.model)
