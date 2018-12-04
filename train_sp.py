@@ -32,6 +32,7 @@ from tganlstm import TGANLSTM
 from tnetlstm import TNetLSTM
 from tnet import TNet
 from apnet import APNet
+from srcns import SVCNs
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -128,6 +129,8 @@ def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size
         model = TNet(encoder_length=8, decoder_length=8, grid_size=32)
     elif model_name == "TNETLSTM": 
         model = TNetLSTM(encoder_length=8, decoder_length=8, grid_size=32)
+    elif model_name == "SVCNs":
+        model = SVCNs(encoder_length=8, decoder_length=8, grid_size=32)
     else:
         model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, rnn_layers=rnn_layers,
                             dtype=dtype, grid_size=grid_size, use_cnn=use_cnn, loss=loss)
@@ -530,7 +533,7 @@ if __name__ == "__main__":
     if "GAN" in args.model:
         train_gan(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, 
             args.grid_size, is_folder=bool(args.folder), is_test=bool(args.is_test), restore=bool(args.restore), model_name=args.model)
-    elif args.model in ["CNN_LSTM", "TNET", "TNETLSTM", "APNET"] :
+    elif args.model in ["CNN_LSTM", "TNET", "TNETLSTM", "APNET", "SVCNs"] :
         train_baseline(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
         args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn),  restore=bool(args.restore), model_name=args.model)
     elif args.model == "ADAIN":

@@ -71,19 +71,24 @@ class APGan(MaskGan):
     # add generation loss
     # use log_sigmoid instead of log because fake_vals is w * x + b (not the probability value)
     def add_generator_loss(self, fake_vals, outputs, labels, fake_rewards=None):
-        mse_loss = tf.losses.mean_squared_error(labels, outputs)
+        loss = tf.losses.mean_squared_error(labels, outputs)
         if not fake_rewards is None:
             print("Using reinsforcement learning")
             advatages = tf.abs(fake_rewards)
-            loss = tf.reduce_mean(tf.multiply(mse_loss, tf.stop_gradient(advatages)))
+            loss = tf.reduce_mean(tf.multiply(loss, tf.stop_gradient(advatages)))
         else:
             print("Using combined loss function")
-            sigmoid_loss = self.alpha * tf.log_sigmoid(fake_vals)
-            # sigmoid_loss = self.alpha * tf.losses.sigmoid_cross_entropy(fake_vals, tf.constant(1., shape=[self.batch_size, self.decoder_length]))
-            # normal lossmse + (-log(D(G)))
-            loss_values = mse_loss - sigmoid_loss
-            #loss_values = sigmoid_loss
-            loss = tf.reduce_mean(loss_values)
+            if self.alpha:
+                sigmoid_loss = self.alpha * tf.log_sigmoid(fake_vals)
+                # sigmoid_loss = self.alpha * tf.losses.sigmoid_cross_entropy(fake_vals, tf.constant(1., shape=[self.batch_size, self.decoder_length]))
+                # normal lossmse + (-log(D(G)))
+                loss = loss - sigmoid_loss
+                #loss_values = sigmoid_loss
+                loss = tf.reduce_mean(loss)
+            else:
+                for v in tf.trainable_variables():
+                    if not 'bias' in v.name.lower():
+                        loss += 0.0001 * tf.nn.l2_loss(v)
         return loss
     
     # the conditional layer that concat all attention vectors => produces a single vector

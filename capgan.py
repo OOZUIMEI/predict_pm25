@@ -141,6 +141,10 @@ class CAPGan(APGan):
             loss_values = loss - sigmoid_loss
             #loss_values = sigmoid_loss
             loss = tf.reduce_mean(loss_values)
+        else:
+            for v in tf.trainable_variables():
+                if not 'bias' in v.name.lower():
+                    loss += 0.0001 * tf.nn.l2_loss(v)
         return loss
     
     def get_generator_loss(self, fake_preds, outputs, fake_rewards=None):

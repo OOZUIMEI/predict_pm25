@@ -225,8 +225,10 @@ if __name__ == "__main__":
         evaluate_single_pred(args.url, args.url2)
     elif args.task == 2:
         # TNET3d - MAE: 2.17 RMSE: 6.73 R2_Score: 0.82
+        # TNETLSTM - MAE: 2.80 RMSE: 8.60 R2 Score: 0.69
         # TGAN3d - MAE: 1.85 RMSE: 6.34 R2 Score: 0.84
         # TGAN3d - MAE: 2.35 RMSE: 7.34 R2 Score: 0.79
+        
         evaluate_transportation(args.url, args.url2)
     else:
         # train_data

@@ -9,6 +9,7 @@ import properties as pr
 import rnn_utils
 
 #APNet for transportation data
+#MAE: 2.80 RMSE: 8.60 R2 Score: 0.69
 
 class TNetLSTM(TGANLSTM):
 

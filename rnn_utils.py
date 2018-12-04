@@ -318,6 +318,18 @@ def get_cnn_unit(cnn_inputs, filters, kernel, activation=tf.nn.relu, padding="VA
     return cnn_outputs
 
 
+# get convolution output of pooling 2d
+def get_maxpool(cnn_inputs, pool_size, padding="VALID", name="", strides=(2,2)):
+    cnn_outputs = tf.layers.max_pooling2d(
+        inputs=cnn_inputs,
+        pool_size=pool_size,
+        strides=strides,
+        padding=padding,
+        name=name
+    )
+    return cnn_outputs
+
+
 # get convolution output
 def get_cnn3d_unit(cnn_inputs, filters, kernel, activation=tf.nn.relu, padding="VALID", name="", use_batch_norm=False, dropout=0.0, strides=(2,2,2)):
     cnn_outputs = tf.layers.conv3d(
