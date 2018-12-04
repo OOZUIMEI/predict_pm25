@@ -68,17 +68,25 @@ class TGANLSTM(TGAN):
         # input (64, 11, 11, 64) output (64, 11, 11, 64)
         # if not is_dis:
         msf2 = rnn_utils.get_multiscale_conv(msf1_down, 8, activation=activation, prefix="msf21")
-        # else: 
-        #     msf2 = msf1_down
         # input (64, 16, 16, 32) output (64, 8, 8, 32)
         msf2_down = rnn_utils.get_cnn_unit(msf2, 32, (5,5), activation, padding="SAME", name="down_sample_2", strides=(2,2))
         # input (64, 8, 8, 32) output (64, 8, 8, 32)
         # if not is_dis:
         msf3 = rnn_utils.get_multiscale_conv(msf2_down, 8, [3,1], activation, prefix="msf31")
         msf3 = tf.layers.flatten(msf3)
-        # else:
-        #     msf3 = tf.layers.flatten(msf2_down)
         return msf3
+
+    # just decide whether an image is fake or real
+    # calculate the outpute validation of discriminator
+    # output is the value of a dense layer w * x + b
+    def validate_output(self, inputs, conditional_vectors):
+        inputs = tf.expand_dims(inputs, axis=4)
+        hidden_output = self.add_msf_networks(inputs, tf.nn.leaky_relu, True)
+        hidden_output = tf.reshape(hidden_output, shape=(pr.batch_size, 8192))
+        hidden_output = tf.concat([hidden_output, conditional_vectors], axis=1)
+        hidden_output = self.add_hidden_layers(hidden_output)
+        output = tf.layers.dense(hidden_output, 1, name="validation_value")
+        return output   
 
     #perform decoder to produce outputs of the generator
     def exe_decoder(self, dec_hidden_vectors):
