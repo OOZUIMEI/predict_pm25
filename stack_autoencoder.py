@@ -117,7 +117,6 @@ class StackAutoEncoder(Adain):
             if verbose and step % verbose == 0:
                 sys.stdout.write('\r{} / {} : loss = {}'.format(step, total_steps, total_loss / (step + 1)))
                 sys.stdout.flush()
-
             preds.append(pred)
 
         if verbose:

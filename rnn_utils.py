@@ -76,10 +76,10 @@ def execute_sequence(inputs, params):
 # not perform cnn on pm2_5 output
 def execute_decoder(inputs, init_state, sequence_length, params, attention=None, dropout=None):
     # push final state of encoder to decoder
-    if params["fw_cell"] == "gru_block" or params["fw_cell"] == "rnn":
-        dec_state = tf.squeeze(init_state[0], [0])
-    else:
-        dec_state = init_state
+    # if params["fw_cell"] == "gru_block" or params["fw_cell"] == "rnn":
+    #     dec_state = tf.squeeze(init_state[0], [0])
+    # else:
+    dec_state = init_state
     pm2_5 = np.zeros((params["batch_size"], params["de_output_size"]))
     dec_out = None
     outputs = []
@@ -91,14 +91,6 @@ def execute_decoder(inputs, init_state, sequence_length, params, attention=None,
         # pm2_5 with shape batchsize x (grid_size * grid_size)
         if attention is not None: 
             dec_out = tf.concat([dec_out, attention], axis=1)
-        # pm2_5 = tf.layers.dense(dec_out, 
-        #                 params["de_output_size"],
-        #                 name="decoder_output_relu",
-        #                 activation=tf.nn.relu)
-        # pm2_5 = tf.layers.dense(dec_out, 
-        #                 params["de_output_size"],
-        #                 name="decoder_output_tanh",
-        #                 activation=tf.nn.tanh)
         pm2_5 = tf.layers.dense(dec_out, 
                         params["de_output_size"],
                         name="decoder_output_sigmoid",

@@ -23,6 +23,7 @@ pm2_5_test = data_test[:,:,1]
 pm2_5_test = np.mean(pm2_5_test, axis=1)
 pm2_5_train = pm2_5_test[:500]
 pm2_5_test = pm2_5_test[500:]
+print(len(pm2_5_test))
 # series = np.concatenate((pm2_5_train, pm2_5_test), axis=0)
 # lt = len(series)
 # train_data = pm2_5_train[:]
@@ -56,10 +57,11 @@ rmse = rmse * 300
 mae = mae * 300
 
 # mae: 28.43 rmse: 35.41
+# mae: 15.81 rmse: 19.84 r2 score: -0.20
 print("mae: %.2f" % mae)
 print("rmse: %.2f" % rmse)
 print("r2 score: %.2f" % r2_total)
 
-# # residuals = DataFrame(outputs)
-# # residuals.plot()
-# # pyplot.show()
+# residuals = DataFrame(outputs)
+# residuals.plot()
+# pyplot.show()

@@ -54,6 +54,7 @@ def evaluate_sp(url, url2, is_grid=True, grid_eval=True, decoder_length=24):
     loss_mae = 0.0
     loss_rmse = 0.0
     r2_total = 0.0
+    print(labels.shape, data.shape)
     for i, d in enumerate(data):
         pred_t  = []
         if is_grid:
@@ -121,7 +122,7 @@ def evaluate_single_pred(url, url2, decoder_length=8):
     r2_total = r2_total / lt
     print("MAE: %.2f" % loss_mae)
     print("RMSE: %.2f" % loss_rmse)
-    print("RMSE: %.2f" % r2_total)
+    print("R2 score: %.2f" % r2_total)
 
 
 # predict multiple dimension
@@ -216,16 +217,16 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     if args.task == 0:
-        # ADAIN 8h: MAE: 
-        # SAE MAE 8h: MAE: 39.32 RMSE: 44.17
-        # Neural nets 8h: MAE: 38.66 RMSE: 45.67
         # MAE PM2.5: MAE: 32.25 RMSE: 41.35
         evaluate_sp(args.url, args.url2, bool(args.grid), bool(args.grid_eval))
     elif args.task == 1:
+        # SAE MAE 8h: MAE: 39.32 RMSE: 44.17
+        # Neural nets 8h: MAE: 38.66 RMSE: 45.67
         evaluate_single_pred(args.url, args.url2)
     elif args.task == 2:
         # TNET3d - MAE: 2.17 RMSE: 6.73 R2_Score: 0.82
         # TNETLSTM - MAE: 2.80 RMSE: 8.60 R2 Score: 0.69
+        # TNETLSTM L2 - MAE: 2.70 RMSE: 6.65 R2 Score: 0.80
         # TGAN3d - MAE: 1.85 RMSE: 6.34 R2 Score: 0.84
         # TGAN3d - MAE: 2.35 RMSE: 7.34 R2 Score: 0.79
         

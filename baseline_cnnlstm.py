@@ -6,7 +6,7 @@ import time
 import copy
 import numpy as np
 import tensorflow as tf
-import properties as prp
+import properties as pr
 import utils
 import model_utils
 import rnn_utils
@@ -61,9 +61,9 @@ class BaselineModel(object):
             # size of output prediction matrix (24 * 24)
             self.e_params["de_output_size"] = self.grid_square
             if self.rnn_layers > 1:
-                e_params["fw_cell_size"] = self.grd_cnn
+                self.e_params["fw_cell_size"] = self.grd_cnn
         else:
-            self.e_params["de_output_size"] = self.districts
+            self.e_params["de_output_size"] = 1
             if self.rnn_layers > 1:
                 self.e_params["fw_cell_size"] = self.districts
         self.use_gen_cnn = False
@@ -135,8 +135,7 @@ class BaselineModel(object):
                 enc_data = tf.reshape(cnn, [self.batch_size, self.encoder_length, last_dim])
                 # enc_data = tf.unstack(enc_data, axis=1)
             else:
-                enc_data = tf.reshape(enc, [self.batch_size, self.encoder_length, self.districts * self.encode_vector_size])
-                # enc_data = tf.unstack(enc, axis=1)
+                enc_data = tf.reduce_mean(enc, axis=1)
             # then push through lstm
             enc_output, fn_state = rnn_utils.execute_sequence(enc_data, self.e_params)
             if self.rnn_layers > 1:
@@ -162,6 +161,7 @@ class BaselineModel(object):
             dec = dec_f[:,:,:,self.df_ele:]
             dec.set_shape((self.batch_size, self.encoder_length, 25, self.decode_vector_size))
             self.pred_placeholder = dec_f[:,:,:,0]
+            self.pred_placeholder = tf.reduce_mean(self.pred_placeholder, axis=2)
         return enc, dec
 
     #perform decoder
@@ -178,40 +178,14 @@ class BaselineModel(object):
                 outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, params, attention, self.use_cnn, self.use_gen_cnn, self.mtype, self.use_batch_norm, self.dropout)
                 outputs = tf.stack(outputs, axis=1)
             else: 
-
                 if "gru" in self.e_params["fw_cell"] or self.e_params["fw_cell"] == "rnn":
                     enc_output = tf.squeeze(enc_output[0], 0)
                 else:
                     enc_output = enc_output[-1]
                 dec_data = tf.transpose(dec,[0, 2, 1, 3])
-                dec_data = tf.reshape(dec_data, [self.batch_size, self.districts, self.decoder_length * self.decode_vector_size])
-                
-                if not attention is None:
-                    enc_output = tf.concat([enc_output, attention], 1)
-                dec_data_u = tf.unstack(dec_data, axis=1)
-                outputs = []
-                for i, d in enumerate(dec_data_u):
-                    d_ = tf.concat([d, enc_output], axis=1)
-                    d_out = tf.layers.dense(d_, self.decoder_length, name="dec_init_hidden_state_%i" % i, activation=tf.nn.sigmoid)
-                    outputs.append(d_out)
-                outputs = tf.stack(outputs, axis=1)
-                outputs = tf.transpose(outputs, [0, 2, 1])
-                # dec_data = tf.reshape(dec, [self.batch_size, self.decoder_length, self.districts * self.decode_vector_size])
-                # outputs = rnn_utils.execute_decoder(dec_data, enc_output, self.decoder_length, params, attention, self.dropout_placeholder)
-                """
-                dec_data = tf.transpose(dec,[0, 2, 1, 3])
-                dec_data = tf.reshape(dec_data, [self.batch_size * self.districts, self.decoder_length, self.decode_vector_size])
-                dec_init = tf.layers.dense(enc_output, 128, name="dec_init_hidden_state", activation=tf.nn.tanh)
-                dec_init = tf.tile(tf.reshape(dec_init, [-1]), [self.decoder_length * self.districts])
-                dec_init = tf.reshape(dec_init, [prp.batch_size, 128, self.districts, self.decoder_length]) 
-                dec_init = tf.transpose(dec_init,[0, 2, 3, 1])
-                dec_init = tf.reshape(dec_init, [prp.batch_size * self.districts, self.decoder_length, 128])
-                dec_data = tf.concat([dec_data, dec_init], axis=2)
-                outputs, _ = rnn_utils.execute_sequence(dec_data, self.e_params)
-                outputs = tf.layers.dense(outputs, 1, name="dec_hidden_output", activation=tf.nn.sigmoid)
-                outputs = tf.transpose(tf.reshape(outputs, [prp.batch_size, self.districts, self.decoder_length]), [0, 2, 1])
-                """
-            #outputs = tf.stack(outputs, axis=1)
+                dec_data = tf.reduce_mean(dec_data, axis=1)
+                outputs = rnn_utils.execute_decoder(dec_data, enc_output, self.decoder_length, params, attention, self.dropout_placeholder)
+                outputs = tf.reshape(tf.stack(outputs, axis=1), shape=(pr.batch_size, self.decoder_length))
         return outputs
     
     # china representation

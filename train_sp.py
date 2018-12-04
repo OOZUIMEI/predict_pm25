@@ -497,6 +497,7 @@ def run_neural_nets(url_feature="", attention_url="", url_weight="sp", encoder_l
                     name_s = name.group(1)
                 else:
                     name_s = url_weight
+                print(np.shape(preds))
                 utils.save_file("test_sp/%s" % name_s, preds)
 
 

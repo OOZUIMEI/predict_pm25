@@ -72,6 +72,7 @@ r2_total = r2_total / 25
 # 16 mae: 22.38 rmse: 29.04 r2 score: 0.40
 # 20 mae: 23.21 rmse: 29.92 r2 score: 0.37
 # 24 mae: 23.81 rmse: 30.59 r2 score: 0.34
+     avg: 22.08 rmse: 28.62 r2_score: 0.42
 # 28 mae: 24.40 rmse: 31.23 r2 score: 0.31
 # 32 mae: 24.70 rmse: 31.59 r2 score: 0.29
 # 36 mae: 24.97 rmse: 31.83 r2 score: 0.28

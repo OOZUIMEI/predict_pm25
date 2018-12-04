@@ -49,7 +49,6 @@ class TGANLSTM(TGAN):
         params = copy.deepcopy(self.e_params)
         params["fw_cell_size"] = 256
         with tf.variable_scope("encoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
-            enc = tf.reshape(enc, shape=(pr.batch_size * self.encoder_length, self.grid_size, self.grid_size, 1))
             msf_output = self.add_msf_networks(enc)
             # b * l x 256
             hidden_output = self.add_hidden_layers(msf_output)
@@ -61,6 +60,7 @@ class TGANLSTM(TGAN):
     
     # generator cnn layers
     def add_msf_networks(self, inputs, activation=tf.nn.relu, is_dis=False):
+        inputs = tf.reshape(inputs, shape=(pr.batch_size * self.encoder_length, self.grid_size, self.grid_size, 1))
         # input (64, 32, 32, 1) output (64, 32, 32, 64)
         msf1 = rnn_utils.get_multiscale_conv(inputs, 16, activation=activation, prefix="msf1")
         # input (64, 32, 32, 64) output (64, 16, 16, 32)

@@ -57,7 +57,7 @@ class Crawling(object):
     # convert pm25 micro value to aqi value
     def AQIPM25(self, Concentration):
         Conc = float(Concentration)
-        c = (math.floor(10 * Conc)) / 10;
+        c = (math.floor(10 * Conc)) / 10
         if (c >= 0 and c < 12.1):
             AQI = self.Linear(50, 0, 12, 0, c)
         elif (c >= 12.1 and c < 35.5):
@@ -76,11 +76,37 @@ class Crawling(object):
             AQI = 0
         return AQI
 
+
+    def InvLinear(self, AQIhigh, AQIlow, Conchigh, Conclow, a):
+        c=((a-AQIlow)/(AQIhigh-AQIlow))*(Conchigh-Conclow)+Conclow
+        return c
+
+
+    def ConcPM25(self, a):
+        if a>=0 and a<=50:
+            ConcCalc=self.InvLinear(50,0,12,0,a)
+        elif a>50 and a<=100:
+            ConcCalc=self.InvLinear(100,51,35.4,12.1,a)
+        elif a>100 and a<=150:
+            ConcCalc=self.InvLinear(150,101,55.4,35.5,a)
+        elif a>150 and a<=200:
+            ConcCalc=self.InvLinear(200,151,150.4,55.5,a)
+        elif a>200 and a<=300:
+            ConcCalc=self.InvLinear(300,201,250.4,150.5,a)
+        elif a>300 and a<=400:
+            ConcCalc=self.InvLinear(400,301,350.4,250.5,a)
+        elif a>400 and a<=500:
+            ConcCalc=self.InvLinear(500,401,500.4,350.5,a)
+        else:
+            ConcCalc=0
+        return ConcCalc
+
+
     def Linear(self, AQIhigh, AQIlow, Conchigh, Conclow, Concentration):
         Conc = float(Concentration)
         a = ((Conc - Conclow) / (Conchigh - Conclow)) * (AQIhigh - AQIlow) + AQIlow
-        linear = round(a)
-        return linear
+        # linear = round(a)
+        return a
 
     def init_env(self):
         subprocess.call("source activate tensorflow")
