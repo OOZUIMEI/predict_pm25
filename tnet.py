@@ -43,7 +43,8 @@ class TNet(TGAN):
             feed[self.attention_inputs] = np.asarray([range(int(x), int(x) + self.attention_length) for x in idx])
 
         if not train:
-            pred = session.run([self.outputs], feed_dict=feed)
+            pred, gen_loss = session.run([self.outputs, self.gen_loss], feed_dict=feed)
+            total_gen_loss += gen_loss
         else:
             gen_loss, pred, _, = session.run([self.gen_loss, self.outputs, self.gen_op], feed_dict=feed)
             total_gen_loss += gen_loss

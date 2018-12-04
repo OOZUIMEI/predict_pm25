@@ -215,7 +215,8 @@ class MaskGan(BaselineModel):
             feed[self.attention_inputs] = ct_t
 
         if not train:
-            pred = session.run([self.outputs], feed_dict=feed)
+            pred, gen_loss = session.run([self.outputs, self.gen_loss], feed_dict=feed)
+            total_gen_loss += gen_loss
         else:
             gen_loss, dis_loss, _, _, _= session.run([self.gen_loss, self.dis_loss, self.outputs, self.gen_op, self.dis_op], feed_dict=feed)
             total_gen_loss += gen_loss
