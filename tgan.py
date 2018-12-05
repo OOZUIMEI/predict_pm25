@@ -159,6 +159,17 @@ class TGAN(APGan):
         output = tf.reshape(output, shape=(pr.batch_size, self.decoder_length))
         return output, None
 
+    # just decide whether an image is fake or real
+    # calculate the outpute validation of discriminator
+    # output is the value of a dense layer w * x + b
+    # in conv3d, consider a cube only instead of each frame
+    def validate_output(self, inputs, conditional_vectors):
+        inputs = tf.expand_dims(inputs, axis=4)
+        hidden_output = self.add_msf_networks(inputs, tf.nn.leaky_relu, True)
+        hidden_output = tf.concat([hidden_output, conditional_vectors], axis=1)
+        output = tf.layers.dense(hidden_output, 1, name="validation_value")
+        return output
+
     def get_generator_loss(self, fake_preds, outputs, fake_rewards=None):
         labels = tf.layers.flatten(self.pred_placeholder)
         outputs = tf.layers.flatten(outputs)
