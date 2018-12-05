@@ -3,7 +3,7 @@ from __future__ import division
 
 import tensorflow as tf
 
-from capgan import CAPGan
+from apgan import APGan
 import properties as pr
 import rnn_utils
 
@@ -16,7 +16,7 @@ import rnn_utils
 # flip labels
 # add noise to input & label
 
-class TGAN(CAPGan):
+class TGAN(APGan):
 
     def __init__(self, encoder_length=8, decoder_length=8, attention_length=24, **kwargs):
         super(TGAN, self).__init__(**kwargs)
@@ -64,7 +64,7 @@ class TGAN(CAPGan):
     def inference(self, is_train=True):
         fake_outputs, conditional_vectors = self.create_generator(self.encoder_inputs, self.decoder_inputs, self.attention_inputs)
         if is_train:
-            fake_vals, real_vals = self.create_discriminator(fake_outputs, conditional_vectors)
+            fake_vals, real_vals, _ = self.create_discriminator(fake_outputs, conditional_vectors)
             self.dis_loss = self.add_discriminator_loss(fake_vals, real_vals)
             self.gen_loss = self.get_generator_loss(fake_vals, fake_outputs)
             self.gen_op = self.train_generator(self.gen_loss)
@@ -110,19 +110,15 @@ class TGAN(CAPGan):
         msf1 = rnn_utils.get_multiscale_conv3d(inputs, 16, activation=activation, prefix="msf1")
         # input (64, encode_length, 32, 32, 64) output (64, encode_length/2, 16, 16, 32)
         msf1_down = rnn_utils.get_cnn3d_unit(msf1, 32, (5,5,5), activation, padding="SAME", name="down_sample_1", strides=(2,2,2))
-        # input (64, 11, 11, 64) output (64, 11, 11, 64)
-        # if not is_dis:
+        # input (64, 16, 16, 64) output (64, 16, 16, 64)
         msf2 = rnn_utils.get_multiscale_conv3d(msf1_down, 8, activation=activation, prefix="msf21")
-        # else: 
-        #     msf2 = msf1_down
         # input (64, el/2, 16, 16, 32) output (64, el/4, 8, 8, 32)
         msf2_down = rnn_utils.get_cnn3d_unit(msf2, 32, (5,5,5), activation, padding="SAME", name="down_sample_2", strides=(2,2,2))
         # input (64, el/4, 8, 8, 32) output (64, el/4, 8, 8, 32)
-        # if not is_dis:
         msf3 = rnn_utils.get_multiscale_conv3d(msf2_down, 8, [3,1], activation, prefix="msf31")
+        # new layer (64, el/4, 8, 8, 32) output (64, el/8, 4, 4, 64)
+        # msf3 = rnn_utils.get_cnn3d_unit(msf3, 64, (5,5,5), activation, padding="SAME", name="down_sample_3", strides=(2,2,2))
         msf3 = tf.layers.flatten(msf3)
-        # else:
-        #     msf3 = tf.layers.flatten(msf2_down)
         return msf3
 
     def add_hidden_layers(self, input_vectors):
@@ -138,6 +134,7 @@ class TGAN(CAPGan):
         depth = int(self.decoder_length / 4)
         ft = int(8 / depth)
         with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
+            # bs x 256 + bs x 256
             dec_inputs_vectors = tf.concat([dec_hidden_vectors, self.z], axis=1)
             dec_outputs = tf.layers.dense(dec_inputs_vectors, 512, name="generation_hidden_seed", activation=tf.nn.tanh)
             dec_outputs = tf.reshape(dec_outputs, [pr.batch_size, depth, 8, 8, ft])
@@ -147,7 +144,6 @@ class TGAN(CAPGan):
             cnn_outputs = tf.layers.flatten(ups32)
             cnn_outputs = tf.tanh(cnn_outputs)
             cnn_outputs = tf.reshape(cnn_outputs, [pr.batch_size, self.decoder_length, self.grid_size, self.grid_size])
-            # outputs
         return cnn_outputs
 
     # just decide whether an image is fake or real
@@ -156,14 +152,15 @@ class TGAN(CAPGan):
     def validate_output(self, inputs, conditional_vectors):
         inputs = tf.expand_dims(inputs, axis=4)
         hidden_output = self.add_msf_networks(inputs, tf.nn.leaky_relu, True)
+        hidden_dim = int(hidden_output.get_shape()[-1]) / self.decoder_length
+        hidden_output = tf.reshape(hidden_output, shape=(pr.batch_size * self.decoder_length, int(hidden_dim)))
         hidden_output = tf.concat([hidden_output, conditional_vectors], axis=1)
         output = tf.layers.dense(hidden_output, 1, name="validation_value")
-        return output   
+        output = tf.reshape(output, shape=(pr.batch_size, self.decoder_length))
+        return output, None
 
-    def create_discriminator(self, fake_outputs, conditional_vectors):
-        with tf.variable_scope("discriminator", self.initializer, reuse=tf.AUTO_REUSE):
-            conditional_vectors = tf.tile(conditional_vectors, [1, self.decoder_length])
-            real_inputs = self.pred_placeholder
-            fake_val = self.validate_output(fake_outputs, conditional_vectors)
-            real_val = self.validate_output(real_inputs, conditional_vectors)
-        return fake_val, real_val
+    def get_generator_loss(self, fake_preds, outputs, fake_rewards=None):
+        labels = tf.layers.flatten(self.pred_placeholder)
+        outputs = tf.layers.flatten(outputs)
+        gen_loss = self.add_generator_loss(fake_preds, outputs, labels, fake_rewards)
+        return gen_loss

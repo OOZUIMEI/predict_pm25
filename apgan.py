@@ -136,7 +136,6 @@ class APGan(MaskGan):
     # calculate the outpute validation of discriminator
     # output is the value of a dense layer w * x + b
     def validate_output(self, inputs, conditional_vectors):
-        conditional_vectors = tf.reshape(conditional_vectors, [pr.batch_size * self.decoder_length, self.rnn_hidden_units])
         inputs = tf.reshape(inputs, [pr.batch_size * self.decoder_length, pr.grid_size, pr.grid_size, 1])
         inputs_rep = rnn_utils.get_cnn_rep(inputs, 3, tf.nn.leaky_relu, 8, self.use_batch_norm, self.dropout, False)
         inputs_rep = tf.layers.flatten(inputs_rep)
@@ -158,10 +157,11 @@ class APGan(MaskGan):
 
     def create_discriminator(self, fake_outputs, conditional_vectors):
         with tf.variable_scope("discriminator", self.initializer, reuse=tf.AUTO_REUSE):
+            c_d = conditional_vectors.get_shape()
             conditional_vectors = tf.tile(conditional_vectors, [1, self.decoder_length])
-            real_inputs = self.pred_placeholder
+            conditional_vectors = tf.reshape(conditional_vectors, [pr.batch_size * self.decoder_length, int(c_d[-1])])
             fake_val, fake_rewards = self.validate_output(fake_outputs, conditional_vectors)
-            real_val, _ = self.validate_output(real_inputs, conditional_vectors)
+            real_val, _ = self.validate_output(self.pred_placeholder, conditional_vectors)
         return fake_val, real_val, fake_rewards
 
     # regular discriminator loss function
