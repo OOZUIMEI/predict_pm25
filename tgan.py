@@ -149,26 +149,24 @@ class TGAN(APGan):
     # just decide whether an image is fake or real
     # calculate the outpute validation of discriminator
     # output is the value of a dense layer w * x + b
-    # def validate_output(self, inputs, conditional_vectors):
-    #     inputs = tf.expand_dims(inputs, axis=4)
-    #     hidden_output = self.add_msf_networks(inputs, tf.nn.leaky_relu, True)
-    #     hidden_dim = int(hidden_output.get_shape()[-1]) / self.decoder_length
-    #     hidden_output = tf.reshape(hidden_output, shape=(pr.batch_size * self.decoder_length, int(hidden_dim)))
-    #     hidden_output = tf.concat([hidden_output, conditional_vectors], axis=1)
-    #     output = tf.layers.dense(hidden_output, 1, name="validation_value")
-    #     output = tf.reshape(output, shape=(pr.batch_size, self.decoder_length))
-    #     return output, None
-
-    # just decide whether an image is fake or real
-    # calculate the outpute validation of discriminator
-    # output is the value of a dense layer w * x + b
     # in conv3d, consider a cube only instead of each frame
+    # conditional_vectors is bs x 256
+    # change hidden_output from bs x 2048 => bs x 256
     def validate_output(self, inputs, conditional_vectors):
         inputs = tf.expand_dims(inputs, axis=4)
         hidden_output = self.add_msf_networks(inputs, tf.nn.leaky_relu, True)
+        hidden_output = self.add_hidden_layers(hidden_output)
         hidden_output = tf.concat([hidden_output, conditional_vectors], axis=1)
         output = tf.layers.dense(hidden_output, 1, name="validation_value")
         return output
+    
+    # different to apgan
+    def create_discriminator(self, fake_outputs, conditional_vectors):
+        with tf.variable_scope("discriminator", self.initializer, reuse=tf.AUTO_REUSE):
+            fake_val = self.validate_output(fake_outputs, conditional_vectors)
+            real_val = self.validate_output(self.pred_placeholder, conditional_vectors)
+        return fake_val, real_val, None
+
 
     def get_generator_loss(self, fake_preds, outputs, fake_rewards=None):
         labels = tf.layers.flatten(self.pred_placeholder)

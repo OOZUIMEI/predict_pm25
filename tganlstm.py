@@ -94,4 +94,7 @@ class TGANLSTM(TGAN):
             cnn_outputs = tf.tanh(cnn_outputs)
             cnn_outputs = tf.reshape(cnn_outputs, [pr.batch_size, self.decoder_length, self.grid_size, self.grid_size])
         return cnn_outputs
-1
+
+    # call this function from grandparent
+    def create_discriminator(self, fake_outputs, conditional_vectors):
+        super(TGAN, self).create_discriminator(self, fake_outputs, conditional_vectors)
