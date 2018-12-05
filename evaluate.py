@@ -195,6 +195,37 @@ def evaluate_transportation(url, url2):
     print("R2 Score: %.2f" % r2_total)
 
 
+# evaluate grid training
+def evaluate_lstm(url, url2):
+    data = utils.load_file(url)
+    if type(data) is list:
+        data = np.asarray(data)
+    decoder_length = data.shape[-1]
+    lt = data.shape[0] * data.shape[1]
+    data = np.reshape(data, (lt, decoder_length))
+    dtl = len(data)
+    labels = utils.load_file(url2)
+    labels = np.asarray(labels)
+    loss_mae = 0.0
+    loss_rmse = 0.0
+    r2_total = 0.0
+    for i, d in enumerate(data):
+        pred_t = np.asarray(d).flatten()
+        lb_i = i * 4 + decoder_length
+        lbt = np.mean(labels[lb_i:(lb_i+decoder_length),:,0], axis=1)
+        mae, mse, r2 = get_evaluation(pred_t, lbt)
+        loss_mae += mae
+        loss_rmse += mse
+        r2_total += r2
+        utils.update_progress((i + 1.0) / dtl)
+    loss_mae = loss_mae / lt * 300
+    loss_rmse = sqrt(loss_rmse / lt) * 300
+    r2_total = r2_total / lt
+    print("MAE: %.2f" % loss_mae)
+    print("RMSE: %.2f" % loss_rmse)
+    print("R2 score: %.2f" % r2_total)
+
+
 def get_evaluation(pr, lb):
     pr = pr.flatten()
     lb = lb.flatten()
@@ -231,6 +262,8 @@ if __name__ == "__main__":
         # TGAN3d - MAE: 2.35 RMSE: 7.34 R2 Score: 0.79
         
         evaluate_transportation(args.url, args.url2)
+    elif args.task == 3:
+        evaluate_lstm(args.url, args.url2)
     else:
         # train_data
         # pm25: 0.24776679025820308, 0.11997866025609479

@@ -197,7 +197,8 @@ class CAPGan(APGan):
             self.encoder_inputs : ct_t,
             self.decoder_inputs: dec_t,
             self.z: self.sample_z(),
-            self.flag: np.asarray(np.random.randint(0, 1, [pr.batch_size, 1]), dtype=np.float32)
+            # self.flag: np.asarray(np.random.randint(0, 1, [pr.batch_size, 1]), dtype=np.float32)
+            self.flag: np.zeros([pr.batch_size, 1], dtype=np.float32)
         }
         if self.use_attention:
             feed[self.attention_inputs] = np.asarray([range(int(x), int(x) + self.attention_length) for x in idx])

@@ -61,18 +61,22 @@ class TGANLSTM(TGAN):
     # generator cnn layers
     def add_msf_networks(self, inputs, activation=tf.nn.relu, is_dis=False):
         inputs = tf.reshape(inputs, shape=(pr.batch_size * self.encoder_length, self.grid_size, self.grid_size, 1))
-        # input (64, 32, 32, 1) output (64, 32, 32, 64)
-        msf1 = rnn_utils.get_multiscale_conv(inputs, 16, activation=activation, prefix="msf1")
-        # input (64, 32, 32, 64) output (64, 16, 16, 32)
-        msf1_down = rnn_utils.get_cnn_unit(msf1, 32, (5,5), activation, padding="SAME", name="down_sample_1", strides=(2,2))
-        # input (64, 11, 11, 64) output (64, 11, 11, 64)
-        # if not is_dis:
-        msf2 = rnn_utils.get_multiscale_conv(msf1_down, 8, activation=activation, prefix="msf21")
-        # input (64, 16, 16, 32) output (64, 8, 8, 32)
-        msf2_down = rnn_utils.get_cnn_unit(msf2, 32, (5,5), activation, padding="SAME", name="down_sample_2", strides=(2,2))
-        # input (64, 8, 8, 32) output (64, 8, 8, 32)
-        # if not is_dis:
-        msf3 = rnn_utils.get_multiscale_conv(msf2_down, 8, [3,1], activation, prefix="msf31")
+        # input (64, 32, 32, 1) output (64, 32, 32, 16)
+        msf1 = rnn_utils.get_multiscale_conv(inputs, 4, activation=activation, prefix="msf1")
+        # input (64, 32, 32, 16) output (64, 16, 16, 16)
+        msf1_down = rnn_utils.get_cnn_unit(msf1, 16, (5,5), activation, padding="SAME", name="down_sample_1", strides=(2,2))
+        if not is_dis:
+            # input (64, 16, 16, 16) output (64, 16, 16, 32)
+            msf2 = rnn_utils.get_multiscale_conv(msf1_down, 8, activation=activation, prefix="msf21")
+            # input (64, 16, 16, 32) output (64, 8, 8, 32)
+            msf2 = rnn_utils.get_cnn_unit(msf2, 32, (5,5), activation, padding="SAME", name="down_sample_2", strides=(2,2))
+            # input (64, 8, 8, 32) output (64, 8, 8, 32)
+            msf3 = rnn_utils.get_multiscale_conv(msf2, 8, [3,1], activation, prefix="msf31")
+        else: 
+            # input (64, 16, 16, 64) output (64, 8, 8, 32)
+            msf3 = rnn_utils.get_cnn_unit(msf1_down, 32, (5,5), activation, padding="SAME", name="down_sample_2", strides=(2,2))
+        # input (64, 8, 8, 32) output (64, 4, 4, 64)
+        msf3 = rnn_utils.get_cnn_unit(msf3, 64, (5,5), activation, padding="SAME", name="down_sample_2", strides=(2,2))
         msf3 = tf.layers.flatten(msf3)
         return msf3
 
@@ -84,7 +88,7 @@ class TGANLSTM(TGAN):
         hidden_output = self.add_msf_networks(inputs, tf.nn.leaky_relu, True)
         hidden_output = tf.reshape(hidden_output, shape=(pr.batch_size, 8192))
         hidden_output = tf.concat([hidden_output, conditional_vectors], axis=1)
-        hidden_output = self.add_hidden_layers(hidden_output)
+        # hidden_output = self.add_hidden_layers(hidden_output)
         output = tf.layers.dense(hidden_output, 1, name="validation_value")
         return output   
 

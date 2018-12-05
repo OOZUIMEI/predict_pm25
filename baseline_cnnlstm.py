@@ -44,7 +44,7 @@ class BaselineModel(object):
         self.initializer = tf.contrib.layers.xavier_initializer()
         self.e_params = {
             "fw_cell_size" : self.rnn_hidden_units,
-            "fw_cell": "cudnn_gru",
+            "fw_cell": "cudnn_lstm",
             "batch_size" : self.batch_size,
             "type": 0,
             "rnn_layer": self.rnn_layers,
@@ -283,8 +283,11 @@ class BaselineModel(object):
             if self.use_attention:
                 feed[self.attention_inputs] = ct_t
 
-            loss, pred, _= session.run([self.loss_op, self.output, self.train_op], feed_dict=feed)
-            
+            if train:
+                loss, pred, _= session.run([self.loss_op, self.output, self.train_op], feed_dict=feed)
+            else:
+                loss, pred = session.run([self.loss_op, self.output], feed_dict=feed)
+
             total_loss.append(loss)
             if verbose and step % verbose == 0:
                 sys.stdout.write('\r{} / {} : loss = {}'.format(
