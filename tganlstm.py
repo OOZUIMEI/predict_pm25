@@ -98,3 +98,7 @@ class TGANLSTM(TGAN):
     # call this function from grandparent
     def create_discriminator(self, fake_outputs, conditional_vectors):
         super(TGAN, self).create_discriminator(self, fake_outputs, conditional_vectors)
+    
+    def add_discriminator_loss(self, fake_preds, real_preds):
+        super(TGAN, self).add_discriminator_loss(self, fake_preds, real_preds)
+    

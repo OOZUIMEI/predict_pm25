@@ -2,7 +2,7 @@ from __future__ import print_function
 from __future__ import division
 
 import tensorflow as tf
-
+import numpy as np
 from apgan import APGan
 import properties as pr
 import rnn_utils
@@ -167,6 +167,17 @@ class TGAN(APGan):
             real_val = self.validate_output(self.pred_placeholder, conditional_vectors)
         return fake_val, real_val, None
 
+    # regular discriminator loss function
+    def add_discriminator_loss(self, fake_preds, real_preds):
+        # real_labels = tf.constant(0.9, shape=[self.batch_size, 1])
+        # fake_labels = tf.zeros([self.batch_size, 1])
+        real_labels = np.absolute(self.flag - np.random.uniform(0.8, 1., [self.batch_size, 1]))
+        fake_labels = np.absolute(self.flag - np.random.uniform(0., 0.2, [self.batch_size, 1]))
+        dis_loss_fake = tf.reduce_mean(tf.losses.sigmoid_cross_entropy(fake_labels, fake_preds))
+        dis_loss_real = tf.reduce_mean(tf.losses.sigmoid_cross_entropy(real_labels, real_preds))
+        dis_loss = dis_loss_real + dis_loss_fake
+        tf.summary.scalar("dis_loss", dis_loss)
+        return dis_loss
 
     def get_generator_loss(self, fake_preds, outputs, fake_rewards=None):
         labels = tf.layers.flatten(self.pred_placeholder)
