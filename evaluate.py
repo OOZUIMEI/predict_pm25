@@ -258,9 +258,15 @@ if __name__ == "__main__":
         # TNET3d - MAE: 2.17 RMSE: 6.73 R2_Score: 0.82
         # TNETLSTM - MAE: 2.80 RMSE: 8.60 R2 Score: 0.69
         # TNETLSTM L2 - MAE: 2.70 RMSE: 6.65 R2 Score: 0.80
-        # TGAN3d - MAE: 1.85 RMSE: 6.34 R2 Score: 0.84
-        # TGAN3d - MAE: 2.35 RMSE: 7.34 R2 Score: 0.79
         
+        # TGAN3d - MAE: 1.85 RMSE: 6.34 R2 Score: 0.84 
+        # TGAN3d - MAE: 2.35 RMSE: 7.34 R2 Score: 0.79
+        # R-TGAN3d - MAE: 3.03 RMSE: 7.00 R2 Score: 0.81
+        # R-TGAN3d - MAE: 3.06 RMSE: 7.14 R2 Score: 0.81
+
+        # TGANLSTM MAE: 3.25 (3.05) RMSE: 8.61 (7.61) R2 Score: 0.69 (0.72)
+        # SRCN MAE: 2.73 RMSE: 6.60 R2 Score: 0.81
+        # SRCN 100 MAE: 3.13 RMSE: 6.63 R2 Score: 0.81 (0.80)
         evaluate_transportation(args.url, args.url2)
     elif args.task == 3:
         evaluate_lstm(args.url, args.url2)

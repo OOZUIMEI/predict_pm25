@@ -14,7 +14,7 @@
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
     <script src="./public/js/lodash.js"></script>
     <!-- <script src="map.js"></script> -->
-    <script src="map25.js"></script>
+    <script src="map32.js"></script>
     <style>
    /* Always set the map height explicitly to define the size of the div
        * element that contains the map. */
@@ -157,7 +157,7 @@
         <div class='row'>
             <div class='col-lg-6 col-md-6 col-sm-12 col-xs-12'>
                 <div id="map">
-                    <img src="resources/seoul_districts.png">
+                    <!-- <img src="resources/seoul_districts.png"> -->
                     <canvas id="capture" width="600" height="600"></canvas>
                 </div>
             </div>
@@ -179,11 +179,12 @@
 
     </div>
     <script>
-        var grid_no = 25
+        var grid_no = 32
         var grid_size = 20
         var dot_size = 10
         var mouse = false
         var currentArea = {}
+        // var area_obj = {}
         var dotted = {}
         var currentColor = "#ff0000"
         var erase = false

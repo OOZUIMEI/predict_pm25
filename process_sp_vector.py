@@ -1,5 +1,7 @@
 import argparse
 import numpy as np
+from scipy.interpolate import interp1d
+from copy import deepcopy
 import pickle
 import utils
 import time
@@ -145,7 +147,6 @@ def convert_transport_data(url):
     name = url.split("/")[-1]
     name = name.split(".")[0]
     data = utils.load_file(url, False)
-    print(data[-1])
     year_length = (int(data[-1].rstrip("\n").split(",")[-1]) + 1) * 24
     days = [[0] * 1024] * year_length
     old_h = -1
@@ -168,6 +169,83 @@ def convert_transport_data(url):
     utils.save_file("vectors/transportation/%s.pkl" % name, days)
 
 
+# def interpolate_missing(url="vectors/sp_china_combined/sp_seoul_train_bin"):
+#     print("Converting: %s" % url)
+#     data = utils.load_file(url)
+#     data = np.array(data)
+#     L = len(data)
+#     idx = np.arange(L)
+#     data = np.transpose(data, (2, 1, 0))
+#     for t_i,t  in enumerate(data):
+#         for y_i, y in enumerate(t):
+#             x = np.array(deepcopy(idx))
+#             zeros = np.where(y == 0.)
+#             if len(zeros):
+#                 xold = np.delete(x, zeros)
+#                 yold = np.delete(y, zeros)
+#                 if len(xold) >= 2 and len(yold) >= 2:
+#                     f = interp1d(xold, yold, fill_value="extrapolate")
+#                     y_new = f(x)
+#                     data[t_i, y_i,:] = y_new
+#     data = np.transpose(data, (0, 2, 1))
+#     for t_i,t  in enumerate(data):
+#         for y_i, y in enumerate(t):
+#             x = np.arange(len(y))
+#             zeros = np.where(y == 0.)
+#             if len(zeros):
+#                 xold = np.delete(x, zeros)
+#                 yold = np.delete(y, zeros)
+#                 if len(xold) >= 2 and len(yold) >= 2:
+#                     f = interp1d(xold, yold, fill_value="extrapolate")
+#                     y_new = f(x)
+#                     data[t_i, y_i,:] = y_new
+#                 else:
+#                     data[t_i, y_i,:] = (data[t_i, y_i-1,:] + data[t_i, y_i+1,:])/2
+#     data = np.transpose(data, (1, 2, 0))
+#     data = data.tolist()
+#     utils.save_file("vectors/sp_china_combined/sp_seoul_train_bin_ip", data)
+
+
+def interpolate_missing(url="vectors/sp_china_combined/sp_seoul_train_bin"):
+    print("Converting: %s" % url)
+    data = utils.load_file(url)
+    data = np.array(data)
+    data = np.transpose(data, (2, 1, 0))
+    for t_i,t  in enumerate(data):
+        for y_i, y in enumerate(t):
+            zeros = np.where(y == 0.)
+            if len(zeros):
+                yold = np.delete(y, zeros)
+                m = np.mean(yold)
+                for i in zeros:
+                    data[t_i,y_i,i] = m
+    data = np.transpose(data, (2, 1, 0))
+    zeros = np.where(data == 0)
+    print(zeros)
+    data = data.tolist()
+    utils.save_file("vectors/sp_china_combined/sp_seoul_train_bin_ip", data)
+
+
+# change missing values to mean by default
+def interpolate_missing_china(url="vectors/sp_china_combined/sp_china_test_bin"):
+    print("Converting: %s" % url)
+    data = utils.load_file(url)
+    data = np.array(data)
+    data = data.transpose()
+    for t_i,t in enumerate(data):
+        x = np.array(deepcopy(idx))
+        zeros = np.where(t == 0.)
+        if len(zeros):
+            yold = np.delete(t, zeros)
+            m = np.mean(yold)
+            for i in zeros:
+                data[t_i,i] = m
+    data = data.transpose()
+    data = data.tolist()
+    utils.save_file("vectors/sp_china_combined/sp_china_test_bin_ip", data)
+
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-p", "--prefix", help="prefix to fix")
@@ -185,8 +263,9 @@ if __name__ == "__main__":
         parse_vector(args.url, args.url1, args.dim)
     elif args.task == 1:
         convert_data_to_grid(args.url, args.url1, args.aurl, args.aurl1, args.part)
-    else:
+    elif args.task == 2:
         convert_transport_data(args.url)
-
+    else:
+        interpolate_missing()
 
 

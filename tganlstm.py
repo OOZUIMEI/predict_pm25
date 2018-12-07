@@ -35,14 +35,18 @@ class TGANLSTM(TGAN):
                 because transportation is a local problem => weather data don't need to be converted to grid heatmap
                 Use simple lstm gru to visualize the fluctuation of weather feature => an attentional vector
             """
-            att = tf.reshape(tf.transpose(att, [0, 2, 1, 3]), [pr.batch_size * 25, self.attention_length, 9])
-            att_outputs, _ = rnn_utils.execute_sequence(att, self.e_params)
-            att_outputs = self.get_softmax_attention(att_outputs)
-            att_outputs = tf.reshape(att_outputs, [pr.batch_size, 25, 128])
-            att_outputs = tf.layers.dense(att_outputs, 32, activation=tf.nn.tanh, name="attention_weathers")
-            att_outputs = tf.layers.flatten(att_outputs)
-            conditional_vectors = self.add_conditional_layer(enc_outputs, att_outputs)
-            outputs = self.exe_decoder(conditional_vectors)
+            if self.use_attention:
+                att = tf.reshape(tf.transpose(att, [0, 2, 1, 3]), [pr.batch_size * 25, self.attention_length, 9])
+                att_outputs, _ = rnn_utils.execute_sequence(att, self.e_params)
+                att_outputs = self.get_softmax_attention(att_outputs)
+                att_outputs = tf.reshape(att_outputs, [pr.batch_size, 25, 128])
+                att_outputs = tf.layers.dense(att_outputs, 32, activation=tf.nn.tanh, name="attention_weathers")
+                att_outputs = tf.layers.flatten(att_outputs)
+                conditional_vectors = self.add_conditional_layer(enc_outputs, att_outputs)
+                outputs = self.exe_decoder(conditional_vectors)
+            else:
+                outputs = self.exe_decoder(enc_outputs)
+                conditional_vectors = None
         return outputs, conditional_vectors
     
     def exe_encoder(self, enc):
@@ -95,10 +99,24 @@ class TGANLSTM(TGAN):
             cnn_outputs = tf.reshape(cnn_outputs, [pr.batch_size, self.decoder_length, self.grid_size, self.grid_size])
         return cnn_outputs
 
+    # use simple layers for discriminator
+    def validate_output(self, inputs, conditional_vectors):
+        inputs = tf.expand_dims(inputs, axis=4)
+        # hidden_output = self.add_msf_networks(inputs, tf.nn.leaky_relu, True)
+        inputs = tf.reshape(inputs, shape=(pr.batch_size * self.encoder_length, self.grid_size, self.grid_size, 1))
+        msf1 = rnn_utils.get_cnn_unit(inputs, 32, (5,5), tf.nn.leaky_relu, padding="SAME", name="down_sample_1", strides=(2,2))
+        msf2 = rnn_utils.get_cnn_unit(msf1, 32, (5,5), tf.nn.leaky_relu, padding="SAME", name="down_sample_2", strides=(2,2))
+        # input (64, 8, 8, 32) output (64, 4, 4, 32)
+        msf3 = rnn_utils.get_cnn_unit(msf2, 32, (3,3), tf.nn.leaky_relu, padding="SAME", name="down_sample_3", strides=(2,2))
+        msf3 = tf.layers.flatten(msf3)
+        output = tf.layers.dense(msf3, 1, name="validation_value")
+        output = tf.reshape(output, shape=(pr.batch_size, self.decoder_length))
+        return output, None
+    
     # call this function from grandparent
     def create_discriminator(self, fake_outputs, conditional_vectors):
-        super(TGAN, self).create_discriminator(self, fake_outputs, conditional_vectors)
+        return super(TGAN, self).create_discriminator(fake_outputs, conditional_vectors)
     
     def add_discriminator_loss(self, fake_preds, real_preds):
-        super(TGAN, self).add_discriminator_loss(self, fake_preds, real_preds)
+        return super(TGAN, self).add_discriminator_loss(fake_preds, real_preds)
     
