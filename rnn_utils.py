@@ -243,23 +243,39 @@ def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8, use_b
         """
             use structure of DCGAN with the mixture of both tranposed convolution and convolution for Generator output
         """
-        if normalize:
+        # if normalize:
             # normalize input to [-1, 1] in generator
-            cnn_inputs = tf.tanh(cnn_inputs)
+            # cnn_inputs = tf.tanh(cnn_inputs)
         # input should be 4 * 4 * 16 => 8 x 8 x 8 => 16 x 16 x 4 => 32 x 32 x 2 => 25x25x1
         conv1 = get_cnn_transpose_unit(cnn_inputs, max_filters, upscale_k, activation, "SAME", "transpose_conv1", use_batch_norm, dropout)
         conv2 = get_cnn_transpose_unit(conv1, max_filters / 2, upscale_k, activation, "SAME", "transpose_conv2", use_batch_norm, dropout)
         conv3 = get_cnn_transpose_unit(conv2, max_filters / 4, upscale_k, activation, "SAME", "transpose_conv3", use_batch_norm, dropout)
         cnn_outputs = get_cnn_unit(conv3, 1, (8, 8), activation, "VALID", "cnn_gen_output", use_batch_norm, dropout, strides=(1,1))
         cnn_outputs = tf.squeeze(cnn_outputs, [-1])
+    elif:
+        """
+            use for generator only
+        """
+        # 25 x 25 x H => 8x8x8 => 4x4x8
+        conv1 = get_cnn_unit(cnn_inputs, 1, (5,5), activation, "SAME", "rep_conv1", use_batch_norm, dropout, strides=(1,1))
+        # 25 x 25 x H => 25 x 25 x 32
+        msf1 = get_multiscale_conv(conv1, 8, activation=activation)
+        # 25 x 25 x 8 => 13 x 13 x 32
+        conv2 = get_cnn_unit(msf1, 32, (5,5), activation, "SAME", "rep_conv1", use_batch_norm, dropout)
+        # 13 x 13 x 32 => 13 x 13 x 32
+        msf2 = get_multiscale_conv(conv2, 32, activation=activation)
+        # 13 x 13 x 32 => 7 x 7 x 32
+        conv3 = get_cnn_unit(msf2, 32, (3,3), activation, "SAME", "rep_conv2", use_batch_norm, dropout)
+        msf3 = get_multiscale_conv(conv3, 8, [1,3], activation=activation)
+        cnn_outputs = get_cnn_unit(msf3, 16, (3,3), activation, "SAME", "rep_conv1", use_batch_norm, dropout)
     else:
         """
             use structure of DCGAN with the mixture of both tranposed convolution and convolution for discriminator
             use dropout and batch_normalization
         """
-        if normalize:
+        # if normalize:
             # normalize input to [-1, 1] in generator
-            cnn_inputs = tf.tanh(cnn_inputs)
+            # cnn_inputs = tf.tanh(cnn_inputs)
         # 25 x 25 x H => 8x8x8 => 4x4x8
         conv1 = get_cnn_unit(cnn_inputs, max_filters, (11,11), activation, "VALID", "rep_conv1", use_batch_norm, dropout)
         cnn_outputs = get_cnn_unit(conv1, max_filters, upscale_k, activation, "SAME", "rep_conv2", use_batch_norm, dropout)

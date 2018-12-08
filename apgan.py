@@ -29,7 +29,8 @@ class APGan(MaskGan):
         self.strides = [4]
         self.beta1 = 0.5
         self.lamda = 100
-        self.gmtype = 3
+        self.gmtype = 4
+        self.mtype = 3
         self.z_dim = [pr.batch_size, self.decoder_length, 128]
         self.z = tf.placeholder(tf.float32, shape=self.z_dim)   
         self.flag = tf.placeholder(tf.float32, shape=[self.batch_size, 1]) 
@@ -137,7 +138,7 @@ class APGan(MaskGan):
     # output is the value of a dense layer w * x + b
     def validate_output(self, inputs, conditional_vectors):
         inputs = tf.reshape(inputs, [pr.batch_size * self.decoder_length, pr.grid_size, pr.grid_size, 1])
-        inputs_rep = rnn_utils.get_cnn_rep(inputs, 3, tf.nn.leaky_relu, 8, self.use_batch_norm, self.dropout, False)
+        inputs_rep = rnn_utils.get_cnn_rep(inputs, self.gmtype, tf.nn.leaky_relu, 8, self.use_batch_norm, self.dropout, False)
         inputs_rep = tf.layers.flatten(inputs_rep)
         inputs_rep = tf.concat([inputs_rep, conditional_vectors], axis=1)
         output = tf.layers.dense(inputs_rep, 1, name="validation_value")
