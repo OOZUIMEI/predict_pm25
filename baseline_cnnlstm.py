@@ -149,17 +149,17 @@ class BaselineModel(object):
         
         if self.dtype == "grid":
             enc.set_shape((self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.encode_vector_size))
-            dec_f.set_shape((self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.encode_vector_size))
+            dec_f.set_shape((self.batch_size, self.decoder_length, self.grid_size, self.grid_size, self.encode_vector_size))
             # embedding = tf.Variable(self.daitasets, name="embedding")
             dec = dec_f[:,:,:,:,self.df_ele:]
-            dec.set_shape((self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.decode_vector_size))
+            dec.set_shape((self.batch_size, self.decoder_length, self.grid_size, self.grid_size, self.decode_vector_size))
             # 0 is pm2.5 1 is pm10
             self.pred_placeholder = dec_f[:,:,:,:,0]
         else:
             enc.set_shape((self.batch_size, self.encoder_length, 25, self.encode_vector_size))
             dec_f.set_shape((self.batch_size, self.encoder_length, 25, self.encode_vector_size))
             dec = dec_f[:,:,:,self.df_ele:]
-            dec.set_shape((self.batch_size, self.encoder_length, 25, self.decode_vector_size))
+            dec.set_shape((self.batch_size, self.decoder_length, 25, self.decode_vector_size))
             self.pred_placeholder = dec_f[:,:,:,0]
             self.pred_placeholder = tf.reduce_mean(self.pred_placeholder, axis=2)
         return enc, dec

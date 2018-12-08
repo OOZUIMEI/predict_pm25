@@ -206,7 +206,7 @@ class MaskGan(BaselineModel):
         # switch batchsize, => batchsize * encoding_length (x -> x + 24)
         ct_t = np.asarray([range(int(x), int(x) + self.encoder_length) for x in ct_t])
         dec_t = ct_t + self.decoder_length
-
+        print(np.shape(dec_t))
         feed = {
             self.encoder_inputs : ct_t,
             self.decoder_inputs: dec_t,

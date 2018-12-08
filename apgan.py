@@ -34,6 +34,7 @@ class APGan(MaskGan):
         self.z_dim = [pr.batch_size, self.decoder_length, 128]
         self.z = tf.placeholder(tf.float32, shape=self.z_dim)   
         self.flag = tf.placeholder(tf.float32, shape=[self.batch_size, 1]) 
+        print(self.decoder_length)
 
     def inference(self, is_train=True):
         fake_outputs, conditional_vectors = self.create_generator(self.encoder_inputs, self.decoder_inputs, self.attention_inputs)
@@ -183,7 +184,7 @@ class APGan(MaskGan):
         idx = ct[index]
         # switch batchsize, => batchsize * encoding_length (x -> x + 24)
         ct_t = np.asarray([range(int(x), int(x) + self.encoder_length) for x in idx])
-        dec_t = ct_t + self.decoder_length
+        dec_t = np.asarray([range(int(x) + self.encoder_length, int(x) + self.encoder_length + self.decoder_length) for x in idx])
 
         feed = {
             self.encoder_inputs : ct_t,
