@@ -168,10 +168,10 @@ class APGan(MaskGan):
 
     # regular discriminator loss function
     def add_discriminator_loss(self, fake_preds, real_preds):
-        # real_labels = tf.constant(0.9, shape=[self.batch_size, 1])
-        # fake_labels = tf.zeros([self.batch_size, 1])
-        real_labels = np.absolute(self.flag - np.random.uniform(0.8, 1., [self.batch_size, self.decoder_length]))
-        fake_labels = np.absolute(self.flag - np.random.uniform(0., 0.2, [self.batch_size, self.decoder_length]))
+        real_labels = tf.constant(0.9, shape=[self.batch_size, self.decoder_length])
+        fake_labels = tf.zeros([self.batch_size, self.decoder_length])
+        #real_labels = np.absolute(self.flag - np.random.uniform(0.8, 1., [self.batch_size, self.decoder_length]))
+        #fake_labels = np.absolute(self.flag - np.random.uniform(0., 0.2, [self.batch_size, self.decoder_length]))
         dis_loss_fake = tf.reduce_mean(tf.losses.sigmoid_cross_entropy(fake_labels, fake_preds))
         dis_loss_real = tf.reduce_mean(tf.losses.sigmoid_cross_entropy(real_labels, real_preds))
         dis_loss = dis_loss_real + dis_loss_fake
