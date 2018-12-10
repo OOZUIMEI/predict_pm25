@@ -14,7 +14,7 @@ def process_data(data, time_lags=8):
     training_data = []
     labels = []
     history = 16
-    total = 88
+    total = 60
     for x in xrange(0, dt_len, time_lags):
         if x + total <= dt_len:
             dt = np.array(data[x:x+history,:])
@@ -67,27 +67,12 @@ rmse = rmse * 12
 mae = mae * 12
 r2_total = r2_total / 25
 """
-# 8 mae: 19.73 # rmse: 25.83 r2 score: 0.53
-# 12 mae: 21.29 rmse: 27.72 r2 score: 0.46
-# 16 mae: 22.38 rmse: 29.04 r2 score: 0.40
-# 20 mae: 23.21 rmse: 29.92 r2 score: 0.37
-# 24 mae: 23.81 rmse: 30.59 r2 score: 0.34
-     avg: 22.08 rmse: 28.62 r2_score: 0.42
-# 28 mae: 24.40 rmse: 31.23 r2 score: 0.31
-# 32 mae: 24.70 rmse: 31.59 r2 score: 0.29
-# 36 mae: 24.97 rmse: 31.83 r2 score: 0.28
-# 48 mae: 24.97 rmse: 31.83 r2 score: 0.28
-# 60 mae: 24.97 rmse: 31.83 r2 score: 0.28
-# 72 mae: 24.97 rmse: 31.83 r2 score: 0.28
-
-
-
 # pm10 prediction
 # 8h mae: 13.72 rmse: 17.42 r2 score: 0.26
 # 16h mae: 14.97 rmse: 18.83 r2 score: 0.14
 # 24h mae: 15.74 rmse: 19.63 r2 score: 0.06
 
 """
-print("mae: %.2f" % mae)
-print("rmse: %.2f" % rmse)
-print("r2 score: %.2f" % r2_total)
+print("mae: %.4f" % mae)
+print("rmse: %.4f" % rmse)
+print("r2 score: %.4f" % r2_total)

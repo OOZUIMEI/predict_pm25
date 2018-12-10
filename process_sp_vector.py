@@ -233,7 +233,7 @@ def interpolate_missing_china(url="vectors/sp_china_combined/sp_china_test_bin")
     data = np.array(data)
     data = data.transpose()
     for t_i,t in enumerate(data):
-        x = np.array(deepcopy(idx))
+        # x = np.array(deepcopy(idx))
         zeros = np.where(t == 0.)
         if len(zeros):
             yold = np.delete(t, zeros)

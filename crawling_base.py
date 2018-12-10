@@ -122,3 +122,12 @@ class Crawling(object):
         parser.add_argument("-e", "--end", type=str, help="the end crawling point")
         args = parser.parse_args()
         return args
+
+
+if __name__ == "__main__":
+    parser = ArgumentParser()
+    parser.add_argument("-n", "--number", type=float)
+    args = parser.parse_args()
+
+    crawling = Crawling()
+    print(crawling.ConcPM25(args.number))

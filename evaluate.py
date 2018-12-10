@@ -4,6 +4,7 @@ import numpy as np
 import heatmap
 from math import sqrt
 import  utils
+from crawling_base import Crawling  
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 
@@ -13,7 +14,7 @@ def evaluate(pred, labs, rg, is_classify=False, verbose=True):
     if is_classify:
         acc = utils.calculate_accuracy(pred, labs, rg, True)
         acc = float(acc) / l * 100
-        print("classified accuracy:%.2f" % acc)
+        print("classified accuracy:%.6f" % acc)
     else:
         pred = [utils.boost_pm25(x) for x in pred]
         pred_ = [utils.get_pm25_class(x) for x in pred]
@@ -28,15 +29,16 @@ def evaluate(pred, labs, rg, is_classify=False, verbose=True):
         rmse = sqrt(mean_squared_error(labs, pred))
         r2 = r2_score(labs, pred)
         if verbose:
-            print("classified accuracy:%.2f" % cacc)
-            print("accuracy:%.2f" % acc)
-            print("mae:%.2f" % mae)
-            print("rmse:%.2f" % rmse)
-            print("r2_score:%.2f" % r2)
+            print("classified accuracy:%.6f" % cacc)
+            print("accuracy:%.6f" % acc)
+            print("mae:%.6f" % mae)
+            print("rmse:%.6f" % rmse)
+            print("r2_score:%.6f" % r2)
 
 
 # evaluate grid training
-def evaluate_sp(url, url2, is_grid=True, grid_eval=True, decoder_length=24):
+def evaluate_sp(url, url2, decoder_length=24, is_grid=True, grid_eval=True):
+    cr = Crawling() 
     map_ = heatmap.build_map()
     data = utils.load_file(url)
     if type(data) is list:
@@ -54,7 +56,6 @@ def evaluate_sp(url, url2, is_grid=True, grid_eval=True, decoder_length=24):
     loss_mae = 0.0
     loss_rmse = 0.0
     r2_total = 0.0
-    print(labels.shape, data.shape)
     for i, d in enumerate(data):
         pred_t  = []
         if is_grid:
@@ -80,6 +81,7 @@ def evaluate_sp(url, url2, is_grid=True, grid_eval=True, decoder_length=24):
         else:
             lbg = lbt.flatten()
         pred_t = np.asarray(pred_t)
+        pred_t = pred_t[:decoder_length,:,:]
         pred_t = pred_t.flatten()
         mae, mse, r2 = get_evaluation(pred_t, lbg)
         loss_mae += mae
@@ -89,13 +91,14 @@ def evaluate_sp(url, url2, is_grid=True, grid_eval=True, decoder_length=24):
     loss_mae = loss_mae / lt * 300
     loss_rmse = sqrt(loss_rmse / lt) * 300
     r2_total = r2_total / lt
-    print("MAE: %.2f" % loss_mae)
-    print("RMSE: %.2f" % loss_rmse)
-    print("R2 Score: %.2f" % r2_total)
+    print("MAE: %.6f %.6f" % (loss_mae, cr.ConcPM25(loss_mae)))
+    print("RMSE: %.6f %.6f" % (loss_rmse, cr.ConcPM25(loss_rmse)))
+    print("R2 Score: %.6f" % r2_total)
 
 
 # evaluate grid training
 def evaluate_single_pred(url, url2, decoder_length=8):
+    cr = Crawling() 
     data = utils.load_file(url)
     if type(data) is list:
         data = np.asarray(data)
@@ -120,14 +123,15 @@ def evaluate_single_pred(url, url2, decoder_length=8):
     loss_mae = loss_mae / lt * 300
     loss_rmse = sqrt(loss_rmse / lt) * 300
     r2_total = r2_total / lt
-    print("MAE: %.2f" % loss_mae)
-    print("RMSE: %.2f" % loss_rmse)
-    print("R2 score: %.2f" % r2_total)
+    print("MAE: %.6f %.6f" % (loss_mae, cr.ConcPM25(loss_mae)))
+    print("RMSE: %.6f %.6f" % (loss_rmse, cr.ConcPM25(loss_rmse)))
+    print("R2 score: %.6f" % r2_total)
 
 
 # predict multiple dimension
 # pm2.5, pm10
 def evaluate_multi(url, url2, time_lags=24):
+    cr = Crawling() 
     preds = utils.load_file(url)
     preds = np.array(preds)
     lt = len(preds)
@@ -151,12 +155,12 @@ def evaluate_multi(url, url2, time_lags=24):
     loss_rmse0 = sqrt(loss_rmse0 / lt) * 300
     loss_rmse1 = sqrt(loss_rmse1 / lt) * 300
     r2_0 = r2_0 / lt
-    print("MAE PM2.5: %.2f" % loss_mae0)
-    print("RMSE PM2.5: %.2f" % loss_rmse0)
-    print("R2 Score: %.2f" % r2_0)
+    print("MAE: %.6f %.6f" % (loss_mae0, cr.ConcPM25(loss_mae0)))
+    print("RMSE: %.6f %.6f" % (loss_rmse0, cr.ConcPM25(loss_rmse0)))
+    print("R2 Score: %.6f" % r2_0)
     
-    # print("MAE PM10: %.2f" % loss_mae1)
-    # print("RMSE PM10: %.2f" % loss_rmse1)
+    # print("MAE PM10: %.6f" % loss_mae1)
+    # print("RMSE PM10: %.6f" % loss_rmse1)
     # labels0 = labels[:,:,0].flatten()
     # labels1 = labels[:,:,1].flatten()
     # std0 = np.std(labels0)
@@ -177,32 +181,35 @@ def evaluate_transportation(url, url2):
     labels = np.array(labels)
     labels = labels.reshape(len(labels), 32, 32)
     shape = np.shape(preds)
-    pred_length = shape[1]
+    # pred_length = shape[1]
+    pred_length = 1
     loss_mae0 = 0.0
     loss_rmse0 = 0.0
     r2_total = 0.0
     for i, d in enumerate(preds):
         lb_i = i + 8
-        mae0, mse0, r2 = get_evaluation(d, labels[lb_i:(pred_length+lb_i),:,:])
+        mae0, mse0, r2 = get_evaluation(d[:pred_length,:,:], labels[lb_i:(pred_length+lb_i),:,:])
+        # mae0, mse0, r2 = get_evaluation(d[0,:,:], labels[lb_i,:,:])
         loss_rmse0 += mse0 
         loss_mae0 += mae0
         r2_total += r2
     loss_mae0 = loss_mae0 / lt * 131
     loss_rmse0 = sqrt(loss_rmse0 / lt) * 131
     r2_total = r2_total / lt
-    print("MAE: %.2f" % loss_mae0)
-    print("RMSE: %.2f" % loss_rmse0)
-    print("R2 Score: %.2f" % r2_total)
+    print("MAE: %.6f" % loss_mae0)
+    print("RMSE: %.6f" % loss_rmse0)
+    print("R2 Score: %.6f" % r2_total)
 
 
 # evaluate grid training
-def evaluate_lstm(url, url2):
+def evaluate_lstm(url, url2, decoder_length=24):
     data = utils.load_file(url)
     if type(data) is list:
         data = np.asarray(data)
-    decoder_length = data.shape[-1]
     lt = data.shape[0] * data.shape[1]
-    data = np.reshape(data, (lt, decoder_length))
+    data = np.reshape(data, (lt, data.shape[-1]))
+    if decoder_length > data.shape[-1]:
+        decoder_length = data.shape[-1]
     dtl = len(data)
     labels = utils.load_file(url2)
     labels = np.asarray(labels)
@@ -210,7 +217,9 @@ def evaluate_lstm(url, url2):
     loss_rmse = 0.0
     r2_total = 0.0
     for i, d in enumerate(data):
-        pred_t = np.asarray(d).flatten()
+        if decoder_length < data.shape[-1]:
+            pred_t = d[:decoder_length]
+        pred_t = pred_t.flatten()
         lb_i = i * 4 + decoder_length
         lbt = np.mean(labels[lb_i:(lb_i+decoder_length),:,0], axis=1)
         mae, mse, r2 = get_evaluation(pred_t, lbt)
@@ -221,9 +230,9 @@ def evaluate_lstm(url, url2):
     loss_mae = loss_mae / lt * 300
     loss_rmse = sqrt(loss_rmse / lt) * 300
     r2_total = r2_total / lt
-    print("MAE: %.2f" % loss_mae)
-    print("RMSE: %.2f" % loss_rmse)
-    print("R2 score: %.2f" % r2_total)
+    print("MAE: %.6f" % loss_mae)
+    print("RMSE: %.6f" % loss_rmse)
+    print("R2 score: %.6f" % r2_total)
 
 
 def get_evaluation(pr, lb):
@@ -248,28 +257,17 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     if args.task == 0:
-        # MAE PM2.5: MAE: 32.25 RMSE: 41.35
-        evaluate_sp(args.url, args.url2, bool(args.grid), bool(args.grid_eval))
+        for x in range(8, 28, 4):
+            # evaluate_sp(args.url, args.url2, args.time_lags, bool(args.grid), bool(args.grid_eval))
+            evaluate_sp(args.url, args.url2, x, bool(args.grid), bool(args.grid_eval))
     elif args.task == 1:
         # SAE MAE 8h: MAE: 39.32 RMSE: 44.17
         # Neural nets 8h: MAE: 38.66 RMSE: 45.67
-        evaluate_single_pred(args.url, args.url2)
+        evaluate_single_pred(args.url, args.url2, args.time_lags)
     elif args.task == 2:
-        # TNET3d - MAE: 2.17 RMSE: 6.73 R2_Score: 0.82
-        # TNETLSTM - MAE: 2.80 RMSE: 8.60 R2 Score: 0.69
-        # TNETLSTM L2 - MAE: 2.70 RMSE: 6.65 R2 Score: 0.80
-        
-        # TGAN3d - MAE: 1.85 RMSE: 6.34 R2 Score: 0.84 
-        # TGAN3d - MAE: 2.35 RMSE: 7.34 R2 Score: 0.79
-        # R-TGAN3d - MAE: 3.03 RMSE: 7.00 R2 Score: 0.81
-        # R-TGAN3d - MAE: 3.06 RMSE: 7.14 R2 Score: 0.81
-
-        # TGANLSTM MAE: 3.25 (3.05) RMSE: 8.61 (7.61) R2 Score: 0.69 (0.72)
-        # SRCN MAE: 2.73 RMSE: 6.60 R2 Score: 0.81
-        # SRCN 100 MAE: 3.13 RMSE: 6.63 R2 Score: 0.81 (0.80)
         evaluate_transportation(args.url, args.url2)
     elif args.task == 3:
-        evaluate_lstm(args.url, args.url2)
+        evaluate_lstm(args.url, args.url2, args.time_lags)
     else:
         # train_data
         # pm25: 0.24776679025820308, 0.11997866025609479
@@ -277,4 +275,4 @@ if __name__ == "__main__":
         # test data 
         # (0.25498451500807523, 0.12531802770836317)
         # (0.12908470683363008, 0.06754419659245953)
-        evaluate_multi(args.url, args.url2)
+        evaluate_multi(args.url, args.url2, args.time_lag)
