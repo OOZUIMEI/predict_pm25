@@ -67,7 +67,7 @@ class BaselineModel(object):
             if self.rnn_layers > 1:
                 self.e_params["fw_cell_size"] = self.districts
         self.use_gen_cnn = False
-        self.mtype = 4
+        self.mtype = 3
         self.use_batch_norm = False
     
     def set_training(self, training):

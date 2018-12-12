@@ -197,6 +197,22 @@ def visualize_real_fake(data, labels, map_):
             break
 
 
+def draw_real_images(labels, map_):
+    st = 15 * 4 + 24
+    y = labels[st:st + 24,:,0] * 310
+    y = np.asarray(y)
+    for i in xrange(24):
+        lb_t = y[i,:]
+        # if i == 7:
+        #     lb_t[7] += 0.1
+        # else:
+        # lb_t = lb_t + np.random.uniform(0.1, 0.2, 25)
+        grd = fill_map(lb_t, map_)
+        plt.axis('off')
+        plt.imshow(grd, cmap=cmap, norm=norm)
+        plt.savefig("figures/paper_figures/%i_gen.png" % i, format="png", bbox_inches='tight', dpi=300)
+
+
 if __name__ == "__main__":
     font = {
         'family' : 'normal',
@@ -214,9 +230,10 @@ if __name__ == "__main__":
     # seoulmap = mpimg.imread(pr.seoul_map)
     # ax.imshow(seoulmap, cmap=plt.cm.gray)
     # fig = plt.figure(figsize=(100, 100), tight_layout=True)
-    data = utils.load_file("test_sp/gan_cnn2_fulldt_2400")
-    labels = utils.load_file("vectors/sp_seoul_test_bin")
+    # data = utils.load_file("test_sp/gan_cnn2_fulldt_2400")
+    labels = utils.load_file("vectors/sp_china_combined/sp_seoul_test_bin_ip")
     labels = np.asarray(labels)
-    visualize_real_fake(data, labels, map_)
+    # visualize_real_fake(data, labels, map_)
+    draw_real_images(labels, map_)
 
 

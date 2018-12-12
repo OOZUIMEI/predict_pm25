@@ -57,6 +57,7 @@ def evaluate_sp(url, url2, decoder_length=24, is_grid=True, grid_eval=True):
     loss_rmse = 0.0
     r2_total = 0.0
     for i, d in enumerate(data):
+        d = d[:decoder_length,:,:]
         pred_t  = []
         if is_grid:
             for d_ in d:
@@ -69,7 +70,7 @@ def evaluate_sp(url, url2, decoder_length=24, is_grid=True, grid_eval=True):
                     pred_t.append(d_t)
             else:
                 pred_t = d
-        lb_i = i * 4 + decoder_length
+        lb_i = i * 4 + 24
         lbt = labels[lb_i:(lb_i+decoder_length),:,0]
         if grid_eval:
             lbg = []
@@ -81,7 +82,6 @@ def evaluate_sp(url, url2, decoder_length=24, is_grid=True, grid_eval=True):
         else:
             lbg = lbt.flatten()
         pred_t = np.asarray(pred_t)
-        pred_t = pred_t[:decoder_length,:,:]
         pred_t = pred_t.flatten()
         mae, mse, r2 = get_evaluation(pred_t, lbg)
         loss_mae += mae
@@ -112,7 +112,7 @@ def evaluate_single_pred(url, url2, decoder_length=8):
     r2_total = 0.0
     for i, d in enumerate(data):
         pred_t = np.asarray(d).flatten()
-        lb_i = i * 4 + decoder_length
+        lb_i = i * 4 + 24
         lbt = labels[lb_i:(lb_i+decoder_length),:,0]
         lbg = lbt[decoder_length - 1,:].flatten()
         mae, mse, r2 = get_evaluation(pred_t, lbg)
@@ -220,7 +220,7 @@ def evaluate_lstm(url, url2, decoder_length=24):
         if decoder_length < data.shape[-1]:
             pred_t = d[:decoder_length]
         pred_t = pred_t.flatten()
-        lb_i = i * 4 + decoder_length
+        lb_i = i * 4 + 24
         lbt = np.mean(labels[lb_i:(lb_i+decoder_length),:,0], axis=1)
         mae, mse, r2 = get_evaluation(pred_t, lbt)
         loss_mae += mae
@@ -251,14 +251,15 @@ if __name__ == "__main__":
     parser.add_argument("-r", "--range", type=int, default=5)
     parser.add_argument("-c", "--classify", type=int, default=0)
     parser.add_argument("-t", "--task", type=int, default=0)
-    parser.add_argument("-g", "--grid", type=int, default=0)
-    parser.add_argument("-gev", "--grid_eval", type=int, default=0)
+    parser.add_argument("-g", "--grid", type=int, default=1)
+    parser.add_argument("-gev", "--grid_eval", type=int, default=1)
     parser.add_argument("-tl", "--time_lags", type=int, default=24)
 
     args = parser.parse_args()
     if args.task == 0:
-        for x in range(8, 28, 4):
-            # evaluate_sp(args.url, args.url2, args.time_lags, bool(args.grid), bool(args.grid_eval))
+        # evaluate_sp(args.url, args.url2, args.time_lags, bool(args.grid), bool(args.grid_eval))
+        for x in range(28, 52, 4):
+            print("%ih" % x)
             evaluate_sp(args.url, args.url2, x, bool(args.grid), bool(args.grid_eval))
     elif args.task == 1:
         # SAE MAE 8h: MAE: 39.32 RMSE: 44.17
