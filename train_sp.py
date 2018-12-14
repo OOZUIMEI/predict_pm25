@@ -51,16 +51,45 @@ def convert_element_to_grid(self, context):
     return np.asarray(res, dtype=np.float)
 
 
-def execute(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None, offset=0):
+def get_gpu_options():
+    gpu_options = None
+    device_count = None
+    if "gpu" in p.device:
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=p.gpu_fraction)
+        os.environ["CUDA_VISIBLE_DEVICES"]=p.gpu_devices
+    else:
+        device_count={"GPU":0}
+    configs = tf.ConfigProto(allow_soft_placement=True, gpu_options=gpu_options, device_count=device_count)
+    return configs
+
+
+def execute(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None, offset=0, validation_url="", attention_valid_url=""):
     print("==> Loading dataset")
     dataset = utils.load_file(path)
     global_t = offset
     if dataset:
         dataset = np.asarray(dataset, dtype=np.float32)
         lt = len(dataset)
-        train, valid = utils.process_data_grid(lt, batch_size, encoder_length, decoder_length, is_test)
+        if validation_url:
+            valid_set = utils.load_file(validation_url)
+            valid_set = np.asarray(valid_set, dtype=np.float32)
+            valid_length = len(valid_set)
+            print("using separated valid data %i" % valid_length)
+            train, _ = utils.process_data_grid(lt, batch_size, encoder_length, decoder_length, True)
+            valid, _ = utils.process_data_grid(valid_length, batch_size, encoder_length, decoder_length, True)
+            valid = valid + lt
+            if attention_url:
+                valid_att_data = utils.load_file(attention_valid_url)
+                print("using separated valid att %i" % len(valid_att_data))
+            dataset = np.concatenate((dataset, valid_set), axis=0)
+            del(valid_set) 
+        else:
+            train, valid = utils.process_data_grid(lt, batch_size, encoder_length, decoder_length, is_test)
         if attention_url:
             attention_data = utils.load_file(attention_url)
+            if attention_valid_url:
+                attention_data += valid_att_data
+                del(valid_att_data)
         else:
             attention_data = None
         model.set_data(dataset, train, valid, attention_data)
@@ -76,10 +105,10 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
                 start = time.time()
                 global_t = offset + epoch
 
-                train_loss, _ = model.run_epoch(session, train, global_t, train_f, train=True)
+                train_loss, _ = model.run_epoch(session, train, global_t, train_f, train=True, stride=2)
                 print('Training loss: {}'.format(train_loss))
 
-                valid_loss, _ = model.run_epoch(session, valid, global_t, train_writer=valid_f)
+                valid_loss, _ = model.run_epoch(session, valid, global_t, train_writer=valid_f, stride=2)
                 print('Validation loss: {}'.format(valid_loss))
 
                 if valid_loss < best_val_loss:
@@ -96,7 +125,7 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
         else:
             # saver.restore(session, url_weight)
             print('==> running model')
-            loss, preds = model.run_epoch(session, model.train, shuffle=False)
+            loss, preds = model.run_epoch(session, model.train, shuffle=False, stride=2)
             l_str = 'Test mae loss: %.4f' % loss
             print(l_str)
             pt = re.compile("weights/([A-Za-z0-9_.]*).weights")
@@ -109,20 +138,8 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
     return global_t
 
 
-def get_gpu_options():
-    gpu_options = None
-    device_count = None
-    if "gpu" in p.device:
-        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=p.gpu_fraction)
-        os.environ["CUDA_VISIBLE_DEVICES"]=p.gpu_devices
-    else:
-        device_count={"GPU":0}
-    configs = tf.ConfigProto(allow_soft_placement=True, gpu_options=gpu_options, device_count=device_count)
-    return configs
-
-
 def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, rnn_layers=1,
-        dtype="grid", is_folder=False, is_test=False, use_cnn=True, restore=False, model_name=""):
+        dtype="grid", is_folder=False, is_test=False, use_cnn=True, restore=False, model_name="", validation_url="", attention_valid_url=""):
     if model_name == "APNET":
         model = APNet(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
     elif model_name == "TNET": 
@@ -157,12 +174,14 @@ def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size
             url_weight = url_weight.rstrip(".weights")
         
         if not is_test:
-            suf = time.strftime("%Y.%m.%d_%H.%M")
-            train_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_train", session.graph, filename_suffix=suf)
-            valid_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_valid", session.graph, filename_suffix=suf)
-
+            # suf = time.strftime("%Y.%m.%d_%H.%M")
+            csn = int(time.time())
+            train_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_train_" + str(csn), session.graph)
+            valid_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_valid_" + str(csn), session.graph)
+            if restore:
+                url_weight = url_weight + "_" + str(csn)
+       
         folders = None
-        
         if is_folder:
             folders = os.listdir(url_feature)
             if attention_url:
@@ -177,9 +196,11 @@ def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size
                 else: 
                     x = files
                     print("==> Training set (%i, %s)" % (i + 1, x))
-                last_epoch = execute(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer), last_epoch)
+                last_epoch = execute(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, 
+                                    is_test, (train_writer, valid_writer), last_epoch, validation_url=validation_url, attention_valid_url=attention_valid_url)
         else:
-            _ = execute(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer))
+            _ = execute(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer), 
+                        validation_url=validation_url, attention_valid_url=attention_valid_url)
 
 
 def save_gan_preds(url_weight, preds):
@@ -269,8 +290,8 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
             if not is_test:
                 url_weight = url_weight.split("/")[-1]
                 url_weight = url_weight.rstrip(".weights")
-                suf = time.strftime("%Y.%m.%d_%H.%M")
-                train_writer = tf.summary.FileWriter("%s/%s_%i" % (sum_dir, url_weight, csn), session.graph, filename_suffix=suf)
+                # suf = time.strftime("%Y.%m.%d_%H.%M")
+                train_writer = tf.summary.FileWriter("%s/%s_%i" % (sum_dir, url_weight, csn), session.graph)
             folders = None
             if is_folder:
                 folders = os.listdir(url_feature)
@@ -506,9 +527,11 @@ if __name__ == "__main__":
     # python train.py -pr "vectors/labels" -f "vectors/full_data" -fl "vectors/full_data_len" -p "train_basic_64b_tanh_12h_" -fw "basic" -dc 1 -l mae -r 10 -usp 1 -e 13 -bs 126 -sl 24 -ir 0 
     parser = argparse.ArgumentParser()
     parser.add_argument("-u", "--feature", help="a path to datasets (either to a file or a folder)")
+    parser.add_argument("-v", "--validation_url", help="a path to validation set")
     parser.add_argument("-f", "--folder", default=0, type=int,  help="either train a folder or just train a file")
     parser.add_argument("-w", "--url_weight", type=str, default="")
     parser.add_argument("-au", "--attention_url", type=str, default="")
+    parser.add_argument("-av", "--valid_attention_url", type=str, default="")
     parser.add_argument("-bs", "--batch_size", type=int, default=64)
     parser.add_argument("-l", "--loss", default='mse')
     parser.add_argument("-e", "--embed_size", type=int, default=15)
@@ -523,7 +546,6 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--model", default="GAN")
     parser.add_argument("-rs", "--restore", default=0, help="Restore pre-trained model", type=int)
     parser.add_argument("-p", "--pretrain", default=0, help="Pretrain model: only use of SAE networks", type=int)
-      
     args = parser.parse_args()
     """ 
     sparkEngine = SparkEngine()
@@ -536,7 +558,8 @@ if __name__ == "__main__":
             args.grid_size, is_folder=bool(args.folder), is_test=bool(args.is_test), restore=bool(args.restore), model_name=args.model)
     elif args.model in ["CNN_LSTM", "TNET", "TNETLSTM", "APNET", "SRCN"] :
         train_baseline(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
-        args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn),  restore=bool(args.restore), model_name=args.model)
+        args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn),  restore=bool(args.restore), model_name=args.model, 
+        validation_url=args.validation_url, attention_valid_url=args.valid_attention_url)
     elif args.model == "ADAIN":
         run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore), args.model)
     elif args.model == "SAE":
@@ -545,3 +568,4 @@ if __name__ == "__main__":
         run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore))
     elif args.model == "TGAN" or args.model == "TGANLSTM":
         train_gan(args.feature, "", args.url_weight, args.batch_size, args.encoder_length, 1, args.decoder_length, 1, 32, False, is_test=bool(args.is_test), restore=bool(args.restore), model_name=args.model)
+

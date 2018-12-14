@@ -3,10 +3,10 @@ from __future__ import division
 
 import numpy as np
 import tensorflow as tf
-
+from copy import deepcopy
 from apgan import APGan
 import properties as pr
-
+import rnn_utils
 # add noise to input & label
 # alpha is zero => use only content loss in APNet
 
@@ -14,6 +14,7 @@ class APNet(APGan):
 
     def __init__(self, **kwargs):
         super(APNet, self).__init__(**kwargs)
+        self.dropout = 0.5
         self.alpha = 0
 
     def inference(self, is_train=True):
@@ -23,40 +24,31 @@ class APNet(APGan):
             self.gen_op = self.train_generator(self.gen_loss)
         return fake_outputs
     
-    # add generation loss
-    # use log_sigmoid instead of log because fake_vals is w * x + b (not the probability value)
-    def add_generator_loss(self, fake_vals, outputs, labels, fake_rewards=None):
-        mse_loss = tf.losses.mean_squared_error(labels, outputs)
-        if not fake_rewards is None:
-            print("Using reinsforcement learning")
-            advatages = tf.abs(fake_rewards)
-            loss = tf.reduce_mean(tf.multiply(mse_loss, tf.stop_gradient(advatages)))
-        else:
-            print("Using combined loss function")
-            if self.alpha:
-                sigmoid_loss = self.alpha * tf.log_sigmoid(fake_vals)
-                # sigmoid_loss = self.alpha * tf.losses.sigmoid_cross_entropy(fake_vals, tf.constant(1., shape=[self.batch_size, self.decoder_length]))
-                # normal lossmse + (-log(D(G)))
-                loss_values = mse_loss - sigmoid_loss
-                #loss_values = sigmoid_loss
-                loss = tf.reduce_mean(loss_values)
+    #perform decoder to produce outputs of the generator
+    # dec_hidden_vectors: bs x rnn_hidden_units
+    def exe_decoder(self, dec_hidden_vectors, fn_state):
+        with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
+            params = deepcopy(self.e_params)
+            if "gru" in self.e_params["fw_cell"]:
+                params["fw_cell"] = "gru_block"
             else:
-                loss = mse_loss
-        return loss
-    
+                params["fw_cell"] = "lstm_block"
+            outputs = rnn_utils.execute_decoder_cnn(None, fn_state, self.decoder_length, params, dec_hidden_vectors, self.use_cnn, self.use_gen_cnn, self.mtype, self.use_batch_norm, self.dropout)
+            outputs = tf.stack(outputs, axis=1)
+            outputs = tf.reshape(outputs, [pr.batch_size, self.decoder_length, pr.grid_size * pr.grid_size])
+        return outputs
+
     # operate in each interation of an epoch
     def iterate(self, session, ct, index, train, total_gen_loss, total_dis_loss):
         # just the starting points of encoding batch_size,
         idx = ct[index]
         # switch batchsize, => batchsize * encoding_length (x -> x + 24)
         ct_t = np.asarray([range(int(x), int(x) + self.encoder_length) for x in idx])
-        dec_t = ct_t + self.decoder_length
+        dec_t = np.asarray([range(int(x) + self.encoder_length, int(x) + self.encoder_length + self.decoder_length) for x in idx])
 
         feed = {
             self.encoder_inputs : ct_t,
-            self.decoder_inputs: dec_t,
-            self.z: self.sample_z(),
-            self.flag: np.asarray(np.random.randint(0, 1, [pr.batch_size, 1]), dtype=np.float32)
+            self.decoder_inputs: dec_t
         }
         if self.use_attention:
             feed[self.attention_inputs] = np.asarray([range(int(x), int(x) + self.attention_length) for x in idx])

@@ -12,8 +12,10 @@ import rnn_utils
 # https://github.com/soumith/ganhacks/issues/14
 # https://stats.stackexchange.com/questions/251279/why-discriminator-converges-to-1-2-in-generative-adversarial-networks
 # https://towardsdatascience.com/understanding-and-optimizing-gans-going-back-to-first-principles-e5df8835ae18
-# https://stackoverflow.com/questions/42690721/how-to-interpret-the-discriminators-loss-and-the-generators-loss-in-generative
+# https://stackoverflow.com/questions/42enc_output690721/how-to-interpret-the-discriminators-loss-and-the-generators-loss-in-generative
 # https://www.inference.vc/instance-noise-a-trick-for-stabilising-gan-training/
+# Reload graph
+# https://blog.metaflow.fr/tensorflow-saving-restoring-and-mixing-multiple-models-c4c94d5d7125
 # flip labels
 # add noise to input & label
 
@@ -51,14 +53,14 @@ class APGan(MaskGan):
         with tf.variable_scope("generator", self.initializer, reuse=tf.AUTO_REUSE):
             # shape:  batch_size x decoder_length x grid_size x grid_size
             enc, dec = self.lookup_input(enc, dec)
-            _, enc_outputs = self.exe_encoder(enc, False, 0.0)
+            fn_state, enc_outputs = self.exe_encoder(enc, False, 0.0)
             attention = None
             if self.use_attention:
                 # batch size x rnn_hidden_size
                 inputs = tf.nn.embedding_lookup(self.attention_embedding, att)
                 attention = self.get_attention_rep(inputs)
             conditional_vectors = self.add_conditional_layer(dec, enc_outputs, attention)
-            outputs = self.exe_decoder(conditional_vectors)
+            outputs = self.exe_decoder(conditional_vectors, fn_state)
         return outputs, conditional_vectors
     
     def sample_z(self):
@@ -88,6 +90,7 @@ class APGan(MaskGan):
                 #loss_values = sigmoid_loss
                 loss = tf.reduce_mean(loss)
             else:
+                loss = tf.reduce_mean(loss)
                 for v in tf.trainable_variables():
                     if not 'bias' in v.name.lower():
                         loss += 0.0001 * tf.nn.l2_loss(v)
@@ -113,7 +116,7 @@ class APGan(MaskGan):
             return dec_hidden_vectors
     
     #perform decoder to produce outputs of the generator
-    def exe_decoder(self, dec_hidden_vectors):
+    def exe_decoder(self, dec_hidden_vectors, fn_state=None):
         with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             dec_inputs_vectors = tf.tile(dec_hidden_vectors, [1, self.decoder_length])
             dec_inputs_vectors = tf.reshape(dec_inputs_vectors, [pr.batch_size, self.rnn_hidden_units, self.decoder_length])

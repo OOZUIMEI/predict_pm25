@@ -1,9 +1,9 @@
-import utils
 import argparse
 import numpy as np
 import heatmap
 from math import sqrt
-import  utils
+import properties as pr
+import utils
 from crawling_base import Crawling  
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
@@ -70,7 +70,7 @@ def evaluate_sp(url, url2, decoder_length=24, is_grid=True, grid_eval=True):
                     pred_t.append(d_t)
             else:
                 pred_t = d
-        lb_i = i * 4 + 24
+        lb_i = i * pr.strides + 24
         lbt = labels[lb_i:(lb_i+decoder_length),:,0]
         if grid_eval:
             lbg = []
@@ -96,6 +96,82 @@ def evaluate_sp(url, url2, decoder_length=24, is_grid=True, grid_eval=True):
     print("R2 Score: %.6f" % r2_total)
 
 
+def convert_coordinate_to_idx():
+    dis = []
+    for d in pr.dis_points:
+        dis_idx = []
+        for x, y in d:
+            idx = y * pr.grid_size + x
+            dis_idx.append(idx)
+        a = sorted(dis_idx)
+        dis.append(a)
+    utils.save_file("district_idx.pkl", dis)
+    return dis
+
+
+# timestep data is numpy
+# districts are pre-converted data
+def aggregate_predictions(districts, timstep_data):
+    outputs = []
+    # loop over timesteps
+    for d in districts:
+        # mapping pred data with district idx
+        # make sure timestep_data is numpy format
+        dis_pred = timstep_data[d]
+        val = np.mean(dis_pred)
+        outputs.append(val)
+    return outputs
+
+
+# evaluate grid training
+def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length=24):
+    if not utils.validate_path("district_idx.pkl"):
+        districts = convert_coordinate_to_idx()
+    else:
+        districts = utils.load_file("district_idx.pkl")
+    cr = Crawling() 
+    data = utils.load_file(url)
+    if type(data) is list:
+        data = np.asarray(data)
+    if len(data.shape) == 4:
+        lt = data.shape[0] * data.shape[1]
+    else:
+        lt = data.shape[0]
+    data = np.reshape(data, (lt, data.shape[-2], data.shape[-1]))
+    labels = utils.load_file(url2)
+    labels = np.asarray(labels)
+    loss_mae = [0.0] * decoder_length
+    loss_rmse = [0.0] * decoder_length
+    for i, d in enumerate(data):
+        d = d[:decoder_length,:]
+        lb_i = i * stride + encoder_length
+        lbt = labels[lb_i:(lb_i+decoder_length),:,0]
+        for t_i, (t, l_t) in enumerate(zip(d, lbt)):
+            pred_t = aggregate_predictions(districts, t)
+            pred_t = np.array(pred_t)
+            pred_t = pred_t.flatten()
+            mae, mse, _ = get_evaluation(pred_t, l_t)
+            # sum loss for each timestep prediction
+            loss_mae[t_i] += mae
+            loss_rmse[t_i] += mse
+        utils.update_progress((i + 1.0) / lt)
+    # caculate loss for each timestep
+    loss_mae = np.array(loss_mae) / lt * 300
+    loss_rmse = [sqrt(x / lt)  * 300 for x in loss_rmse]
+    # calculate accumulated loss
+    for x in xrange(decoder_length):
+        print("%ih" % (x + 1))
+        print("S MAE: %.6f %.6f" % (loss_mae[x], cr.ConcPM25(loss_mae[x])))
+        print("S RMSE: %.6f %.6f" % (loss_rmse[x], cr.ConcPM25(loss_rmse[x])))
+        if x > 0:
+            loss_mae[x] += loss_mae[x-1]
+            t_mae = loss_mae[x] / (x + 1)
+            loss_rmse[x] += loss_rmse[x-1]
+            t_rmse = loss_rmse[x] / (x + 1)
+            print("T MAE: %.6f %.6f" % (t_mae, cr.ConcPM25(t_mae)))
+            print("T RMSE: %.6f %.6f" % (t_rmse, cr.ConcPM25(t_rmse)))
+
+
 # evaluate grid training
 def evaluate_single_pred(url, url2, decoder_length=8):
     cr = Crawling() 
@@ -112,7 +188,7 @@ def evaluate_single_pred(url, url2, decoder_length=8):
     r2_total = 0.0
     for i, d in enumerate(data):
         pred_t = np.asarray(d).flatten()
-        lb_i = i * 4 + 24
+        lb_i = i * pr.strides + 24
         lbt = labels[lb_i:(lb_i+decoder_length),:,0]
         lbg = lbt[decoder_length - 1,:].flatten()
         mae, mse, r2 = get_evaluation(pred_t, lbg)
@@ -142,7 +218,7 @@ def evaluate_multi(url, url2, time_lags=24):
     loss_rmse0, loss_rmse1 = 0.0, 0.0
     r2_0, r2_1 = 0.0, 0.0
     for i, d in enumerate(preds):
-        lb_i = i * 4 + time_lags + 1
+        lb_i = i * pr.strides + time_lags + 1
         mae0, mse0, r2 = get_evaluation(d[:time_lags,:], labels[lb_i:(lb_i+time_lags),:,0])
         # mae1, mse1 = get_evaluation(d[:time_lags,:,1], labels[lb_i:(lb_i+time_lags),:,1])
         loss_rmse0 += mse0 
@@ -219,8 +295,10 @@ def evaluate_lstm(url, url2, decoder_length=24):
     for i, d in enumerate(data):
         if decoder_length < data.shape[-1]:
             pred_t = d[:decoder_length]
+        else:
+            pred_t = d
         pred_t = pred_t.flatten()
-        lb_i = i * 4 + 24
+        lb_i = i * pr.strides + 24
         lbt = np.mean(labels[lb_i:(lb_i+decoder_length),:,0], axis=1)
         mae, mse, r2 = get_evaluation(pred_t, lbt)
         loss_mae += mae
@@ -240,8 +318,8 @@ def get_evaluation(pr, lb):
     lb = lb.flatten()
     mse = mean_squared_error(pr, lb)
     mae = mean_absolute_error(pr, lb)
-    r2 = r2_score(lb, pr)
-    return mae, mse, r2
+    # r2 = r2_score(lb, pr)
+    return mae, mse, 0.0
 
 
 if __name__ == "__main__":
@@ -269,6 +347,8 @@ if __name__ == "__main__":
         evaluate_transportation(args.url, args.url2)
     elif args.task == 3:
         evaluate_lstm(args.url, args.url2, args.time_lags)
+    elif args.task == 4:
+        evaluate_by_districts(args.url, args.url2, pr.strides)
     else:
         # train_data
         # pm25: 0.24776679025820308, 0.11997866025609479

@@ -226,6 +226,7 @@ class MaskGan(BaselineModel):
 
     # using stride to reduce the amount of data to loop over time intervals
     def run_epoch(self, session, data, num_epoch=0, train_writer=None, verbose=False, train=False, shuffle=True, stride=4):
+        print("Using stride: %i" % stride)
         st = time.time()
         dt_length = len(data)
         # print("data_size: ", dt_length)
@@ -254,9 +255,9 @@ class MaskGan(BaselineModel):
             pred, total_gen_loss, total_dis_loss = self.iterate(session, ct, index, train, total_gen_loss, total_dis_loss)
             if not train:
                 preds.append(pred)      
-      
+        
+        total_gen_loss, total_dis_loss = total_gen_loss / total_steps, total_dis_loss / total_steps
         if train_writer is not None:
-            total_gen_loss, total_dis_loss = total_gen_loss / total_steps, total_dis_loss / total_steps
             summary = tf.Summary()
             summary.value.add(tag= "Generator Loss", simple_value=total_gen_loss)
             summary.value.add(tag= "Discriminator Loss", simple_value=total_dis_loss)

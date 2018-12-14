@@ -32,8 +32,6 @@ class BaselineModel(object):
         self.batch_size = batch_size
         self.grid_square = grid_size * grid_size
         self.loss = loss
-        self.dropout = 0.0
-        self.use_batch_norm = False
         self.df_ele = df_ele
         self.dtype = dtype        
         self.map = heatmap.build_map()
@@ -66,9 +64,11 @@ class BaselineModel(object):
             self.e_params["de_output_size"] = 1
             if self.rnn_layers > 1:
                 self.e_params["fw_cell_size"] = self.districts
-        self.use_gen_cnn = False
+        self.use_gen_cnn = True
         self.mtype = 3
         self.use_batch_norm = False
+        # 0 is predict pm2.5 while 1 is predict pm10
+        self.forecast_factor = 1
     
     def set_training(self, training):
         self.is_training = training
@@ -104,6 +104,7 @@ class BaselineModel(object):
         # embedding = tf.Variable(self.datasets, name="Embedding")
         # check if dtype is grid then just look up index from the datasets 
         enc, dec = self.lookup_input(self.encoder_inputs, self.decoder_inputs)
+        # return final_state and enc_output
         enc_output, _ = self.exe_encoder(enc)
         attention = None
         if self.use_attention:
@@ -112,6 +113,28 @@ class BaselineModel(object):
             attention = self.get_attention_rep(inputs)
         outputs = self.exe_decoder(dec, enc_output, attention)
         return outputs
+
+    # mapping input indices to dataset
+    def lookup_input(self, enc, dec):
+        enc = tf.nn.embedding_lookup(self.embedding, enc)
+        dec_f = tf.nn.embedding_lookup(self.embedding, dec)
+        
+        if self.dtype == "grid":
+            enc.set_shape((self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.encode_vector_size))
+            dec_f.set_shape((self.batch_size, self.decoder_length, self.grid_size, self.grid_size, self.encode_vector_size))
+            # embedding = tf.Variable(self.daitasets, name="embedding")
+            dec = dec_f[:,:,:,:,self.df_ele:]
+            dec.set_shape((self.batch_size, self.decoder_length, self.grid_size, self.grid_size, self.decode_vector_size))
+            # 0 is pm2.5 1 is pm10
+            self.pred_placeholder = dec_f[:,:,:,:, self.forecast_factor]
+        else:
+            enc.set_shape((self.batch_size, self.encoder_length, 25, self.encode_vector_size))
+            dec_f.set_shape((self.batch_size, self.encoder_length, 25, self.encode_vector_size))
+            dec = dec_f[:,:,:,self.df_ele:]
+            dec.set_shape((self.batch_size, self.decoder_length, 25, self.decode_vector_size))
+            self.pred_placeholder = dec_f[:,:,:, self.forecast_factor]
+            self.pred_placeholder = tf.reduce_mean(self.pred_placeholder, axis=2)
+        return enc, dec
 
     # perform encoder
     def exe_encoder(self, enc, use_batch_norm=None, dropout=None):
@@ -141,28 +164,6 @@ class BaselineModel(object):
             if self.rnn_layers > 1:
                 fn_state = fn_state[-1]
         return fn_state, enc_output
-
-    # mapping input indices to dataset
-    def lookup_input(self, enc, dec):
-        enc = tf.nn.embedding_lookup(self.embedding, enc)
-        dec_f = tf.nn.embedding_lookup(self.embedding, dec)
-        
-        if self.dtype == "grid":
-            enc.set_shape((self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.encode_vector_size))
-            dec_f.set_shape((self.batch_size, self.decoder_length, self.grid_size, self.grid_size, self.encode_vector_size))
-            # embedding = tf.Variable(self.daitasets, name="embedding")
-            dec = dec_f[:,:,:,:,self.df_ele:]
-            dec.set_shape((self.batch_size, self.decoder_length, self.grid_size, self.grid_size, self.decode_vector_size))
-            # 0 is pm2.5 1 is pm10
-            self.pred_placeholder = dec_f[:,:,:,:,0]
-        else:
-            enc.set_shape((self.batch_size, self.encoder_length, 25, self.encode_vector_size))
-            dec_f.set_shape((self.batch_size, self.encoder_length, 25, self.encode_vector_size))
-            dec = dec_f[:,:,:,self.df_ele:]
-            dec.set_shape((self.batch_size, self.decoder_length, 25, self.decode_vector_size))
-            self.pred_placeholder = dec_f[:,:,:,0]
-            self.pred_placeholder = tf.reduce_mean(self.pred_placeholder, axis=2)
-        return enc, dec
 
     #perform decoder
     def exe_decoder(self, dec, enc_output, attention=None):
