@@ -25,6 +25,7 @@ from adain import Adain
 from stack_autoencoder import StackAutoEncoder
 from mask_gan import MaskGan
 from apgan import APGan
+from apgan_lstm import APGAN_LSTM
 from mask_gan_2 import MaskGan2
 from capgan import CAPGan
 from tgan import TGAN
@@ -267,8 +268,8 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
         model = APGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, decoder_length=decoder_length, grid_size=grid_size)
     elif model_name == "MASKGAN":
         model = MaskGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size, use_cnn=1)
-    elif model_name == "MASKGAN2":
-        model = MaskGan2(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
+    elif model_name == "APGAN_LSTM":
+        model = APGAN_LSTM(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, decoder_length=decoder_length, grid_size=grid_size)
     elif model_name == "CAPGAN":
         model = CAPGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
     elif model_name == "TGAN":

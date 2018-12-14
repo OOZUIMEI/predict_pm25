@@ -1,6 +1,3 @@
-from __future__ import print_function
-from __future__ import division
-
 import numpy as np
 import tensorflow as tf
 
@@ -26,7 +23,7 @@ class APGan(MaskGan):
         # alpha is used for generator loss function
         self.alpha = 0.005
         self.use_gen_cnn = True
-        self.dropout = 0.0
+        self.dropout = 0.5
         self.use_batch_norm = False
         self.strides = [4]
         self.beta1 = 0.5
@@ -114,7 +111,7 @@ class APGan(MaskGan):
             # dec_hidden_vectors with shape bs x 128
             dec_hidden_vectors = tf.layers.dense(dec_input, self.rnn_hidden_units, name="conditional_layer", activation=tf.nn.tanh)
             return dec_hidden_vectors
-    
+
     #perform decoder to produce outputs of the generator
     def exe_decoder(self, dec_hidden_vectors, fn_state=None):
         with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
@@ -133,8 +130,6 @@ class APGan(MaskGan):
             outputs = tf.stack(gen_outputs, axis=1)
             outputs = tf.tanh(tf.layers.flatten(outputs))
             outputs = tf.reshape(outputs, [pr.batch_size, self.decoder_length, pr.grid_size * pr.grid_size])
-            #outputs = tf.layers.dense(outputs, 625, activation=tf.nn.sigmoid, name="final_hidden_layer")
-            #outputs = tf.nn.dropout(outputs, 0.5)
         return outputs
 
     # just decide whether an image is fake or real
@@ -147,18 +142,7 @@ class APGan(MaskGan):
         inputs_rep = tf.concat([inputs_rep, conditional_vectors], axis=1)
         output = tf.layers.dense(inputs_rep, 1, name="validation_value")
         output = tf.reshape(output, [pr.batch_size, self.decoder_length])
-        rewards = None
-        # if is_fake:
-        #     rewards = [None] * self.decoder_length
-        #     pred_value = tf.log_sigmoid(output)
-        #     pred_values = tf.unstack(pred_value, axis=1)
-        #     for i in xrange(self.decoder_length - 1, -1,-1):
-        #         rewards[i] = pred_values[i]
-        #         if i != (self.decoder_length - 1):
-        #             for j in xrange(i + 1, self.decoder_length):
-        #                 rewards[i] += np.power(self.gamma, (j - i)) * rew
-        # ards[i]
-        return output, rewards   
+        return output, None
 
     def create_discriminator(self, fake_outputs, conditional_vectors):
         with tf.variable_scope("discriminator", self.initializer, reuse=tf.AUTO_REUSE):
