@@ -86,6 +86,12 @@ class APGan(MaskGan):
                 loss = loss - sigmoid_loss
                 #loss_values = sigmoid_loss
                 loss = tf.reduce_mean(loss)
+                """
+                for v in tf.trainable_variables():
+                    name = v.name.lower()
+                    if 'generator' in name and not 'bias' in name:
+                        loss += 0.0001 * tf.nn.l2_loss(v)
+                """
             else:
                 loss = tf.reduce_mean(loss)
                 for v in tf.trainable_variables():
@@ -124,7 +130,7 @@ class APGan(MaskGan):
             dec_outputs = tf.unstack(dec_outputs, axis=1)
             gen_outputs = []
             for d in dec_outputs:
-                d_ = tf.reshape(d, [pr.batch_size, 4, 4, 16])
+                d_ = tf.reshape(d, [pr.batch_size, 2, 2, 64])
                 out = rnn_utils.get_cnn_rep(d_, 5, tf.nn.relu, 8, self.use_batch_norm, 0.5, False)
                 gen_outputs.append(out)
             outputs = tf.stack(gen_outputs, axis=1)

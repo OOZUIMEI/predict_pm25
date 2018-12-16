@@ -254,7 +254,7 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
             train_f = train_writer
             suffix = p.weight_saving_break
             for epoch in xrange(p.total_iteration):
-                _ = model.run_epoch(session, train, offset + epoch, train_f, train=True, verbose=False)
+                _ = model.run_epoch(session, train, offset + epoch, train_f, train=True, verbose=False, stride=2)
                 tmp_e = epoch + 1
                 if tmp_e % 100 == 0:
                     suffix = math.ceil(float(tmp_e) / p.weight_saving_break)
@@ -264,7 +264,7 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
         else:
             # saver.restore(session, url_weight)
             print('==> running model')
-            _, preds = model.run_epoch(session, train, train=False, verbose=False, shuffle=False)
+            _, preds = model.run_epoch(session, train, train=False, verbose=False, shuffle=False, stride=2)
             save_gan_preds(url_weight, preds)
 
 
@@ -299,6 +299,8 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
                 url_weight = url_weight.rstrip(".weights")
                 # suf = time.strftime("%Y.%m.%d_%H.%M")
                 train_writer = tf.summary.FileWriter("%s/%s_%i" % (sum_dir, url_weight, csn), session.graph)
+                if restore:
+                    url_weight = url_weight + "_" + str(csn)
             folders = None
             if is_folder:
                 folders = os.listdir(url_feature)
