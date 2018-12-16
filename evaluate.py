@@ -124,7 +124,7 @@ def aggregate_predictions(districts, timstep_data):
 
 
 # evaluate grid training
-def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length=24):
+def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length=24, forecast_factor=0):
     if not utils.validate_path("district_idx.pkl"):
         districts = convert_coordinate_to_idx()
     else:
@@ -145,7 +145,7 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
     for i, d in enumerate(data):
         d = d[:decoder_length,:]
         lb_i = i * stride + encoder_length
-        lbt = labels[lb_i:(lb_i+decoder_length),:,0]
+        lbt = labels[lb_i:(lb_i+decoder_length),:,forecast_factor]
         for t_i, (t, l_t) in enumerate(zip(d, lbt)):
             pred_t = aggregate_predictions(districts, t)
             pred_t = np.array(pred_t)
@@ -161,15 +161,23 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
     # calculate accumulated loss
     for x in xrange(decoder_length):
         print("%ih" % (x + 1))
-        print("S MAE: %.6f %.6f" % (loss_mae[x], cr.ConcPM25(loss_mae[x])))
-        print("S RMSE: %.6f %.6f" % (loss_rmse[x], cr.ConcPM25(loss_rmse[x])))
+        if not forecast_factor:
+            print("S MAE: %.6f %.6f" % (loss_mae[x], cr.ConcPM25(loss_mae[x])))
+            print("S RMSE: %.6f %.6f" % (loss_rmse[x], cr.ConcPM25(loss_rmse[x])))
+        else: 
+            print("S PM10 MAE: %.6f %.6f" % (loss_mae[x], cr.ConcPM10(loss_mae[x])))
+            print("S PM10 RMSE: %.6f %.6f" % (loss_rmse[x], cr.ConcPM10(loss_rmse[x])))
         if x > 0:
             loss_mae[x] += loss_mae[x-1]
             t_mae = loss_mae[x] / (x + 1)
             loss_rmse[x] += loss_rmse[x-1]
             t_rmse = loss_rmse[x] / (x + 1)
-            print("T MAE: %.6f %.6f" % (t_mae, cr.ConcPM25(t_mae)))
-            print("T RMSE: %.6f %.6f" % (t_rmse, cr.ConcPM25(t_rmse)))
+            if not forecast_factor:
+                print("T MAE: %.6f %.6f" % (t_mae, cr.ConcPM25(t_mae)))
+                print("T RMSE: %.6f %.6f" % (t_rmse, cr.ConcPM25(t_rmse)))
+            else:
+                print("T PM10 MAE: %.6f %.6f" % (t_mae, cr.ConcPM10(t_mae)))
+                print("T PM10 RMSE: %.6f %.6f" % (t_rmse, cr.ConcPM10(t_rmse)))
 
 
 # evaluate grid training
@@ -332,6 +340,7 @@ if __name__ == "__main__":
     parser.add_argument("-g", "--grid", type=int, default=1)
     parser.add_argument("-gev", "--grid_eval", type=int, default=1)
     parser.add_argument("-tl", "--time_lags", type=int, default=24)
+    parser.add_argument("-f", "--forecast_factor", type=int, default=0)
 
     args = parser.parse_args()
     if args.task == 0:
@@ -348,7 +357,7 @@ if __name__ == "__main__":
     elif args.task == 3:
         evaluate_lstm(args.url, args.url2, args.time_lags)
     elif args.task == 4:
-        evaluate_by_districts(args.url, args.url2, pr.strides)
+        evaluate_by_districts(args.url, args.url2, pr.strides, forecast_factor=args.forecast_factor)
     else:
         # train_data
         # pm25: 0.24776679025820308, 0.11997866025609479

@@ -102,6 +102,26 @@ class Crawling(object):
         return ConcCalc
 
 
+    def ConcPM10(self, a):
+        if a>=0 and a<=50:
+            ConcCalc=self.InvLinear(50,0,54,0,a)
+        elif a>50 and a<=100:
+            ConcCalc=self.InvLinear(100,51,154,55,a)
+        elif a>100 and a<=150:
+            ConcCalc=self.InvLinear(150,101,254,155,a)
+        elif a>150 and a<=200:
+            ConcCalc=self.InvLinear(200,151,354,255,a)
+        elif a>200 and a<=300:
+            ConcCalc=self.InvLinear(300,201,424,355,a)
+        elif a>300 and a<=400:
+            ConcCalc=self.InvLinear(400,301,504,425,a)
+        elif a>400 and a<=500:
+            ConcCalc=self.InvLinear(500,401,604,505,a)
+        else:
+            ConcCalc = 0.
+        return ConcCalc
+
+
     def Linear(self, AQIhigh, AQIlow, Conchigh, Conclow, Concentration):
         Conc = float(Concentration)
         a = ((Conc - Conclow) / (Conchigh - Conclow)) * (AQIhigh - AQIlow) + AQIlow

@@ -21,11 +21,11 @@ class APGan(MaskGan):
     def __init__(self, **kwargs):
         super(APGan, self).__init__(**kwargs)
         # alpha is used for generator loss function
-        self.alpha = 0.005
+        self.alpha = 0.0002
         self.use_gen_cnn = True
         self.dropout = 0.5
         self.use_batch_norm = False
-        self.strides = [4]
+        self.strides = [2]
         self.beta1 = 0.5
         self.lamda = 100
         self.gmtype = 4
@@ -125,7 +125,7 @@ class APGan(MaskGan):
             gen_outputs = []
             for d in dec_outputs:
                 d_ = tf.reshape(d, [pr.batch_size, 4, 4, 16])
-                out = rnn_utils.get_cnn_rep(d_, 2, tf.nn.relu, 8, self.use_batch_norm, 0.5, False)
+                out = rnn_utils.get_cnn_rep(d_, 5, tf.nn.relu, 8, self.use_batch_norm, 0.5, False)
                 gen_outputs.append(out)
             outputs = tf.stack(gen_outputs, axis=1)
             outputs = tf.tanh(tf.layers.flatten(outputs))
@@ -155,10 +155,10 @@ class APGan(MaskGan):
 
     # regular discriminator loss function
     def add_discriminator_loss(self, fake_preds, real_preds):
-        real_labels = tf.constant(0.9, shape=[self.batch_size, self.decoder_length])
-        fake_labels = tf.zeros([self.batch_size, self.decoder_length])
-        #real_labels = np.absolute(self.flag - np.random.uniform(0.8, 1., [self.batch_size, self.decoder_length]))
-        #fake_labels = np.absolute(self.flag - np.random.uniform(0., 0.2, [self.batch_size, self.decoder_length]))
+        #real_labels = tf.constant(0.9, shape=[self.batch_size, self.decoder_length])
+        #fake_labels = tf.zeros([self.batch_size, self.decoder_length])
+        real_labels = np.absolute(self.flag - np.random.uniform(0.8, 1., [self.batch_size, self.decoder_length]))
+        fake_labels = np.absolute(self.flag - np.random.uniform(0., 0.2, [self.batch_size, self.decoder_length]))
         dis_loss_fake = tf.reduce_mean(tf.losses.sigmoid_cross_entropy(fake_labels, fake_preds))
         dis_loss_real = tf.reduce_mean(tf.losses.sigmoid_cross_entropy(real_labels, real_preds))
         dis_loss = dis_loss_real + dis_loss_fake

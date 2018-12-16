@@ -64,7 +64,7 @@ def get_gpu_options():
     return configs
 
 
-def execute(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None, offset=0, validation_url="", attention_valid_url=""):
+def execute(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None, offset=0, validation_url="", attention_valid_url="", best_val_loss=None):
     print("==> Loading dataset")
     dataset = utils.load_file(path)
     global_t = offset
@@ -97,7 +97,9 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
         model.assign_datasets(session)
         if not is_test:
             best_val_epoch = 0
-            best_val_loss = float('inf')
+            print(best_val_loss)
+            if not best_val_loss:
+                best_val_loss = float('inf')
             # best_overall_val_loss = float('inf')
             print('==> starting training')
             train_f, valid_f = train_writer
@@ -136,11 +138,11 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
             else:
                 name_s = url_weight
             utils.save_file("test_sp/%s" % name_s, preds)
-    return global_t
+    return global_t, best_val_loss
 
 
 def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, rnn_layers=1,
-        dtype="grid", is_folder=False, is_test=False, use_cnn=True, restore=False, model_name="", validation_url="", attention_valid_url=""):
+        dtype="grid", is_folder=False, is_test=False, use_cnn=True, restore=False, model_name="", validation_url="", attention_valid_url="", best_val_loss=None):
     if model_name == "APNET":
         model = APNet(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
     elif model_name == "TNET": 
@@ -197,11 +199,15 @@ def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size
                 else: 
                     x = files
                     print("==> Training set (%i, %s)" % (i + 1, x))
-                last_epoch = execute(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, 
-                                    is_test, (train_writer, valid_writer), last_epoch, validation_url=validation_url, attention_valid_url=attention_valid_url)
+                last_epoch, best_val_loss = execute(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, 
+                                    is_test, (train_writer, valid_writer), last_epoch, validation_url=validation_url, attention_valid_url=attention_valid_url, best_val_loss=best_val_loss)
+                if not is_test:
+                    print("best val loss:" + str(best_val_loss))
         else:
-            _ = execute(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer), 
-                        validation_url=validation_url, attention_valid_url=attention_valid_url)
+            _, best_val_loss = execute(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer), 
+                        validation_url=validation_url, attention_valid_url=attention_valid_url, best_val_loss=best_val_loss)
+            if not is_test:
+                print("best val loss:" + str(best_val_loss))
 
 
 def save_gan_preds(url_weight, preds):
@@ -547,20 +553,22 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--model", default="GAN")
     parser.add_argument("-rs", "--restore", default=0, help="Restore pre-trained model", type=int)
     parser.add_argument("-p", "--pretrain", default=0, help="Pretrain model: only use of SAE networks", type=int)
+    parser.add_argument("-bv", "--best_val_loss", type=float, help="best validation loss from previous training")
     args = parser.parse_args()
     """ 
     sparkEngine = SparkEngine()
     preds, timestamp = get_prediction_real_time(sparkEngine)
-    
+
+     0.00183376428791 0.00183376425411552
     """
-    print(args.model)
+    print("Train" + args.model)
     if "GAN" in args.model:
         train_gan(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, 
             args.grid_size, is_folder=bool(args.folder), is_test=bool(args.is_test), restore=bool(args.restore), model_name=args.model)
     elif args.model in ["CNN_LSTM", "TNET", "TNETLSTM", "APNET", "SRCN"] :
         train_baseline(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
-        args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn),  restore=bool(args.restore), model_name=args.model, 
-        validation_url=args.validation_url, attention_valid_url=args.valid_attention_url)
+        args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn),  restore=bool(args.restore), 
+        model_name=args.model, validation_url=args.validation_url, attention_valid_url=args.valid_attention_url, best_val_loss=args.best_val_loss)
     elif args.model == "ADAIN":
         run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore), args.model)
     elif args.model == "SAE":
