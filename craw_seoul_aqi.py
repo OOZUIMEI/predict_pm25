@@ -16,11 +16,11 @@ Data are organized as seconds intervally records that consist of
 class CrawSeoulAQI(Crawling):
         
     def __init__(self, **kwargs):
-        super(Crawling, self).__init__(**kwargs)
+        super(CrawSeoulAQI, self).__init__(**kwargs)
         self.filename = "data/seoul_aqi.csv"
     
     def mine_data(self, html):
-        tables = html.find('table', attrs={"class": "tbl2"})
+        tables = html.find('table', attrs={"class": "tbl1"})
         body = tables.find('tbody')
         all_values = []
         if body:
@@ -33,15 +33,16 @@ class CrawSeoulAQI(Crawling):
                         txt = v.get_text()
                         txt = "".join(txt.replace("\n", "").split(" "))
                         if i > 0 and i < 7 and "-" not in txt:
-                            txt = txt.encode('ascii', 'ignore')
+                            txt = txt.encode('ascii', 'ignore').replace("\t", "").replace(" ", "")
                             if txt:
                                 values.append(float(txt))
                             else:
                                 values.append(all_values[0][i])
                         elif i == 0:        
-                            txt = txt.rstrip("\n")   
-                            index = pr.districts.index(txt)
-                            values.append(index)
+                            txt = txt.rstrip("\n").replace("\t", "").replace(" ", "") 
+                            if txt in pr.districts:
+                                index = pr.districts.index(txt)
+                                values.append(index)
                     values.append(self.AQIPM10(values[1]))
                     values.append(self.AQIPM25(values[2]))
                     all_values.append(values)
@@ -77,17 +78,17 @@ class CrawSeoulAQI(Crawling):
         month = self.format10(tmp.month)
         date = self.format10(tmp.day)
         counter += 1
-        try:
-            html = self.craw_data(year, month, date, hour)
-            data = self.mine_data(html)
-            for x in data:
-                output += timestamp + "," + utils.array_to_str(x, ",") + "\n"
-                if (counter - last_save) == save_interval:
-                    last_save = counter
-                    self.write_log(output)
-                    output = ""
-        except Exception as e:
-            print(e)
+        #try:
+        html = self.craw_data(year, month, date, hour)
+        data = self.mine_data(html)
+        for x in data:
+            output += timestamp + "," + utils.array_to_str(x, ",") + "\n"
+            if (counter - last_save) == save_interval:
+                last_save = counter
+                self.write_log(output)
+                output = ""
+        #except Exception as e:
+        #    print(e)
         return output, counter, last_save
 
     def execute(self, args):
