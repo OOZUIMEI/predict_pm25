@@ -14,6 +14,7 @@ class APGAN_LSTM(APGan):
         self.z = tf.placeholder(tf.float32, shape=self.z_dim)   
         self.dropout = 0.5
         self.alpha = 0.0002 
+        #self.alpha = 0
 
     #perform decoder to produce outputs of the generator
     # dec_hidden_vectors: bs x rnn_hidden_units
@@ -30,8 +31,6 @@ class APGAN_LSTM(APGan):
             outputs = rnn_utils.execute_decoder_cnn(None, fn_state, self.decoder_length, params, dec_hidden_vectors, self.use_cnn, self.use_gen_cnn, self.mtype, self.use_batch_norm, self.dropout)
             outputs = tf.stack(outputs, axis=1)
             outputs = tf.reshape(outputs, [pr.batch_size, self.decoder_length, pr.grid_size * pr.grid_size])
-        return outputs
-    
 
     """ 
     # performing GRU before final decision fake/real
