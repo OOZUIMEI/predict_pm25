@@ -1,6 +1,5 @@
 <div class="container">
   <div class='map'>
-    <div class="date"  [ngClass]="{'date-mobile': isMobile}">Prediction: {{ current_timestamp }}</div>
       <yaga-map 
         [zoom]="mapConfig.zoom"
         [(minZoom)]="mapConfig.minZoom"
@@ -14,15 +13,24 @@
           [data]="district_geo" *ngIf="district_geo"
           [defaultStyle]="mapConfig.style"
           [styler]="style"
+          (click)="openDistrict($event)"
         >
         </yaga-geojson>
       </yaga-map>
   </div>
-  <div class="info-box" [ngClass]="{'hide': isMobile}">
+  <div class="info-box" [ngClass]="{'': isMobile}">
+    <div class="date"  [ngClass]="{'date-mobile': isMobile}">
+        <span>Current time: <b class='bold'>{{ current_timestamp }}</b></span>
+        <span *ngIf="prediction.length">&nbsp;-&nbsp;(Forecast: <b class='bold'>+{{ current_time + 1 }}h)</b></span>
+    </div>
+    <div class="title-tab">
+        <div class='title-tab-content' (click)="this.selectedIndex = 0" [ngClass]="{'active': (this.selectedIndex == 0)}">PM<sub>2.5</sub></div>
+        <div class='title-tab-content' (click)="this.selectedIndex = 1" [ngClass]="{'active': (this.selectedIndex == 1)}">PM<sub>10</sub></div>
+    </div>
     <ul class='list-info' *ngIf="district_geo">
       <li class='list-element list-header'>
         <div class='list-item'>이름</div>
-        <div class='list-item'>PM2.5</div>
+        <div class='list-item'>평균</div>
         <div class="clearfix"></div>
       </li>
       <li class="list-element" *ngFor="let d of district_geo.features">

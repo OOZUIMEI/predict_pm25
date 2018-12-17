@@ -22,7 +22,9 @@ class APGan(MaskGan):
         super(APGan, self).__init__(**kwargs)
         # alpha is used for generator loss function
         # [0.001 nodp > 0.001 dp0.5 > 0.005 nodp > 0.005 dp0.5]
-        self.alpha = 0.001
+        # ? 0.0009
+        # 0.0005 is mode collapse
+        self.alpha = 0.0005
         self.use_gen_cnn = True
         self.dropout = 0.0
         self.use_batch_norm = False
@@ -31,7 +33,7 @@ class APGan(MaskGan):
         self.lamda = 100
         self.gmtype = 4
         self.mtype = 3
-        self.z_dim = [pr.batch_size, self.decoder_length, 128]
+        self.z_dim = [self.batch_size, self.decoder_length, 128]
         self.z = tf.placeholder(tf.float32, shape=self.z_dim)   
         self.flag = tf.placeholder(tf.float32, shape=[self.batch_size, 1]) 
         print(self.decoder_length)
@@ -106,7 +108,7 @@ class APGan(MaskGan):
             cnn_dec_input = rnn_utils.get_cnn_rep(dec, mtype=self.mtype, use_batch_norm=self.use_batch_norm, dropout=self.dropout)
             cnn_dec_input = tf.layers.flatten(cnn_dec_input)
             cnn_shape = cnn_dec_input.get_shape()
-            dec_data = tf.reshape(cnn_dec_input, [pr.batch_size, self.decoder_length, int(cnn_shape[-1])])
+            dec_data = tf.reshape(cnn_dec_input, [self.batch_size, self.decoder_length, int(cnn_shape[-1])])
             dec_rep, _ = rnn_utils.execute_sequence(dec_data, self.e_params)
             dec_rep = self.get_softmax_attention(dec_rep)
             # add attentional layer here to measure the importance of each timestep.
@@ -123,7 +125,7 @@ class APGan(MaskGan):
     def exe_decoder(self, dec_hidden_vectors, fn_state=None):
         with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             dec_inputs_vectors = tf.tile(dec_hidden_vectors, [1, self.decoder_length])
-            dec_inputs_vectors = tf.reshape(dec_inputs_vectors, [pr.batch_size, self.rnn_hidden_units, self.decoder_length])
+            dec_inputs_vectors = tf.reshape(dec_inputs_vectors, [self.batch_size, self.rnn_hidden_units, self.decoder_length])
             dec_inputs_vectors = tf.transpose(dec_inputs_vectors, [0, 2, 1])
             # dec_inputs_vectors with shape bs x 24 x 256: concatenation of conditional layer vector & uniform random 128D
             dec_inputs_vectors = tf.concat([dec_inputs_vectors, self.z], axis=2)
@@ -131,31 +133,31 @@ class APGan(MaskGan):
             dec_outputs = tf.unstack(dec_outputs, axis=1)
             gen_outputs = []
             for d in dec_outputs:
-                d_ = tf.reshape(d, [pr.batch_size, 2, 2, 64])
+                d_ = tf.reshape(d, [self.batch_size, 2, 2, 64])
                 out = rnn_utils.get_cnn_rep(d_, 5, tf.nn.relu, 8, self.use_batch_norm, 0.5, False)
                 gen_outputs.append(out)
             outputs = tf.stack(gen_outputs, axis=1)
             outputs = tf.tanh(tf.layers.flatten(outputs))
-            outputs = tf.reshape(outputs, [pr.batch_size, self.decoder_length, pr.grid_size * pr.grid_size])
+            outputs = tf.reshape(outputs, [self.batch_size, self.decoder_length, pr.grid_size * pr.grid_size])
         return outputs
 
     # just decide whether an image is fake or real
     # calculate the outpute validation of discriminator
     # output is the value of a dense layer w * x + b
     def validate_output(self, inputs, conditional_vectors):
-        inputs = tf.reshape(inputs, [pr.batch_size * self.decoder_length, pr.grid_size, pr.grid_size, 1])
+        inputs = tf.reshape(inputs, [self.batch_size * self.decoder_length, pr.grid_size, pr.grid_size, 1])
         inputs_rep = rnn_utils.get_cnn_rep(inputs, self.gmtype, tf.nn.leaky_relu, 8, self.use_batch_norm, self.dropout, False)
         inputs_rep = tf.layers.flatten(inputs_rep)
         inputs_rep = tf.concat([inputs_rep, conditional_vectors], axis=1)
         output = tf.layers.dense(inputs_rep, 1, name="validation_value")
-        output = tf.reshape(output, [pr.batch_size, self.decoder_length])
+        output = tf.reshape(output, [self.batch_size, self.decoder_length])
         return output, None
 
     def create_discriminator(self, fake_outputs, conditional_vectors):
         with tf.variable_scope("discriminator", self.initializer, reuse=tf.AUTO_REUSE):
             c_d = conditional_vectors.get_shape()
             conditional_vectors = tf.tile(conditional_vectors, [1, self.decoder_length])
-            conditional_vectors = tf.reshape(conditional_vectors, [pr.batch_size * self.decoder_length, int(c_d[-1])])
+            conditional_vectors = tf.reshape(conditional_vectors, [self.batch_size * self.decoder_length, int(c_d[-1])])
             fake_val, fake_rewards = self.validate_output(fake_outputs, conditional_vectors)
             real_val, _ = self.validate_output(self.pred_placeholder, conditional_vectors)
         return fake_val, real_val, fake_rewards
@@ -184,7 +186,7 @@ class APGan(MaskGan):
             self.encoder_inputs : ct_t,
             self.decoder_inputs: dec_t,
             self.z: self.sample_z(),
-            self.flag: np.asarray(np.random.randint(0, 1, [pr.batch_size, 1]), dtype=np.float32)
+            self.flag: np.asarray(np.random.randint(0, 1, [self.batch_size, 1]), dtype=np.float32)
         }
         if self.use_attention:
             feed[self.attention_inputs] = np.asarray([range(int(x), int(x) + self.attention_length) for x in idx])

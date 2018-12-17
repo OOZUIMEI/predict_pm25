@@ -32,7 +32,7 @@ class APNet(APGan):
                 params["fw_cell"] = "lstm_block"
             outputs = rnn_utils.execute_decoder_cnn(None, fn_state, self.decoder_length, params, dec_hidden_vectors, self.use_cnn, self.use_gen_cnn, self.mtype, self.use_batch_norm, self.dropout)
             outputs = tf.stack(outputs, axis=1)
-            outputs = tf.reshape(outputs, [pr.batch_size, self.decoder_length, pr.grid_size * pr.grid_size])
+            outputs = tf.reshape(outputs, [self.batch_size, self.decoder_length, pr.grid_size * pr.grid_size])
         return outputs
 
     # operate in each interation of an epoch
