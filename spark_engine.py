@@ -230,7 +230,7 @@ class SparkEngine():
             wcn_2 = self.min_max_scaler(np.array(wsh_2 + wb_2), china_min, china_delta)
             china_vector = [ab_] + [ash_] + wb_1 + wsh_1 + [float(wb["month"]), float(wb["hour"]), float(wb["is_holiday"])] + self.set_boundary(wcn_2)
             china_vectors.append(china_vector)
-
+        print(np.shape(china_vectors))
         return res, w_, china_vectors, timestamp
 
     def get_china_weather_factors(self, rows):
