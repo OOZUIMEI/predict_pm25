@@ -90,15 +90,14 @@ class CrawAWS(Crawling):
         last_save = 0
         crawler_range = 86400
         if not args.forward:
-            cond = start <= end
             if args.end:
                 end = datetime.strptime(args.end, pr.fm)
             else:
                 end = utils.get_datetime_now() 
             length = (end - start).total_seconds() / crawler_range
         else:
-            cond = True
-        while cond:
+            end = datetime.strptime("2050-12-31 00:00:00", pr.fm)
+        while start <= end:
             now = utils.get_datetime_now()
             # at first, crawling by daily
             # if up to the moment, crawling by hourly

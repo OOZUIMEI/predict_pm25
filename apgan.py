@@ -21,9 +21,10 @@ class APGan(MaskGan):
     def __init__(self, **kwargs):
         super(APGan, self).__init__(**kwargs)
         # alpha is used for generator loss function
-        self.alpha = 0.0002
+        # [0.001 nodp > 0.001 dp0.5 > 0.005 nodp > 0.005 dp0.5]
+        self.alpha = 0.001
         self.use_gen_cnn = True
-        self.dropout = 0.5
+        self.dropout = 0.0
         self.use_batch_norm = False
         self.strides = [2]
         self.beta1 = 0.5

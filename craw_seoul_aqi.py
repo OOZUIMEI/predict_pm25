@@ -100,15 +100,14 @@ class CrawSeoulAQI(Crawling):
         last_save = 0
         # crawler_range = 3600
         if not args.forward:
-            cond = start <= end
             if args.end:
                 end = datetime.strptime(args.end, pr.fm)
             else:
                 end = utils.get_datetime_now()
             length = (end - start).total_seconds() / 86400
         else:
-            cond = True
-        while cond:
+            end = datetime.strptime("2050-12-31 00:00:00", pr.fm)
+        while start <= end:
             now = utils.get_datetime_now()
             # if (now - start_point).total_seconds() >= args.interval:
             #     start_point = now

@@ -155,7 +155,14 @@ python train_sp.py -u vectors/sp_china_combined/sp_seoul_train_bin -w sae -m "SA
 
 
 # start visualization server
+1. ssh docker server
 ng serve --port 3000 --host 0.0.0.0
+2. Crawling realtime data
+python crawling_all.py -f 1 -s "2018-12-16 00:00:00"
+python craw_aws.py -f 1 -s "2018-12-16 00:00:00"
+3. start prediction server
+python server.py
+
 
 # start tensorboard
 tensorboard --logidr path_to_summaries_folder

@@ -226,7 +226,7 @@ class MaskGan(BaselineModel):
 
     # using stride to reduce the amount of data to loop over time intervals
     def run_epoch(self, session, data, num_epoch=0, train_writer=None, verbose=False, train=False, shuffle=True, stride=4):
-        print("Using stride: %i" % stride)
+        # print("Using stride: %i" % stride)
         st = time.time()
         dt_length = len(data)
         # print("data_size: ", dt_length)
