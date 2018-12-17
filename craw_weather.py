@@ -14,7 +14,7 @@ from crawling_base import Crawling
 
 class CrawlWeather(Crawling):
     def __init__(self):
-        super(Crawling, self).__init__()
+        super(CrawlWeather, self).__init__()
         self.filename = "data/weather_forecasts.csv"
 
     # clear out html and get data

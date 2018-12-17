@@ -16,7 +16,7 @@ Data are organized as seconds intervally records that consist of
 class CrawSeoulAQI(Crawling):
         
     def __init__(self, **kwargs):
-        super(Crawling, self).__init__(**kwargs)
+        super(CrawSeoulAQI, self).__init__(**kwargs)
         self.filename = "data/seoul_aqi.csv"
     
     def mine_data(self, html):
@@ -42,6 +42,8 @@ class CrawSeoulAQI(Crawling):
                             txt = txt.rstrip("\n")   
                             index = pr.districts.index(txt)
                             values.append(index)
+                    print(values[1])
+                    print(values[2])
                     values.append(self.AQIPM10(values[1]))
                     values.append(self.AQIPM25(values[2]))
                     all_values.append(values)

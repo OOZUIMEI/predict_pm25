@@ -5,6 +5,7 @@ index of N/A in one_hot feature 0,41,73,112,129,146
 
 import utils
 import tensorflow as tf
+from numba import cuda
 import numpy as np
 import math
 import os
@@ -37,7 +38,7 @@ from srcns import SRCN
 
 import matplotlib
 import matplotlib.pyplot as plt
-# from  spark_engine import SparkEngine
+from  spark_engine import SparkEngine
 import district_neighbors as dd
 
 
@@ -52,12 +53,15 @@ def convert_element_to_grid(self, context):
     return np.asarray(res, dtype=np.float)
 
 
-def get_gpu_options():
+def get_gpu_options(use_fraction=True):
     gpu_options = None
     device_count = None
     if "gpu" in p.device:
-        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=p.gpu_fraction)
-        os.environ["CUDA_VISIBLE_DEVICES"]=p.gpu_devices
+        if use_fraction:
+            gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=p.gpu_fraction)
+            os.environ["CUDA_VISIBLE_DEVICES"]=p.gpu_devices
+        else:
+            gpu_options = tf.GPUOptions(allow_growth=True)
     else:
         device_count={"GPU":0}
     configs = tf.ConfigProto(allow_soft_placement=True, gpu_options=gpu_options, device_count=device_count)
@@ -393,11 +397,9 @@ def aggregate_predictions(preds):
 
 """
 activate spark engine & real time prediction service
-"""
-def get_prediction_real_time(sparkEngine, url_weight="", dim=15):
+"""        
+def get_prediction_real_time(sparkEngine, model=None, url_weight="", dim=15, prediction_weight="", encoder_length=24, decoder_length=24):
     # continuously crawl aws and aqi & weather
-    encoder_length = 24
-    decoder_length = 24
     end = utils.get_datetime_now()
     # end = datetime.strptime("2018-06-19 11:01:00", p.fm)
     # e_ = end.strftime(p.fm)
@@ -421,29 +423,43 @@ def get_prediction_real_time(sparkEngine, url_weight="", dim=15):
             # know nothing about future weather forecast
             de_vectors = np.zeros((decoder_length, p.grid_size, p.grid_size, dim))
         sp_vectors = np.concatenate((sp_vectors, de_vectors), axis=0)
+
         # 4. Feed to model
-        # model = BaselineModel(encoder_length=encoder_length, encode_vector_size=12, batch_size=1, decoder_length=decoder_length, rnn_layers=1,
-        #                 dtype='grid', grid_size=25, use_cnn=True)
-        # model.set_data(sp_vectors, [0], None)
-        model = MaskGan(encoder_length=encoder_length, encode_vector_size=15, batch_size=1, decode_vector_size=9, grid_size=25, use_cnn=True)
+        if model is None:
+            # model = BaselineModel(encoder_length=encoder_length, encode_vector_size=12, batch_size=1, decoder_length=decoder_length, rnn_layers=1,
+            #                 dtype='grid', grid_size=25, use_cnn=True)
+            # model.set_data(sp_vectors, [0], None)
+            # model = MaskGan(encoder_length=encoder_length, encode_vector_size=15, batch_size=1, decode_vector_size=9, grid_size=25, use_cnn=True)
+            model = APNet(encoder_length=24, decoder_length=24, encode_vector_size=15, batch_size=1, decode_vector_size=9, grid_size=25, forecast_factor=0)
         model.set_data(sp_vectors, [0], None, china_vectors)
         with tf.device('/%s' % p.device):
             model.init_ops()
             saver = tf.train.Saver()
-        
-        tconfig = get_gpu_options()
+        tconfig = get_gpu_options(False)        
         with tf.Session(config=tconfig) as session:
-            model.assign_datasets(session)              
-            print('==> restore model')
-            saver.restore(session, 'weights/%s' % p.prediction_weight)
-            print('==> running model')
-            preds = model.run_epoch(session, model.train, train=False, verbose=False, shuffle=False)
-            preds = np.reshape(preds, (decoder_length, p.grid_size, p.grid_size))
-            utils.save_file("test_acc/current_preds", preds) 
-            aggregate_predictions(preds)
-            return preds, timestamp
+            model.assign_datasets(session)    
+            preds_pm25 = realtime_execute(model, session, saver, decoder_length, p.prediction_weight_pm25)
+            model.forecast_factor = 1
+            preds_pm10 = realtime_execute(model, session, saver, decoder_length, p.prediction_weight_pm10)
+            china_vectors = np.array(china_vectors)
+            # tf.reset_default_graph()
+            session.close()
+            cuda.select_device(0)
+            cuda.close()
+        return (preds_pm25, preds_pm10), timestamp, np.transpose(china_vectors[:,:2] * 500)
     return [], []
     
+
+def realtime_execute(model, session, saver, decoder_length, prediction_weight):
+        print('==> restore model')
+        saver.restore(session, 'weights/%s' % prediction_weight)
+        print('==> running model')
+        _, preds = model.run_epoch(session, model.train, train=False, verbose=False, shuffle=False)
+        preds = np.reshape(preds, (decoder_length, p.grid_size, p.grid_size))
+        # utils.save_file("test_acc/current_preds", preds) 
+        preds = aggregate_predictions(preds)
+        return preds
+
 
 # call neural networks, stack autoencoder, or adain 
 def run_neural_nets(url_feature="", attention_url="", url_weight="sp", encoder_length=24, encoder_size=15, decoder_length=8, decoder_size=9, is_test=False, restore=False, model="NN", pre_train=False):
@@ -527,7 +543,6 @@ def run_neural_nets(url_feature="", attention_url="", url_weight="sp", encoder_l
                     name_s = name.group(1)
                 else:
                     name_s = url_weight
-                print(np.shape(preds))
                 utils.save_file("test_sp/%s" % name_s, preds)
 
 
@@ -557,26 +572,23 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--pretrain", default=0, help="Pretrain model: only use of SAE networks", type=int)
     parser.add_argument("-bv", "--best_val_loss", type=float, help="best validation loss from previous training")
     args = parser.parse_args()
-    """ 
     sparkEngine = SparkEngine()
-    preds, timestamp = get_prediction_real_time(sparkEngine)
-
-     0.00183376428791 0.00183376425411552
+    preds, timestamp, china = get_prediction_real_time(sparkEngine)
+    #  0.00183376428791 0.00183376425411552
     """
-    print("Train" + args.model)
-    if "GAN" in args.model:
-        train_gan(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, 
-            args.grid_size, is_folder=bool(args.folder), is_test=bool(args.is_test), restore=bool(args.restore), model_name=args.model)
-    elif args.model in ["CNN_LSTM", "TNET", "TNETLSTM", "APNET", "SRCN"] :
-        train_baseline(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
-        args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn),  restore=bool(args.restore), 
-        model_name=args.model, validation_url=args.validation_url, attention_valid_url=args.valid_attention_url, best_val_loss=args.best_val_loss)
-    elif args.model == "ADAIN":
-        run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore), args.model)
-    elif args.model == "SAE":
-        run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore), args.model, bool(args.pretrain))
-    elif args.model == "NN":
-        run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore))
-    elif args.model == "TGAN" or args.model == "TGANLSTM":
-        train_gan(args.feature, "", args.url_weight, args.batch_size, args.encoder_length, 1, args.decoder_length, 1, 32, False, is_test=bool(args.is_test), restore=bool(args.restore), model_name=args.model)
-
+    # if "GAN" in args.model:
+    #     train_gan(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, 
+    #         args.grid_size, is_folder=bool(args.folder), is_test=bool(args.is_test), restore=bool(args.restore), model_name=args.model)
+    # elif args.model in ["CNN_LSTM", "TNET", "TNETLSTM", "APNET", "SRCN"] :
+    #     train_baseline(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
+    #     args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn),  restore=bool(args.restore), 
+    #     model_name=args.model, validation_url=args.validation_url, attention_valid_url=args.valid_attention_url, best_val_loss=args.best_val_loss)
+    # elif args.model == "ADAIN":
+    #     run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore), args.model)
+    # elif args.model == "SAE":
+    #     run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore), args.model, bool(args.pretrain))
+    # elif args.model == "NN":
+    #     run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore))
+    # elif args.model == "TGAN" or args.model == "TGANLSTM":
+    #     train_gan(args.feature, "", args.url_weight, args.batch_size, args.encoder_length, 1, args.decoder_length, 1, 32, False, is_test=bool(args.is_test), restore=bool(args.restore), model_name=args.model)
+    """
