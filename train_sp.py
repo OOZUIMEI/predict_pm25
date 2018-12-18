@@ -62,6 +62,7 @@ def get_gpu_options(use_fraction=True):
             os.environ["CUDA_VISIBLE_DEVICES"]=p.gpu_devices
         else:
             gpu_options = tf.GPUOptions(allow_growth=True)
+            os.environ["CUDA_VISIBLE_DEVICES"]="0"
     else:
         device_count={"GPU":0}
     configs = tf.ConfigProto(allow_soft_placement=True, gpu_options=gpu_options, device_count=device_count)
@@ -398,9 +399,10 @@ def aggregate_predictions(preds):
 """
 activate spark engine & real time prediction service
 """        
-def get_prediction_real_time(sparkEngine, model=None, url_weight="", dim=15, prediction_weight="", encoder_length=24, decoder_length=24):
+def get_prediction_real_time(sparkEngine, model=None, url_weight="", dim=15, prediction_weight="", encoder_length=24, decoder_length=24, attention_length=24):
     # continuously crawl aws and aqi & weather
     end = utils.get_datetime_now()
+    end = end - timedelta(hours=1)
     # end = datetime.strptime("2018-06-19 11:01:00", p.fm)
     # e_ = end.strftime(p.fm)
     start = end - timedelta(days=1)
@@ -424,6 +426,11 @@ def get_prediction_real_time(sparkEngine, model=None, url_weight="", dim=15, pre
             de_vectors = np.zeros((decoder_length, p.grid_size, p.grid_size, dim))
         sp_vectors = np.concatenate((sp_vectors, de_vectors), axis=0)
 
+        c_l = len(china_vectors)
+        if c_l < attention_length:
+            # print(attention_length - c_l)
+            china_vectors = np.pad(china_vectors, ((attention_length - c_l, 0), (0, 0)), 'constant', constant_values=0)
+        
         # 4. Feed to model
         if model is None:
             # model = BaselineModel(encoder_length=encoder_length, encode_vector_size=12, batch_size=1, decoder_length=decoder_length, rnn_layers=1,
@@ -433,7 +440,7 @@ def get_prediction_real_time(sparkEngine, model=None, url_weight="", dim=15, pre
             model = APNet(encoder_length=24, decoder_length=24, encode_vector_size=15, batch_size=1, decode_vector_size=9, grid_size=25, forecast_factor=0)
         model.set_data(sp_vectors, [0], None, china_vectors)
         with tf.device('/%s' % p.device):
-            model.init_ops()
+            model.init_ops(is_train=False)
             saver = tf.train.Saver()
         tconfig = get_gpu_options(False)        
         with tf.Session(config=tconfig) as session:
@@ -442,9 +449,11 @@ def get_prediction_real_time(sparkEngine, model=None, url_weight="", dim=15, pre
             model.forecast_factor = 1
             preds_pm10 = realtime_execute(model, session, saver, decoder_length, p.prediction_weight_pm10)
             china_vectors = np.array(china_vectors)
+            # print("china", china_vectors.shape)
             # tf.reset_default_graph()
             # session.close()
             cuda.select_device(0)
+            # cuda.current_context(0)
             cuda.close()
         return (preds_pm25, preds_pm10), timestamp, np.transpose(china_vectors[:,:2] * 500)
     return [], []
@@ -572,11 +581,8 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--pretrain", default=0, help="Pretrain model: only use of SAE networks", type=int)
     parser.add_argument("-bv", "--best_val_loss", type=float, help="best validation loss from previous training")
     args = parser.parse_args()
-    """
     sparkEngine = SparkEngine()
     preds, timestamp, china = get_prediction_real_time(sparkEngine)
-    print("pm10", preds[1])
-    print("pm25", preds[0])
     #  0.00183376428791 0.00183376425411552
     """
     if "GAN" in args.model:
@@ -595,3 +601,4 @@ if __name__ == "__main__":
     elif args.model == "TGAN" or args.model == "TGANLSTM":
         train_gan(args.feature, "", args.url_weight, args.batch_size, args.encoder_length, 1, args.decoder_length, 1, 32, False, is_test=bool(args.is_test), restore=bool(args.restore), model_name=args.model)
     
+    """
