@@ -182,7 +182,7 @@ export class AppComponent implements OnInit {
     }
 
     next() {
-        if (this.current_time < (this.prediction.length - 1)) {
+        if (this.current_time < (this.prediction0.length - 1)) {
             this.current_time++
             this.select_prediction(this.current_time)
         }
@@ -194,7 +194,7 @@ export class AppComponent implements OnInit {
         }
     }
     select_prediction(t: number) {
-        if (this.prediction.length > t) {
+        if (this.prediction0.length > t) {
             var i = 0;
             let data = this.prediction[t]
             let obj = cloneDeep(this.district_geo)
