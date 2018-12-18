@@ -18,7 +18,7 @@ export class AppComponent implements OnInit {
     private mapConfig: object = {
         minZoom: 10,
         maxZoom: 14,
-        zoom: 12,
+        zoom: 11,
         lat: 37.5617,
         lng: 126.93923,
         tileLayerUrl: "http://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
@@ -33,8 +33,13 @@ export class AppComponent implements OnInit {
     // public iconAnchor: Point = new Point(30, 30)
     // public heat: Array<number> = [78,74,69,54,63,61,45,73,67,53,57,65,73,89,115,64,66,98,52,63,88,49,71,43,35]
     public district_geo: Object
-    public prediction: Object = {}
-    public average:Object = {}
+    public selected_prediction: Array<number> = []
+    public prediction: Object = {
+        "pm25": [],
+        "pm10": []
+    }
+    public selected_average: Array<number> = []
+    public average: Object = {}
     public beijing: Array<number> = []
     public shenyang: Array<number> = []
     public timestamp: Array<string> = []
@@ -43,7 +48,15 @@ export class AppComponent implements OnInit {
     public clock_time: Date
     public current_timestamp: string = ""
     public current_selected_timestamp: string = ""
-    public chart: Chart;
+    public chart: Chart
+    public bchart: Chart
+    public schart: Chart
+    public dchart: Chart
+    public dchartProperties: Object = {
+        isShowDChart: false,
+        x: "0px",
+        y: "0px"
+    }
     public isMobile: boolean = false
 
     @ViewChild(MapComponent) private mapComponent: MapComponent;
@@ -67,58 +80,81 @@ export class AppComponent implements OnInit {
                 this.clock = setInterval(() => {
                     this.clock_time.setSeconds(this.clock_time.getSeconds() + 1)
                     this.current_timestamp = this.getDateFormat(this.clock_time)
-            }, 1000)
+                }, 1000)
             }
         )
 
         this.services.getPrediction().subscribe(
-          res => {
-            this.prediction["pm25"] = res["data0"]
-            this.prediction["pm10"] = res["data1"]
-            this.average["pm25"] = res["avg0"]
-            this.average["pm10"] = res["avg1"]
-            this.beijing = res["beijing"]
-            this.shenyang = res["shenyang"]
-            this.timestamp = res["timestamp"]
-            setTimeout(() => {
-              this.select_prediction(this.current_time)
-              for(let x in this.average){
-                let d = Number(this.average[x])
-                this.addPoint(d)
-              }
-            }, 500)
-          }
+            res => {
+                this.prediction["pm25"] = res["data0"]
+                this.prediction["pm10"] = res["data1"]
+                if (this.selectedIndex) {
+                    this.selected_prediction = this.prediction["pm10"]
+                } else {
+                    this.selected_prediction = this.prediction["pm25"]
+                }
+                this.average["pm25"] = res["avg0"]
+                this.average["pm10"] = res["avg1"]
+                if (this.selectedIndex) {
+                    this.selected_average = this.average["pm10"]
+                } else {
+                    this.selected_average = this.average["pm25"]
+                }
+                this.beijing = res["beijing"]
+                this.shenyang = res["shenyang"]
+                this.timestamp = res["timestamp"]
+                setTimeout(() => {
+                    this.select_prediction(this.current_time)
+                    this.addPointSeoul()
+                    for (let x in this.beijing) {
+                        let d = Number(this.beijing[x])
+                        this.addPoint(this.bchart, d)
+                    }
+                    for (let x in this.shenyang) {
+                        let d = Number(this.shenyang[x])
+                        this.addPoint(this.schart, d)
+                    }
+                }, 500)
+            }
         )
     }
 
     ngOnInit() {
-        let sz = 150
+        let sz = 140
         this.isMobile = this.checkMobile(navigator.userAgent)
         let wd = window.innerWidth
         if (wd <= 1199 && wd >= 768) {
             sz = 140
-            this.mapConfig["zoom"] = 11
-            this.mapConfig["lng"] = 126.89923
-        } else if (wd < 768) {
             this.mapConfig["zoom"] = 10
+            this.mapConfig["lng"] = 126.8923
+        } else if (wd < 768) {
+            this.mapConfig["zoom"] = 9
             this.mapConfig["minZoom"] = 8
             this.mapConfig["lng"] = 126.96923
         }
+
+        this.chart = this.initChart(sz, 'PM2.5 Future Prediction(Hours)', ' Seoul')
+        this.bchart = this.initChart(sz, 'History PM2.5', 'Beijing')
+        this.schart = this.initChart(sz, 'History PM2.5', 'Shenyang')
+        this.dchart = this.initChart(sz, '', 'Forecasting 24h')
+    }
+
+    initChart(sz: number, name: string, title: string) {
         let chart = new Chart({
             chart: {
                 type: 'column',
                 height: sz,
             },
             title: {
-                text: 'PM2.5 Inclination'
+                text: title
             },
             credits: {
                 enabled: false
             },
             series: [{
-                "name": 'Future Prediction(Hours)',
+                "name": name,
                 "data": [],
-                // keys: [1,2, 3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]
+                // key: [1,2, 3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]
             }],
             tooltip: {
                 headerFormat: '<span>+{point.key + 1} h</span><br/>',
@@ -130,34 +166,39 @@ export class AppComponent implements OnInit {
                     groupPadding: 0.001,
                     borderWidth: 0.5,
                     // {"value":100,"color":"#ffff73"},{"value":150,"color":'#ff983d'},{"value":200,"color":'#ff312e'},{"value":300,"color":'#9000f0'},{"value":500,"color":'#851e35'},{"color":'#03c11d'}
-                    zones: [{ "value": 0, "color": '#11f52c' }, { "value": 5, "color": '#09f225' }, { "value": 10, "color": '#08e824' }, { "value": 15, "color": '#06df22' }, { "value": 20, "color": '#05d521' },
-                    { "value": 25, "color": '#04cb1f' }, { "value": 30, "color": '#03c11d' }, { "value": 35, "color": '#02b71c' }, { "value": 40, "color": '#01ad1a' }, { "value": 45, "color": '#01a319' },
-                    { "value": 50, "color": '#ffff73' }, { "value": 55, "color": '#fdfc67' }, { "value": 60, "color": '#fbf95c' }, { "value": 65, "color": '#f8f551' }, { "value": 70, "color": '#f5f147' },
-                    { "value": 75, "color": '#f2ec3d' }, { "value": 80, "color": '#efe733' }, { "value": 85, "color": '#ebe229' }, { "value": 90, "color": '#e7dc20' }, { "value": 95, "color": '#ded21c' },
-                    { "value": 100, "color": '#ff983d' }, { "value": 105, "color": '#fe9337' }, { "value": 110, "color": '#fd8f31' }, { "value": 115, "color": '#fc8a2c' }, { "value": 120, "color": '#fb8526' },
-                    { "value": 125, "color": '#fa8121' }, { "value": 130, "color": '#f97c1b' }, { "value": 135, "color": '#f87716' }, { "value": 140, "color": '#f77210' }, { "value": 145, "color": '#f66d0b' },
-                    { "value": 150, "color": '#ff312e' }, { "value": 155, "color": '#ff2926' }, { "value": 160, "color": '#ff211f' }, { "value": 165, "color": '#ff1917' }, { "value": 170, "color": '#ff110f' },
-                    { "value": 175, "color": '#ff0907' }, { "value": 180, "color": '#ff0100' }, { "value": 185, "color": '#f70100' }, { "value": 190, "color": '#ef0100' }, { "value": 195, "color": '#e80000' },
-                    { "value": 200, "color": '#9000f0' }, { "value": 205, "color": '#8e02eb' }, { "value": 210, "color": '#8c03e6' }, { "value": 215, "color": '#8905e1' }, { "value": 220, "color": '#8707dc' },
-                    { "value": 225, "color": '#8508d7' }, { "value": 230, "color": '#830ad3' }, { "value": 235, "color": '#810bce' }, { "value": 240, "color": '#7f0dc9' }, { "value": 245, "color": '#7c0ec5' },
-                    { "value": 250, "color": '#7a0fc0' }, { "value": 255, "color": '#7811bc' }, { "value": 260, "color": '#7612b7' }, { "value": 265, "color": '#7413b3' }, { "value": 270, "color": '#7214ae' },
-                    { "value": 275, "color": '#7015aa' }, { "value": 280, "color": '#6d16a6' }, { "value": 285, "color": '#6b17a1' }, { "value": 290, "color": '#69189d' }, { "value": 295, "color": '#671999' },
-                    { "value": 300, "color": '#851e35' }, { "value": 305, "color": '#851d34' }, { "value": 310, "color": '#841c33' }, { "value": 315, "color": '#841b32' }, { "value": 320, "color": '#831a32' },
-                    { "value": 325, "color": '#831931' }, { "value": 330, "color": '#821830' }, { "value": 335, "color": '#82172f' }, { "value": 340, "color": '#81162e' }, { "value": 345, "color": '#81152d' },
-                    { "value": 350, "color": '#80142d' }, { "value": 355, "color": '#7f142c' }, { "value": 360, "color": '#7f132b' }, { "value": 365, "color": '#7e122a' }, { "value": 370, "color": '#7e112a' },
-                    { "value": 375, "color": '#7d1029' }, { "value": 380, "color": '#7c0f28' }, { "value": 385, "color": '#7c0f27' }, { "value": 390, "color": '#7b0e26' }, { "value": 395, "color": '#7a0d26' },
-                    { "value": 400, "color": '#7a0c25' }, { "value": 405, "color": '#790c24' }, { "value": 410, "color": '#780b24' }, { "value": 415, "color": '#780a23' }, { "value": 420, "color": '#770922' },
-                    { "value": 425, "color": '#760922' }, { "value": 430, "color": '#750821' }, { "value": 435, "color": '#740720' }, { "value": 440, "color": '#74071f' }, { "value": 445, "color": '#73061f' },
-                    { "value": 450, "color": '#72051e' }, { "value": 455, "color": '#71051e' }, { "value": 460, "color": '#70041d' }, { "value": 465, "color": '#6f041c' }, { "value": 470, "color": '#6f031c' },
-                    { "value": 475, "color": '#6e031b' }, { "value": 480, "color": '#6d021a' }, { "value": 485, "color": '#6c021a' }, { "value": 490, "color": '#6b0119' }, { "value": 495, "color": '#6a0019' },
-                    { "value": 500, "color": '#690018' }]
+                    // { "value": 0, "color": '#11f52c' }
+                    zones: [{ "value": 5, "color": '#11f52c' }, { "value": 10, "color": '#09f225' }, { "value": 15, "color": '#08e824' }, { "value": 20, "color": '#06df22' }, 
+                            { "value": 25, "color": '#05d521' }, { "value": 30, "color": '#04cb1f' }, { "value": 35, "color": '#03c11d' }, { "value": 40, "color": '#02b71c' }, 
+                            { "value": 45, "color": '#01ad1a' }, { "value": 50, "color": '#01a319' }, { "value": 55, "color": '#ffff73' }, { "value": 60, "color": '#fdfc67' }, 
+                            { "value": 65, "color": '#fbf95c' }, { "value": 70, "color": '#f8f551' }, { "value": 75, "color": '#f5f147' }, { "value": 80, "color": '#f2ec3d' }, 
+                            { "value": 85, "color": '#efe733' }, { "value": 90, "color": '#ebe229' }, { "value": 95, "color": '#e7dc20' }, { "value": 100, "color": '#ded21c' }, 
+                            { "value": 105, "color": '#ff983d' }, { "value": 110, "color": '#fe9337' }, { "value": 115, "color": '#fd8f31' }, { "value": 120, "color": '#fc8a2c' }, 
+                            { "value": 125, "color": '#fb8526' }, { "value": 130, "color": '#fa8121' }, { "value": 135, "color": '#f97c1b' }, { "value": 140, "color": '#f87716' }, 
+                            { "value": 145, "color": '#f77210' }, { "value": 150, "color": '#f66d0b' }, { "value": 155, "color": '#ff312e' }, { "value": 160, "color": '#ff2926' }, 
+                            { "value": 165, "color": '#ff211f' }, { "value": 170, "color": '#ff1917' }, { "value": 175, "color": '#ff110f' }, { "value": 180, "color": '#ff0907' },
+                            { "value": 185, "color": '#ff0100' }, { "value": 190, "color": '#f70100' }, { "value": 195, "color": '#ef0100' }, { "value": 200, "color": '#e80000' }, 
+                            { "value": 205, "color": '#9000f0' }, { "value": 210, "color": '#8e02eb' }, { "value": 215, "color": '#8c03e6' }, { "value": 220, "color": '#8905e1' }, 
+                            { "value": 225, "color": '#8707dc' }, { "value": 230, "color": '#8508d7' }, { "value": 235, "color": '#830ad3' }, { "value": 240, "color": '#810bce' }, 
+                            { "value": 245, "color": '#7f0dc9' }, { "value": 250, "color": '#7c0ec5' }, { "value": 255, "color": '#7a0fc0' }, { "value": 260, "color": '#7811bc' }, 
+                            { "value": 265, "color": '#7612b7' }, { "value": 270, "color": '#7413b3' }, { "value": 275, "color": '#7214ae' }, { "value": 280, "color": '#7015aa' }, 
+                            { "value": 285, "color": '#6d16a6' }, { "value": 290, "color": '#6b17a1' }, { "value": 295, "color": '#69189d' }, { "value": 300, "color": '#671999' }, 
+                            { "value": 305, "color": '#851e35' }, { "value": 310, "color": '#851d34' }, { "value": 315, "color": '#841c33' }, { "value": 320, "color": '#841b32' }, 
+                            { "value": 325, "color": '#831a32' }, { "value": 330, "color": '#831931' }, { "value": 335, "color": '#821830' }, { "value": 340, "color": '#82172f' }, 
+                            { "value": 345, "color": '#81162e' }, { "value": 350, "color": '#81152d' }, { "value": 355, "color": '#80142d' }, { "value": 360, "color": '#7f142c' }, 
+                            { "value": 365, "color": '#7f132b' }, { "value": 370, "color": '#7e122a' }, { "value": 375, "color": '#7e112a' }, { "value": 380, "color": '#7d1029' }, 
+                            { "value": 385, "color": '#7c0f28' }, { "value": 390, "color": '#7c0f27' }, { "value": 395, "color": '#7b0e26' }, { "value": 400, "color": '#7a0d26' }, 
+                            { "value": 405, "color": '#7a0c25' }, { "value": 410, "color": '#790c24' }, { "value": 415, "color": '#780b24' }, { "value": 420, "color": '#780a23' }, 
+                            { "value": 425, "color": '#770922' }, { "value": 430, "color": '#760922' }, { "value": 435, "color": '#750821' }, { "value": 440, "color": '#740720' }, 
+                            { "value": 445, "color": '#74071f' }, { "value": 450, "color": '#73061f' }, { "value": 455, "color": '#72051e' }, { "value": 460, "color": '#71051e' }, 
+                            { "value": 465, "color": '#70041d' }, { "value": 470, "color": '#6f041c' }, { "value": 475, "color": '#6f031c' }, { "value": 480, "color": '#6e031b' }, 
+                            { "value": 485, "color": '#6d021a' }, { "value": 490, "color": '#6c021a' }, { "value": 495, "color": '#6b0119' }, { "value": 500, "color": '#6a0019' }]
                 }
             },
         });
-        this.chart = chart
+        return chart
     }
 
-    getDateFormat(d: Date){
+    getDateFormat(d: Date) {
         let p1 = d.getFullYear() + "-" + this.format10(d.getMonth() + 1) + "-" + this.format10(d.getDate())
         let p2 = this.format10(d.getHours()) + ":" + this.format10(d.getMinutes()) + ":" + this.format10(d.getSeconds())
         return p1 + " " + p2
@@ -174,15 +215,20 @@ export class AppComponent implements OnInit {
         }
         return false
     }
-
-    addPoint(point: number) {
-        if (this.chart) {
-            this.chart.addPoint(point);
+    addPointSeoul() {
+        for (let x in this.selected_average) {
+            let d = Number(this.selected_average[x])
+            this.addPoint(this.chart, d)
+        }
+    }
+    addPoint(chart: Chart, point: number) {
+        if (chart) {
+            chart.addPoint(point);
         }
     }
 
     next() {
-        if (this.current_time < (this.prediction0.length - 1)) {
+        if (this.current_time < (this.selected_prediction.length - 1)) {
             this.current_time++
             this.select_prediction(this.current_time)
         }
@@ -194,9 +240,9 @@ export class AppComponent implements OnInit {
         }
     }
     select_prediction(t: number) {
-        if (this.prediction0.length > t) {
+        if (this.selected_prediction.length > t) {
             var i = 0;
-            let data = this.prediction[t]
+            let data = this.selected_prediction[t]
             let obj = cloneDeep(this.district_geo)
             for (var x in obj["features"]) {
                 var dis = obj["features"][x]
@@ -229,13 +275,79 @@ export class AppComponent implements OnInit {
         return defaultStyle
     }
 
+    select_predict_factor(factor: number) {
+        this.selectedIndex = factor
+        this.current_time = 0
+        this.chart.removeSerie(0)
+        if (!factor) {
+            this.selected_prediction = this.prediction["pm25"]
+            this.selected_average = this.average["pm25"]
+            this.select_prediction(this.current_time)
+            this.chart.addSerie({
+                "name": "PM2.5 Future Prediction(Hours)",
+                "data": [],
+                // key: [1,2, 3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]
+            })
+            this.addPointSeoul()
+        } else {
+            this.selected_prediction = this.prediction["pm10"]
+            this.selected_average = this.average["pm10"]
+            this.select_prediction(this.current_time)
+            this.chart.addSerie({
+                "name": "PM10 Future Prediction(Hours)",
+                "data": [],
+                // key: [1,2, 3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]
+            })
+            this.addPointSeoul()
+        }
+    }
+    getDistrictValues(x: number) {
+        let obj = this.prediction["pm25"]
+        if (this.selectedIndex)
+            obj = this.prediction["pm10"]
+        let res = []
+        for (let i = 0; i < obj.length; i++) {
+            for (let j = 0; j < obj[i].length; j++) {
+                if (j == x) {
+                    res.push(obj[i][j])
+                }
+            }
+        }
+        return res
+    }
+
     openDistrict(e: any) {
+        let cor = e.containerPoint
+        let wd = window.innerWidth
+        let wh = window.innerHeight
+        if ((cor.x + 300) >= wd) {
+            cor.x = wd - 310
+        }
+        if ((cor.y + 140) >= wh)
+            cor.y = wh - 150
+
+        this.dchartProperties["x"] = cor.x + "px"
+        this.dchartProperties["y"] = cor.y + "px"
+
+
+        this.dchartProperties["isShowDChart"] = true
         let data = e.layer.feature.properties
         let code = data.code
-        for (let x in this.district_geo["features"]) {
+        let factor = "PM2.5"
+        if (this.selectedIndex)
+            factor = "PM10"
+        for (let x = 0; x < this.district_geo["features"].length; x++) {
             let obj = this.district_geo["features"][x]["properties"]
             if (obj.code == code) {
-                let prediction = this.prediction[x]
+                this.dchart.removeSerie(0)
+                this.dchart.addSerie({
+                    name: obj.name + " " + factor + " Forecasting",
+                    data: []
+                })
+                let res = this.getDistrictValues(x)
+                for (let j in res) {
+                    this.addPoint(this.dchart, res[j])
+                }
                 break
             }
         }

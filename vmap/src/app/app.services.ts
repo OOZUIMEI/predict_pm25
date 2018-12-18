@@ -4,8 +4,8 @@ import { HttpClient } from '@angular/common/http'
 @Injectable({ providedIn: 'root' })
 export class Services{
 
-    private url = "http://147.47.206.150:8888/"
-    //private url = "http://localhost:8888/"
+    // private url = "http://147.47.206.150:8888/"
+    private url = "http://localhost:8888/"
 
     constructor(private http: HttpClient){
 

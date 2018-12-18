@@ -1,52 +1,64 @@
 <div class="container">
-  <div class='map'>
-      <yaga-map 
-        [zoom]="mapConfig.zoom"
-        [(minZoom)]="mapConfig.minZoom"
-        [(maxZoom)]="mapConfig.maxZoom"
-        [lat]="mapConfig.lat" [lng]="mapConfig.lng" >
-        <yaga-tile-layer [(url)]="mapConfig.tileLayerUrl"></yaga-tile-layer>
-        <!-- 
+    <div class='map'>
+        <yaga-map [zoom]="mapConfig.zoom" [(minZoom)]="mapConfig.minZoom" [(maxZoom)]="mapConfig.maxZoom" [lat]="mapConfig.lat"
+            [lng]="mapConfig.lng">
+            <yaga-tile-layer [(url)]="mapConfig.tileLayerUrl"></yaga-tile-layer>
+            <!-- 
           don't use [(data)]. use [data] instead
         -->
-        <yaga-geojson 
-          [data]="district_geo" *ngIf="district_geo"
-          [defaultStyle]="mapConfig.style"
-          [styler]="style"
-          (click)="openDistrict($event)"
-        >
-        </yaga-geojson>
-      </yaga-map>
-  </div>
-  <div class="info-box" [ngClass]="{'': isMobile}">
-    <div class="date"  [ngClass]="{'date-mobile': isMobile}">
-        <span>Current time: <b class='bold'>{{ current_timestamp }}</b></span>
-        <span *ngIf="prediction.length">&nbsp;-&nbsp;(Forecast: <b class='bold'>+{{ current_time + 1 }}h)</b></span>
+            <yaga-geojson [data]="district_geo" *ngIf="district_geo" [defaultStyle]="mapConfig.style" [styler]="style"
+                (click)="openDistrict($event)">
+            </yaga-geojson>
+        </yaga-map>
     </div>
-    <div class="title-tab">
-        <div class='title-tab-content' (click)="this.selectedIndex = 0" [ngClass]="{'active': (this.selectedIndex == 0)}">PM<sub>2.5</sub></div>
-        <div class='title-tab-content' (click)="this.selectedIndex = 1" [ngClass]="{'active': (this.selectedIndex == 1)}">PM<sub>10</sub></div>
+    <div class="info-box" [ngClass]="{'': isMobile}">
+        <div class="date" [ngClass]="{'date-mobile': isMobile}">
+            <span>Current time: <b class='bold'>{{ current_timestamp }}</b></span>
+            <span *ngIf="selected_prediction.length">&nbsp;-&nbsp;(Forecast: <b class='bold'>+{{ current_time + 1 }}h)</b></span>
+        </div>
+        <div class="title-tab">
+            <div class='title-tab-content' (click)="select_predict_factor(0)" [ngClass]="{'active': (this.selectedIndex == 0)}">PM<sub>2.5</sub></div>
+            <div class='title-tab-content' (click)="select_predict_factor(1)" [ngClass]="{'active': (this.selectedIndex == 1)}">PM<sub>10</sub></div>
+        </div>
+        <ul class='list-info' *ngIf="district_geo">
+            <li class='list-element list-header'>
+                <div class='list-item'>이름</div>
+                <div class='list-item'>평균</div>
+                <div class="clearfix"></div>
+            </li>
+            <li class="list-element" *ngFor="let d of district_geo.features">
+                <div class='list-item'>{{d.properties.name}}</div>
+                <div class='list-item'>{{d.properties.density}}</div>
+                <div class="clearfix"></div>
+            </li>
+        </ul>
+        <div class="navigation">
+            <button class="next btn btn-primary" (click)="next()"><i class='fa fa-chevron-right'></i></button>
+            <button class="back btn btn-primary" (click)="back()"><i class='fa fa-chevron-left'></i></button>
+            <div class='clearfix'></div>
+        </div>
     </div>
-    <ul class='list-info' *ngIf="district_geo">
-      <li class='list-element list-header'>
-        <div class='list-item'>이름</div>
-        <div class='list-item'>평균</div>
-        <div class="clearfix"></div>
-      </li>
-      <li class="list-element" *ngFor="let d of district_geo.features">
-        <div class='list-item'>{{d.properties.name}}</div>
-        <div class='list-item'>{{d.properties.density}}</div>
-        <div class="clearfix"></div>
-      </li>
-    </ul>
-    <div class="navigation">
-      <button class="next btn btn-primary" (click)="next()"><i class='fa fa-chevron-right'></i></button>
-      <button class="back btn btn-primary" (click)="back()"><i class='fa fa-chevron-left'></i></button>
-      <div class='clearfix'></div>
+    <div class='dynamic-chart' [ngClass]="{'show': dchartProperties.isShowDChart, 'hide': '!dchartProperties.isShowDChart'}"
+        [style.top]="dchartProperties.y"
+        [style.left]="dchartProperties.x">
+        <div class="close" (click)="dchartProperties.isShowDChart = false"><i class="fa fa-times"></i></div>
+        <div class='chart'>
+            <div [chart]="dchart"></div>
+        </div>
     </div>
-  </div>
-  <div class='chart'>
-    <div [chart]="chart"></div>
-  </div>
-  <div class="colorbar" [ngClass]="{'colorbar-mobile': isMobile}"></div>
+    <div class='chart-container'>
+        <div class="close"><i class="fa fa-chevron-up"></i></div>
+        <div class="row">
+            <div class='col-lg-4 chart'>
+                <div [chart]="bchart"></div>
+            </div>
+            <div class='col-lg-4 chart'>
+                <div [chart]="schart"></div>
+            </div>
+            <div class='col-lg-4 chart'>
+                <div [chart]="chart"></div>
+            </div>
+        </div>
+    </div>
+    <div class="colorbar" [ngClass]="{'colorbar-mobile': isMobile}"></div>
 </div>

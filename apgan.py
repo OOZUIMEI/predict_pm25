@@ -24,7 +24,7 @@ class APGan(MaskGan):
         # [0.001 nodp > 0.001 dp0.5 > 0.005 nodp > 0.005 dp0.5]
         # ? 0.0009
         # 0.0005 is mode collapse
-        self.alpha = 0.0005
+        self.alpha = 0.001
         self.use_gen_cnn = True
         self.dropout = 0.0
         self.use_batch_norm = False

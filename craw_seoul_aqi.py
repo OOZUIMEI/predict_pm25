@@ -43,6 +43,9 @@ class CrawSeoulAQI(Crawling):
                             if txt in pr.districts:
                                 index = pr.districts.index(txt)
                                 values.append(index)
+                            txt = txt.rstrip("\n")   
+                            index = pr.districts.index(txt)
+                            values.append(index)
                     values.append(self.AQIPM10(values[1]))
                     values.append(self.AQIPM25(values[2]))
                     all_values.append(values)
