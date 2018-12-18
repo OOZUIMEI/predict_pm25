@@ -217,16 +217,32 @@ class SparkEngine():
         shenyang_w_pred = w_pred.filter(col("city") == "shenyang").orderBy("timestamp").limit(24).collect()
         aqicn_be = aqicn.filter(col("city") == "beijing").orderBy("timestamp").limit(24).collect()
         aqicn_sh = aqicn.filter(col("city") == "shenyang").orderBy("timestamp").limit(24).collect()
-
         china_vectors = []
         china_max = np.array(p.max_cn_values)
         china_min = np.array(p.min_cn_values)
         china_delta = china_max - china_min
-        for ab, ash, wb, wsh in zip(aqicn_be, aqicn_sh, beijing_w_pred, shenyang_w_pred):
-            ab_ = float(ab['pm2_5']) / 500
-            ash_ = float(ash['pm2_5']) / 500
-            wb_1, wb_2 = self.get_china_weather_factors(wb)
-            wsh_1, wsh_2 = self.get_china_weather_factors(wsh)
+        for x in xrange(24):
+            idx = x + 1
+            if idx < len(beijing_w_pred):
+                wb = beijing_w_pred[x]
+                wb_1, wb_2 = self.get_china_weather_factors(wb)
+            else:
+                wb_1, wb_2 = [0.0, 0.0], [0.0, 0.0, 0.0, 0.0]
+            if idx < len(shenyang_w_pred):
+                wsh = shenyang_w_pred[x]
+                wsh_1, wsh_2 = self.get_china_weather_factors(wsh)
+            else:
+                wsh_1, wsh_2 = [0.0, 0.0], [0.0, 0.0, 0.0, 0.0]
+            if idx < len(aqicn_be):
+                ab = aqicn_be[x]
+                ab_ = float(ab['pm2_5']) / 500
+            else:
+                ab_ = 0.0
+            if idx < len(aqicn_sh):
+                ash = aqicn_sh[x]
+                ash_ = float(ash['pm2_5']) / 500
+            else:
+                ash_ = 0.0
             wcn_2 = self.min_max_scaler(np.array(wsh_2 + wb_2), china_min, china_delta)
             china_vector = [ab_] + [ash_] + wb_1 + wsh_1 + [float(wb["month"]), float(wb["hour"]), float(wb["is_holiday"])] + self.set_boundary(wcn_2)
             china_vectors.append(china_vector)

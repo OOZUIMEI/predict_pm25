@@ -191,7 +191,8 @@ export class AppComponent implements OnInit {
                             { "value": 425, "color": '#770922' }, { "value": 430, "color": '#760922' }, { "value": 435, "color": '#750821' }, { "value": 440, "color": '#740720' }, 
                             { "value": 445, "color": '#74071f' }, { "value": 450, "color": '#73061f' }, { "value": 455, "color": '#72051e' }, { "value": 460, "color": '#71051e' }, 
                             { "value": 465, "color": '#70041d' }, { "value": 470, "color": '#6f041c' }, { "value": 475, "color": '#6f031c' }, { "value": 480, "color": '#6e031b' }, 
-                            { "value": 485, "color": '#6d021a' }, { "value": 490, "color": '#6c021a' }, { "value": 495, "color": '#6b0119' }, { "value": 500, "color": '#6a0019' }]
+                            { "value": 485, "color": '#6d021a' }, { "value": 490, "color": '#6c021a' }, { "value": 495, "color": '#6b0119' }, { "value": 500, "color": '#6a0019' },
+                            { "value": 2000, "color": '#690018' }]
                 }
             },
         });

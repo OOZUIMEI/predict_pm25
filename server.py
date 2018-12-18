@@ -36,8 +36,10 @@ class Prediction(object):
             preds, timestamp, china = get_prediction_real_time(sparkEngine, self.model)
             self.beijing = china[0,:].flatten().tolist()
             self.shenyang = china[1,:].flatten().tolist()
-            self.prediction0 = (np.array(preds[0]) + 15).tolist()
-            self.prediction1 = (np.array(preds[1]) + 15).tolist()
+            # self.prediction0 = (np.array(preds[0]) + 15).tolist()
+            # self.prediction1 = (np.array(preds[1]) + 15).tolist()
+            self.prediction0 = preds[0]
+            self.prediction1 = preds[1]
             self.avg0 = np.mean(self.prediction0, axis=1).tolist()
             self.avg1 = np.mean(self.prediction1, axis=1).tolist()
             self.timestamp = timestamp
