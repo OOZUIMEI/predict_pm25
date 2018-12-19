@@ -5,7 +5,7 @@ import json
 import numpy as np
 
 import train_sp as engine
-from apnet import APNet
+from apgan import APGan
 import properties as pr
 import utils
 from  spark_engine import SparkEngine
@@ -27,13 +27,13 @@ class Prediction(object):
         self.avg0, self.avg1 = None, None
         self.timestamp = None
         self.last_time = None
-        self.model = APNet(encoder_length=24, decoder_length=24, encode_vector_size=15, batch_size=1, decode_vector_size=9, grid_size=25, forecast_factor=0)
+        #self.model = APGan(encoder_length=24, decoder_length=24, encode_vector_size=15, batch_size=1, decode_vector_size=9, grid_size=25, forecast_factor=0)
 
     def predict(self):
         now = utils.get_datetime_now()
         if (not self.prediction0) or not self.last_time or (now - self.last_time).total_seconds() >= 1800:
             self.last_time = now
-            preds, timestamp, china = get_prediction_real_time(sparkEngine, self.model)
+            preds, timestamp, china = get_prediction_real_time(sparkEngine)
             self.beijing = china[0,:].flatten().tolist()
             self.shenyang = china[1,:].flatten().tolist()
             # self.prediction0 = (np.array(preds[0]) + 15).tolist()
@@ -93,5 +93,6 @@ if __name__ == "__main__":
     app = WebApp()
     app.prediction = Prediction(sparkEngine)
     app.time = Time()
+    cherrypy.config.update({'server.socket_host': '0.0.0.0'})
     cherrypy.quickstart(app, '/', conf)
     
