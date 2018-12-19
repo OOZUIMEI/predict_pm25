@@ -169,7 +169,7 @@ class BaselineModel(object):
     def exe_decoder(self, dec, enc_output, attention=None):
         params = copy.deepcopy(self.e_params)
         if "gru" in self.e_params["fw_cell"]:
-            params["fw_cell"] = "gru_block"
+            params["fw_cell"] = "   _block"
         elif "rnn" in self.e_params["fw_cell"]:
             params["fw_cell"] = "rnn"
         else:

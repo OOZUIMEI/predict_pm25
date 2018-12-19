@@ -191,9 +191,9 @@ def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size
        
         folders = None
         if is_folder:
-            folders = os.listdir(url_feature)
+            folders = sorted(os.listdir(url_feature))
             if attention_url:
-                a_folders = os.listdir(attention_url)
+                a_folders = sorted(os.listdir(attention_url))
                 folders = zip(folders, a_folders)
             last_epoch = 0
             for i, files in enumerate(folders):
@@ -308,9 +308,11 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
                     url_weight = url_weight + "_" + str(csn)
             folders = None
             if is_folder:
-                folders = os.listdir(url_feature)
+                folders = sorted(os.listdir(url_feature))
+                print("data_folder", folders)
                 if attention_url:
-                    a_folders = os.listdir(attention_url)
+                    a_folders = sorted(os.listdir(attention_url))
+                    print("attention_folder", a_folders)
                     folders = zip(folders, a_folders)
                 for i, files in enumerate(folders):
                     if attention_url:
@@ -399,7 +401,7 @@ def aggregate_predictions(preds):
 """
 activate spark engine & real time prediction service
 """        
-def get_prediction_real_time(sparkEngine, model=None, url_weight="", dim=15, prediction_weight="", encoder_length=24, decoder_length=24, attention_length=24):
+def get_prediction_real_time(sparkEngine, model=None, url_weight="", dim=15, prediction_weight="", encoder_length=24, decoder_length=24, attention_length=24, is_close_cuda=True):
     # continuously crawl aws and aqi & weather
     end = utils.get_datetime_now()
     end = end - timedelta(hours=1)
@@ -453,9 +455,9 @@ def get_prediction_real_time(sparkEngine, model=None, url_weight="", dim=15, pre
             # print("china", china_vectors.shape)
             # tf.reset_default_graph()
             # session.close()
-            cuda.select_device(0)
-            # cuda.current_context(0)
-            cuda.close()
+            if is_close_cuda:
+                cuda.select_device(0)
+                cuda.close()
         return (preds_pm25, preds_pm10), timestamp, np.transpose(china_vectors[:,:2] * 500)
     return [], []
     
@@ -582,6 +584,7 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--pretrain", default=0, help="Pretrain model: only use of SAE networks", type=int)
     parser.add_argument("-bv", "--best_val_loss", type=float, help="best validation loss from previous training")
     args = parser.parse_args()
+    """
     sparkEngine = SparkEngine()
     preds, timestamp, china = get_prediction_real_time(sparkEngine)
     #  0.00183376428791 0.00183376425411552
@@ -601,4 +604,4 @@ if __name__ == "__main__":
         run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore))
     elif args.model == "TGAN" or args.model == "TGANLSTM":
         train_gan(args.feature, "", args.url_weight, args.batch_size, args.encoder_length, 1, args.decoder_length, 1, 32, False, is_test=bool(args.is_test), restore=bool(args.restore), model_name=args.model)
-    """ 
+    

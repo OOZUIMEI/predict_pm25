@@ -130,7 +130,7 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=N
         
         if cnn_gen:
             pm2_5_input = tf.layers.dense(dec_out, 256, name="decoder_output_cnn")
-            if mtype == 3:
+            if mtype == 3 or mtype == 6:
                 pm2_5_input = tf.reshape(pm2_5_input, [params["batch_size"], 2, 2, 64])
             else:
                 pm2_5_input = tf.reshape(pm2_5_input, [params["batch_size"], 4, 4, 16])
@@ -253,9 +253,9 @@ def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8, use_b
         # 25 x 25 x H => 11x11x32
         conv1 = get_cnn_unit(cnn_inputs, 32, (5,5), activation, "VALID", "rep_conv1", use_batch_norm, dropout)
         # 11x11x32 => 4x4x32
-        conv2 = get_cnn_unit(msf1, 32, (5,5), activation, "VALID", "rep_conv2", use_batch_norm, dropout)
+        conv2 = get_cnn_unit(conv1, 32, (5,5), activation, "VALID", "rep_conv2", use_batch_norm, dropout)
         # 4x4x32 => 2x2x16
-        cnn_outputs = get_cnn_unit(msf2, 16, (3,3), activation, "SAME", "rep_conv3", use_batch_norm, dropout)
+        cnn_outputs = get_cnn_unit(conv2, 16, (3,3), activation, "SAME", "rep_conv3", use_batch_norm, dropout)
     return cnn_outputs
 
 
