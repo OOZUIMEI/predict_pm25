@@ -24,7 +24,7 @@ class APGan(MaskGan):
         # [0.001 nodp > 0.001 dp0.5 > 0.005 nodp > 0.005 dp0.5]
         # ? 0.0009
         # 0.0005 is mode collapse
-        self.alpha = 0.01
+        self.alpha = 0.001
         self.use_gen_cnn = True
         self.dropout = 0.5
         self.use_batch_norm = False
@@ -32,7 +32,7 @@ class APGan(MaskGan):
         self.beta1 = 0.5
         self.lamda = 100
         self.gmtype = 4
-        self.mtype = 6
+        self.mtype = 3
         self.z_dim = [self.batch_size, self.decoder_length, 128]
         self.z = tf.placeholder(tf.float32, shape=self.z_dim)   
         self.flag = tf.placeholder(tf.float32, shape=[self.batch_size, 1]) 

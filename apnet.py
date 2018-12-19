@@ -13,6 +13,8 @@ class APNet(APGan):
         super(APNet, self).__init__(**kwargs)
         self.dropout = 0.5
         self.alpha = 0
+        self.mtype = 6
+        self.use_attention = False
 
     def inference(self, is_train=True):
         fake_outputs, _ = self.create_generator(self.encoder_inputs, self.decoder_inputs, self.attention_inputs)
