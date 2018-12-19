@@ -13,8 +13,10 @@
     </div>
     <div class="info-box" [ngClass]="{'': isMobile}">
         <div class="date" [ngClass]="{'date-mobile': isMobile}">
-            <span>Current time: <b class='bold'>{{ current_timestamp }}</b></span>
-            <span *ngIf="selected_prediction.length">&nbsp;-&nbsp;(Forecast: <b class='bold'>+{{ current_time + 1 }}h)</b></span>
+            <ul>
+                <li><div class="time-header">Current time:</div><span><b class='bold'>{{ current_timestamp }}</b></span></li>
+                <li><div class="time-header" *ngIf="selected_prediction.length">Forecast time:</div><span><b class='bold'>{{current_selected_timestamp}} (+{{ current_time + 1 }}H)</b></span></li>
+            </ul>
         </div>
         <div class="title-tab">
             <div class='title-tab-content' (click)="select_predict_factor(0)" [ngClass]="{'active': (this.selectedIndex == 0)}">PM<sub>2.5</sub></div>
@@ -23,7 +25,7 @@
         <ul class='list-info' *ngIf="district_geo">
             <li class='list-element list-header'>
                 <div class='list-item'>이름</div>
-                <div class='list-item'>평균</div>
+                <div class='list-item'>평균 <a href="https://airnow.gov/index.cfm?action=aqibasics.aqi">(AQI Index)</a></div>
                 <div class="clearfix"></div>
             </li>
             <li class="list-element" *ngFor="let d of district_geo.features">
@@ -33,8 +35,8 @@
             </li>
         </ul>
         <div class="navigation">
-            <button class="next btn btn-primary" (click)="next()"><i class='fa fa-chevron-right'></i></button>
-            <button class="back btn btn-primary" (click)="back()"><i class='fa fa-chevron-left'></i></button>
+            <button class="next btn btn-primary" (click)="next()">+1H <i class='fa fa-chevron-right'></i></button>
+            <button class="back btn btn-primary" (click)="back()"><i class='fa fa-chevron-left'></i> -1H</button>
             <div class='clearfix'></div>
         </div>
     </div>
@@ -43,11 +45,14 @@
         [style.left]="dchartProperties.x">
         <div class="close" (click)="dchartProperties.isShowDChart = false"><i class="fa fa-times"></i></div>
         <div class='chart'>
-            <div [chart]="dchart"></div>
+            <div [chart]="dchartpm25"></div>
+        </div>
+        <div class='chart'>
+            <div [chart]="dchartpm10"></div>
         </div>
     </div>
     <div class='chart-container'>
-        <div class="close"><i class="fa fa-chevron-up"></i></div>
+        <!-- <div class="close"><i class="fa fa-chevron-down"></i></div> -->
         <div class="row">
             <div class='col-lg-4 chart'>
                 <div [chart]="bchart"></div>

@@ -81,7 +81,7 @@
     width: 100px;
 }
 .list-element .list-item:nth-child(2){
-    width: 100px;
+    width: 130px;
 }
 .list-info .list-header{
     font-weight: bold;
@@ -103,12 +103,17 @@
     z-index: 9999;
     top: 10px;
     left: 310px;
-    height: 40px;
-    background: rgba(200, 200, 255, 0.65);
+    background: rgb(202, 228, 255);
     color: #000;
-    text-align: center;
-    line-height: 40px;
     font-size: 12px;
+    line-height: 20px;
+    text-align: left;
+    padding: 5px 10px;
+}
+.date .time-header{
+    width: 90px;
+    display: block;
+    float: left;
 }
 .date-mobile{
     left: 0;
@@ -117,7 +122,7 @@
     position: fixed;
     z-index: 9999;
     right: 0;
-    top: 0;
+    bottom: 0;
     width: calc(100% - 300px);
     background: #fff;
 }
@@ -135,10 +140,13 @@
     z-index: 10000;
     left: 0;
     top: 0;
-    height: 140px;
+    height: 240px;
 }
 .dynamic-chart .chart{
-    width: 300px
+    width: 300px;
+}
+.dynamic-chart .chart:nth-child(2){
+    border-bottom: 1px solid #eee;
 }
 .close{
     position: absolute;

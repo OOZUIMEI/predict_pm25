@@ -51,7 +51,8 @@ export class AppComponent implements OnInit {
     public chart: Chart
     public bchart: Chart
     public schart: Chart
-    public dchart: Chart
+    public dchartpm25: Chart
+    public dchartpm10: Chart
     public dchartProperties: Object = {
         isShowDChart: false,
         x: "0px",
@@ -133,20 +134,36 @@ export class AppComponent implements OnInit {
             this.mapConfig["lng"] = 126.96923
         }
 
-        this.chart = this.initChart(sz, 'PM2.5 Future Prediction(Hours)', ' Seoul')
-        this.bchart = this.initChart(sz, 'History PM2.5', 'Beijing')
-        this.schart = this.initChart(sz, 'History PM2.5', 'Shenyang')
-        this.dchart = this.initChart(sz, '', 'Forecasting 24h')
+        this.chart = this.initChart(sz, 'time (hours)', 'Seoul Historic Air Pollution Data (PM2.5)')
+        this.bchart = this.initChart(sz, 'time (hours)', 'Beijing Historic Air Pollution Data (PM2.5)', "PM2.5 Value", {
+            headerFormat: '<span>{point.key}h</span><br/>',
+            pointFormat: '<span>PM2.5</span>:<b>{point.y:.0f}</b>'
+        })
+        this.schart = this.initChart(sz, 'time (hours)', 'Shenyang Historic Air Pollution Data (PM2.5)', "PM2.5 Value")
+        this.dchartpm25 = this.initChart(sz, '', '24h Forecast of PM2.5')
+        this.dchartpm10 = this.initChart(sz, '', '24h Forecast of PM10')
     }
 
-    initChart(sz: number, name: string, title: string) {
+    initChart(sz: number, name: string, title: string, yAxis:string="Values", tooltip: object=null) {
+        if(!tooltip){
+            tooltip = {
+                headerFormat: '<span>+{point.key}h</span><br/>',
+                pointFormat: '<span>PM2.5</span>:<b>{point.y:.0f}</b>'
+            }
+        }
         let chart = new Chart({
             chart: {
                 type: 'column',
                 height: sz,
+                animation: false
             },
             title: {
                 text: title
+            },
+            yAxis: {
+                title: {
+                    text: yAxis
+                }
             },
             credits: {
                 enabled: false
@@ -156,10 +173,7 @@ export class AppComponent implements OnInit {
                 "data": [],
                 // key: [1,2, 3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]
             }],
-            tooltip: {
-                headerFormat: '<span>+{point.key + 1} h</span><br/>',
-                pointFormat: '<span>PM2.5</span>:<b>{point.y:.0f}</b>'
-            },
+            tooltip: tooltip,
             plotOptions: {
                 column: {
                     pointPadding: 0.001,
@@ -224,6 +238,7 @@ export class AppComponent implements OnInit {
     }
     addPoint(chart: Chart, point: number) {
         if (chart) {
+            if(point > 500) point = 500
             chart.addPoint(point);
         }
     }
@@ -232,14 +247,17 @@ export class AppComponent implements OnInit {
         if (this.current_time < (this.selected_prediction.length - 1)) {
             this.current_time++
             this.select_prediction(this.current_time)
+            this.set_forecast_time()
         }
     }
     back() {
         if (this.current_time > 0) {
             this.current_time--
             this.select_prediction(this.current_time)
+            this.set_forecast_time()
         }
     }
+    
     select_prediction(t: number) {
         if (this.selected_prediction.length > t) {
             var i = 0;
@@ -252,7 +270,8 @@ export class AppComponent implements OnInit {
             }
             this.mapComponent.invalidateSize()
             this.district_geo = obj
-            this.current_selected_timestamp = this.timestamp[t]
+            // let tmp = this.timestamp[t]
+            this.set_forecast_time()
         }
     }
 
@@ -275,11 +294,12 @@ export class AppComponent implements OnInit {
         defaultStyle["fillColor"] = getColor(geo['properties']['density'])
         return defaultStyle
     }
-
+    // select either pm2.5 or pm10
     select_predict_factor(factor: number) {
         this.selectedIndex = factor
         this.current_time = 0
         this.chart.removeSerie(0)
+        let new_title = 'Seoul Historic Air Pollution Data (PM2.5)'
         if (!factor) {
             this.selected_prediction = this.prediction["pm25"]
             this.selected_average = this.average["pm25"]
@@ -299,18 +319,24 @@ export class AppComponent implements OnInit {
                 "data": [],
                 // key: [1,2, 3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]
             })
+            new_title = 'Seoul Historic Air Pollution Data (PM10)'
             this.addPointSeoul()
         }
+        this.chart.ref.setTitle({
+            "text": new_title
+        })
     }
     getDistrictValues(x: number) {
-        let obj = this.prediction["pm25"]
-        if (this.selectedIndex)
-            obj = this.prediction["pm10"]
+        let obj1 = this.prediction["pm25"]
+        let obj2 = this.prediction["pm10"]
         let res = []
-        for (let i = 0; i < obj.length; i++) {
-            for (let j = 0; j < obj[i].length; j++) {
+        for (let i = 0; i < obj1.length; i++) {
+            for (let j = 0; j < obj1[i].length; j++) {
                 if (j == x) {
-                    res.push(obj[i][j])
+                    res.push({
+                        "pm25": obj1[i][j],
+                        "pm10": obj2[i][j],
+                    })
                 }
             }
         }
@@ -324,8 +350,8 @@ export class AppComponent implements OnInit {
         if ((cor.x + 300) >= wd) {
             cor.x = wd - 310
         }
-        if ((cor.y + 140) >= wh)
-            cor.y = wh - 150
+        if ((cor.y + 280) >= wh)
+            cor.y = wh - 290
 
         this.dchartProperties["x"] = cor.x + "px"
         this.dchartProperties["y"] = cor.y + "px"
@@ -334,24 +360,41 @@ export class AppComponent implements OnInit {
         this.dchartProperties["isShowDChart"] = true
         let data = e.layer.feature.properties
         let code = data.code
-        let factor = "PM2.5"
-        if (this.selectedIndex)
-            factor = "PM10"
         for (let x = 0; x < this.district_geo["features"].length; x++) {
             let obj = this.district_geo["features"][x]["properties"]
             if (obj.code == code) {
-                this.dchart.removeSerie(0)
-                this.dchart.addSerie({
-                    name: obj.name + " " + factor + " Forecasting",
+                this.dchartpm25.ref.setTitle({
+                    "text": '24h Forecast of PM2.5 of ' + obj.name,
+                    "style": "font-size: 12px"
+                })
+                this.dchartpm25.removeSerie(0)
+                this.dchartpm25.addSerie({
+                    name: "time (hours)",
+                    data: []
+                })
+                this.dchartpm10.ref.setTitle({
+                    "text": '24h Forecast of PM10 of ' + obj.name,
+                    "style": "font-size: 12px"
+                })
+                this.dchartpm10.removeSerie(0)
+                this.dchartpm10.addSerie({
+                    name: "time (hours)",
                     data: []
                 })
                 let res = this.getDistrictValues(x)
                 for (let j in res) {
-                    this.addPoint(this.dchart, res[j])
+                    this.addPoint(this.dchartpm25, res[j]["pm25"])
+                    this.addPoint(this.dchartpm10, res[j]["pm10"])
                 }
                 break
             }
         }
     }
 
+    // set forecast time based on the current time
+    set_forecast_time(){
+        let date = new Date(this.current_timestamp)
+        date.setHours(date.getHours() + this.current_time + 1)
+        this.current_selected_timestamp = this.getDateFormat(date)
+    }
 }
