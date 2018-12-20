@@ -158,7 +158,7 @@ def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size
         model = SRCN(encoder_length=8, decoder_length=8, grid_size=32)
     else:
         model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, rnn_layers=rnn_layers,
-                            dtype=dtype, grid_size=grid_size, use_cnn=use_cnn, loss=loss)
+                            dtype=dtype, grid_size=grid_size, use_cnn=use_cnn, loss=loss, use_attention=False)
     print('==> initializing models')
     with tf.device('/%s' % p.device):
         model.init_ops(is_train=(not is_test))
@@ -587,10 +587,9 @@ if __name__ == "__main__":
     parser.add_argument("-bv", "--best_val_loss", type=float, help="best validation loss from previous training")
     args = parser.parse_args()
     # """
-    sparkEngine = SparkEngine()
-    preds, timestamp, china = get_prediction_real_time(sparkEngine)
+    # sparkEngine = SparkEngine()
+    # preds, timestamp, china = get_prediction_real_time(sparkEngine)
     #  0.00183376428791 0.00183376425411552
-    """
     if "GAN" in args.model:
         train_gan(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, 
             args.grid_size, is_folder=bool(args.folder), is_test=bool(args.is_test), restore=bool(args.restore), model_name=args.model)
@@ -606,4 +605,3 @@ if __name__ == "__main__":
         run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore))
     elif args.model == "TGAN" or args.model == "TGANLSTM":
         train_gan(args.feature, "", args.url_weight, args.batch_size, args.encoder_length, 1, args.decoder_length, 1, 32, False, is_test=bool(args.is_test), restore=bool(args.restore), model_name=args.model)
-     """

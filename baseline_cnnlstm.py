@@ -48,7 +48,7 @@ class BaselineModel(object):
             "rnn_layer": self.rnn_layers,
             "grid_size": grid_size,
         }
-        self.dropout = 0.9
+        self.dropout = 0.5
         self.use_attention = use_attention
         self.attention_length = attention_length
         if self.dtype == "grid":
@@ -64,8 +64,10 @@ class BaselineModel(object):
             self.e_params["de_output_size"] = 1
             if self.rnn_layers > 1:
                 self.e_params["fw_cell_size"] = self.districts
-        self.use_gen_cnn = True
-        self.mtype = 3
+        # true mean use generate output by transposed cnn whereas. cnn-lstm doesn't use trans cnn generation 
+        self.use_gen_cnn = False
+        # 6 is regular cnn-lstm, 3 is msf apnet
+        self.mtype = 6
         self.use_batch_norm = False
         # 0 is predict pm2.5 while 1 is predict pm10
         self.forecast_factor = forecast_factor

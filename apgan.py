@@ -24,7 +24,7 @@ class APGan(MaskGan):
         # [0.001 nodp > 0.001 dp0.5 > 0.005 nodp > 0.005 dp0.5]
         # ? 0.0009
         # 0.0005 is mode collapse
-        self.use_flip = True
+        self.use_flip = False
         self.alpha = 0.001
         self.use_gen_cnn = True
         self.dropout = 0.5
@@ -32,12 +32,11 @@ class APGan(MaskGan):
         self.strides = [2]
         self.beta1 = 0.5
         self.lamda = 100
-        self.gmtype = 4
+        self.gmtype = 6
         self.mtype = 3
         self.z_dim = [self.batch_size, self.decoder_length, 128]
         self.z = tf.placeholder(tf.float32, shape=self.z_dim)   
         self.flag = tf.placeholder(tf.float32, shape=[self.batch_size, 1]) 
-        print(self.decoder_length)
 
     def inference(self, is_train=True):
         fake_outputs, conditional_vectors = self.create_generator(self.encoder_inputs, self.decoder_inputs, self.attention_inputs)
