@@ -433,7 +433,7 @@ def get_prediction_real_time(sparkEngine, model=None, url_weight="", dim=15, pre
         if c_l < attention_length:
             # print(attention_length - c_l)
             china_vectors = np.pad(china_vectors, ((attention_length - c_l, 0), (0, 0)), 'constant', constant_values=0)
-        
+
         # 4. Feed to model
         if model is None:
             # model = BaselineModel(encoder_length=encoder_length, encode_vector_size=12, batch_size=1, decoder_length=decoder_length, rnn_layers=1,
@@ -589,8 +589,6 @@ if __name__ == "__main__":
     # """
     sparkEngine = SparkEngine()
     preds, timestamp, china = get_prediction_real_time(sparkEngine)
-    print(preds)
-    print(china)
     #  0.00183376428791 0.00183376425411552
     """
     if "GAN" in args.model:

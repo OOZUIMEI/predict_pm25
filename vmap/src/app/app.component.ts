@@ -152,7 +152,6 @@ export class AppComponent implements OnInit {
     }
 
     initChart(sz: number, name: string, title: string, yAxis:string="Values", xcategories=[], tooltip: object=null) {
-        console.log(this.mapConfig["fontSize"])
         if(!tooltip){
             tooltip = {
                 headerFormat: '<span>+{point.key}h</span><br/>',
@@ -170,7 +169,8 @@ export class AppComponent implements OnInit {
                 "style": {"fontSize": this.mapConfig["fontSize"] + "px"}
             },
             xAxis: {
-                categories: xcategories
+                categories: xcategories,
+                tickInterval: 1
             },
             yAxis: {
                 title: {

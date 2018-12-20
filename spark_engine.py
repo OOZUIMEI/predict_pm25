@@ -236,21 +236,21 @@ class SparkEngine():
         china_vectors = []
         for x in xrange(24):
             idx = x + 1
-            if idx < len(beijing_w_pred):
+            if idx <= len(beijing_w_pred):
                 wb = beijing_w_pred[x]
                 wb_1, wb_2 = self.get_china_weather_factors(wb)
             else:
                 wb_1, wb_2 = [0.0, 0.0], [0.0, 0.0, 0.0, 0.0]
-            if idx < len(shenyang_w_pred):
+            if idx <= len(shenyang_w_pred):
                 wsh = shenyang_w_pred[x]
                 wsh_1, wsh_2 = self.get_china_weather_factors(wsh)
             else:
                 wsh_1, wsh_2 = [0.0, 0.0], [0.0, 0.0, 0.0, 0.0]
-            if idx < len(aqicn_be):
+            if idx <= len(aqicn_be):
                 ab_ = aqicn_be[x]
             else:
                 ab_ = 0.0
-            if idx < len(aqicn_sh):
+            if idx <= len(aqicn_sh):
                 ash_ = aqicn_sh[x]
             else:
                 ash_ = 0.0
