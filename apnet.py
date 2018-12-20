@@ -13,7 +13,7 @@ class APNet(APGan):
         super(APNet, self).__init__(**kwargs)
         self.dropout = 0.5
         self.alpha = 0
-        self.mtype = 6
+        self.mtype = 3
         self.use_attention = False
 
     def inference(self, is_train=True):

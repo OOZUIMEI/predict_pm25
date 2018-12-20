@@ -3,6 +3,7 @@ from pyspark.sql.functions import *
 from pyspark.sql.types import *
 from pyspark import SparkConf
 from pyspark.ml.feature import MinMaxScaler, VectorAssembler
+from scipy import interpolate
 from datetime import timedelta
 import numpy as np
 import properties as p
@@ -96,7 +97,8 @@ class SparkEngine():
         p2 = "data/seoul_aws.csv"
         p3 = "data/weather_forecasts.csv"
         p4 = "data/aqicn.csv"
-        
+        timestamps = self.get_timestamp_df(start, end)
+        timestamp_df = self.spark.parallelize(timestamps).toDF(["timestamp"])
         air = self.spark.read.format("csv").option("header", "false").schema(self.sp_schema).load(p1) \
                     .select("timestamp","district_code","pm10_val","pm2_5_val","o3_val","no2_val","co_val","so2_val","pm10_aqi","pm2_5_aqi",
                     self.udf_pm(col("pm2_5_aqi")).cast("double").alias("pm2_5_norm"), self.udf_pm(col("pm10_aqi")).cast("double").alias("pm10_norm"))
@@ -113,12 +115,13 @@ class SparkEngine():
                         avg("temp").alias("temp"), avg("precip").alias("precip"), avg("humidity").alias("humidity"))
         
         merge = air.filter(col("district_code") != 0) \
+                    .join(timestamp_df, [timestamp_df.timestamp == air.timestamp], "right_outer") \
                     .join(aws_mean, [air.timestamp == aws_mean.timestamp, air.district_code == aws_mean.code], "left_outer") \
                     .withColumn("is_holiday", self.udf_holiday(date_format(air.timestamp, "E"), air.timestamp)) \
                     .withColumn("hour", hour(air.timestamp).cast("double") / 23) \
                     .withColumn("month", (month(air.timestamp).cast("double") - 1) / 12) \
                     .select(air.timestamp, air.district_code, "o3_val", "no2_val", "co_val", "so2_val", "is_holiday", "hour", "month",\
-                            "pm2_5_norm", "pm10_norm", "temp", "precip", self.udf_humidity(col("humidity")).alias("humidity"), 
+                            "pm2_5_norm", "pm10_norm", "temp", "precip", self.udf_humidity(col("humidity")).alias("humidity"), \
                             self.udf_agl(col("wind_agl")).cast('double').alias("wind_agl"), "wind_sp", "wind_gust") \
                     .na.fill(0.0, ["o3_val","no2_val","co_val","so2_val", "temp", "precip", "humidity", "wind_sp", "wind_gust", "pm2_5_norm", "pm10_norm", "wind_agl"])
        
@@ -137,7 +140,6 @@ class SparkEngine():
             merge = merge.filter((col("timestamp") >= st_) & (col("timestamp") <= ed_))
             end = end + timedelta(days=1)
             ed2_ = end.strftime(p.fm)
-        
         else:
             st_, ed_, ed2_ = None, None, None
         final = merge.groupBy("timestamp") \
@@ -215,9 +217,21 @@ class SparkEngine():
                                        .withColumn("month", (month(w_pred.timestamp).cast("double") - 1) / 12) \
                                        .orderBy("timestamp").limit(24).collect()
         shenyang_w_pred = w_pred.filter(col("city") == "shenyang").orderBy("timestamp").limit(24).collect()
-        aqicn_be = aqicn.filter(col("city") == "beijing").orderBy("timestamp").limit(24).collect()
-        aqicn_sh = aqicn.filter(col("city") == "shenyang").orderBy("timestamp").limit(24).collect()
+
+        aqicn_be = aqicn.filter(col("city") == "beijing") \
+                        .join(timestamp_df, timestamp_df.timestamp == aqicn.timestamp) \
+                        .na.fill(0.0, ["pm2_5"]) \
+                        .orderBy("timestamp").limit(24).collect()
+        aqicn_sh = aqicn.filter(col("city") == "shenyang").orderBy("timestamp") \
+                        .join(timestamp_df, timestamp_df.timestamp == aqicn.timestamp) \
+                        .na.fill(0.0, ["pm2_5"]) \
+                        .orderBy("timestamp").limit(24).collect()
         china_vectors = []
+
+        # interpolate missing values in china
+        aqicn_be = self.interpolate(aqicn_be)
+        aqicn_sh = self.interpolate(aqicn_sh)
+
         china_max = np.array(p.max_cn_values)
         china_min = np.array(p.min_cn_values)
         china_delta = china_max - china_min
@@ -234,19 +248,46 @@ class SparkEngine():
             else:
                 wsh_1, wsh_2 = [0.0, 0.0], [0.0, 0.0, 0.0, 0.0]
             if idx < len(aqicn_be):
-                ab = aqicn_be[x]
-                ab_ = float(ab['pm2_5']) / 500
+                ab_ = aqicn_be[x]
             else:
                 ab_ = 0.0
             if idx < len(aqicn_sh):
-                ash = aqicn_sh[x]
-                ash_ = float(ash['pm2_5']) / 500
+                ash_ = aqicn_sh[x]
             else:
                 ash_ = 0.0
             wcn_2 = self.min_max_scaler(np.array(wsh_2 + wb_2), china_min, china_delta)
             china_vector = [ab_] + [ash_] + wb_1 + wsh_1 + [float(wb["month"]), float(wb["hour"]), float(wb["is_holiday"])] + self.set_boundary(wcn_2)
             china_vectors.append(china_vector)
         return res, w_, china_vectors, timestamp
+
+    def get_timestamp_df(self, start, end):
+        # concat string timestamp to make a df
+        st = []
+        while start < end:
+            st.append(start.strftime(p.fm))
+            start = start + timedelta(hours=1)
+        return st
+
+    # filling missing values in china with mean of range values
+    def interpolate(self, china):
+        values = []
+        missings = []
+        m = 0.
+        t = 0
+        for i, x in enumerate(china):
+            v = float(china['pm2_5'])
+            if v:
+                v = v / 500
+                m += v
+                t += 1
+                values.append(v)
+            else:
+                values.append(0.)
+                missings.append(i)
+        m = m / t
+        for i in missings:
+            values[i] = m
+        return values
 
     def get_china_weather_factors(self, rows):
         wsp = self.process_wind_no(rows["wind_sp"])

@@ -133,18 +133,19 @@ export class AppComponent implements OnInit {
             this.mapConfig["minZoom"] = 8
             this.mapConfig["lng"] = 126.96923
         }
-
-        this.chart = this.initChart(sz, 'time (hours)', 'Seoul Historic Air Pollution Data (PM2.5)')
-        this.bchart = this.initChart(sz, 'time (hours)', 'Beijing Historic Air Pollution Data (PM2.5)', "PM2.5 Value", {
+        let default_categories = ["1h","2h","3h","4h","5h","6h","7h","8h","9h","10h","11h","12h","13h","14h","15h","16h","17h","18h","19h","20h","21h","22h","23h","24h"]
+        let minus_categories = ["-24h","-23h","-22h","-21h","-20h","-19h","-18h","-17h","-16h","-15h","-14h","-13h","-12h","-11h","-10h","-9h","-8h","-7h","-6h","-5h","-4h","-3h","-2h","-1h"]
+        this.chart = this.initChart(sz, 'time (hours)', 'Seoul 24H Forecast Air Pollution (PM2.5)', "Values", default_categories)
+        this.bchart = this.initChart(sz, 'time (hours)', 'Beijing Historic Air Pollution Data (PM2.5)', "PM2.5 Values", minus_categories, {
             headerFormat: '<span>{point.key}h</span><br/>',
             pointFormat: '<span>PM2.5</span>:<b>{point.y:.0f}</b>'
         })
-        this.schart = this.initChart(sz, 'time (hours)', 'Shenyang Historic Air Pollution Data (PM2.5)', "PM2.5 Value")
-        this.dchartpm25 = this.initChart(sz, '', '24h Forecast of PM2.5')
-        this.dchartpm10 = this.initChart(sz, '', '24h Forecast of PM10')
+        this.schart = this.initChart(sz, 'time (hours)', 'Shenyang Historic Air Pollution Data (PM2.5)', "PM2.5 Values", minus_categories)
+        this.dchartpm25 = this.initChart(sz, '', '24h Forecast of PM2.5', "Values", default_categories)
+        this.dchartpm10 = this.initChart(sz, '', '24h Forecast of PM10', "Values", default_categories)
     }
 
-    initChart(sz: number, name: string, title: string, yAxis:string="Values", tooltip: object=null) {
+    initChart(sz: number, name: string, title: string, yAxis:string="Values", xcategories=[], tooltip: object=null) {
         if(!tooltip){
             tooltip = {
                 headerFormat: '<span>+{point.key}h</span><br/>',
@@ -159,6 +160,9 @@ export class AppComponent implements OnInit {
             },
             title: {
                 text: title
+            },
+            xAxis: {
+                categories: xcategories
             },
             yAxis: {
                 title: {

@@ -24,6 +24,7 @@ class APGan(MaskGan):
         # [0.001 nodp > 0.001 dp0.5 > 0.005 nodp > 0.005 dp0.5]
         # ? 0.0009
         # 0.0005 is mode collapse
+        self.use_flip = True
         self.alpha = 0.001
         self.use_gen_cnn = True
         self.dropout = 0.5
@@ -164,10 +165,13 @@ class APGan(MaskGan):
 
     # regular discriminator loss function
     def add_discriminator_loss(self, fake_preds, real_preds):
-        #real_labels = tf.constant(0.9, shape=[self.batch_size, self.decoder_length])
-        #fake_labels = tf.zeros([self.batch_size, self.decoder_length])
-        real_labels = np.absolute(self.flag - np.random.uniform(0.8, 1., [self.batch_size, self.decoder_length]))
-        fake_labels = np.absolute(self.flag - np.random.uniform(0., 0.2, [self.batch_size, self.decoder_length]))
+        if self.use_flip:
+            real_labels = np.absolute(self.flag - np.random.uniform(0.8, 1., [self.batch_size, self.decoder_length]))
+            fake_labels = np.absolute(self.flag - np.random.uniform(0., 0.2, [self.batch_size, self.decoder_length]))
+        else:
+            # smooth one side (real - side)
+            real_labels = tf.constant(0.9, shape=[self.batch_size, self.decoder_length])
+            fake_labels = tf.zeros([self.batch_size, self.decoder_length])
         dis_loss_fake = tf.reduce_mean(tf.losses.sigmoid_cross_entropy(fake_labels, fake_preds))
         dis_loss_real = tf.reduce_mean(tf.losses.sigmoid_cross_entropy(real_labels, real_preds))
         dis_loss = dis_loss_real + dis_loss_fake
@@ -184,10 +188,12 @@ class APGan(MaskGan):
 
         feed = {
             self.encoder_inputs : ct_t,
-            self.decoder_inputs: dec_t,
-            self.z: self.sample_z(),
-            self.flag: np.asarray(np.random.randint(0, 1, [self.batch_size, 1]), dtype=np.float32)
+            self.decoder_inputs: dec_t
         }
+        if self.use_flip:
+            feed[self.z] = self.sample_z()
+            feed[self.flag] = np.asarray(np.random.randint(0, 1, [self.batch_size, 1]), dtype=np.float32)
+        
         if self.use_attention:
             feed[self.attention_inputs] = np.asarray([range(int(x), int(x) + self.attention_length) for x in idx])
 

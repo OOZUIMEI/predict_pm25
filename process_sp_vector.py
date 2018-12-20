@@ -219,11 +219,11 @@ def interpolate_missing(url="vectors/sp_china_combined/sp_seoul_train_bin"):
                 m = np.mean(yold)
                 for i in zeros:
                     data[t_i,y_i,i] = m
-    data = np.transpose(data, (2, 1, 0))
-    zeros = np.where(data == 0)
-    print(zeros)
-    data = data.tolist()
-    utils.save_file("vectors/sp_china_combined/sp_seoul_train_bin_ip", data)
+    # data = np.transpose(data, (2, 1, 0))
+    # zeros = np.where(data == 0)
+    # print(zeros)
+    # data = data.tolist()
+    # utils.save_file("vectors/sp_china_combined/sp_seoul_train_bin_ip", data)
 
 
 # change missing values to mean by default
@@ -240,9 +240,9 @@ def interpolate_missing_china(url="vectors/sp_china_combined/sp_china_test_bin")
             m = np.mean(yold)
             for i in zeros:
                 data[t_i,i] = m
-    data = data.transpose()
-    data = data.tolist()
-    utils.save_file("vectors/sp_china_combined/sp_china_test_bin_ip", data)
+    # data = data.transpose()
+    # data = data.tolist()
+    # utils.save_file("vectors/sp_china_combined/sp_china_test_bin_ip", data)
 
 
 
