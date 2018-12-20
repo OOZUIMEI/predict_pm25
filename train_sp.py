@@ -62,7 +62,7 @@ def get_gpu_options(use_fraction=True):
             os.environ["CUDA_VISIBLE_DEVICES"]=p.gpu_devices
         else:
             gpu_options = tf.GPUOptions(allow_growth=True)
-            os.environ["CUDA_VISIBLE_DEVICES"]="0"
+            os.environ["CUDA_VISIBLE_DEVICES"]="2"
     else:
         device_count={"GPU":0}
     configs = tf.ConfigProto(allow_soft_placement=True, gpu_options=gpu_options, device_count=device_count)
