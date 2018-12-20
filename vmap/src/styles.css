@@ -170,8 +170,8 @@
     opacity: 0.8;
 }
 .colorbar-mobile{
-    top: auto;
-    bottom: 0;
+    top: 0;
+    /* bottom: 0; */
     width: 38px;
     height: 202px;
 }
@@ -191,6 +191,17 @@
 @media (min-width: 2000px){
     .container {
         width: 1800px;
+    }
+}
+
+@media only screen and (min-width: 1200px) and (max-width: 1366px
+){
+    .list-element {
+        font-size: 12px;
+    }
+    .colorbar{
+        top: 10px;
+        width: 60px;
     }
 }
 
@@ -214,6 +225,9 @@
         right: 0;
         width: 45px;
         height: 494px;
+    }
+    .chart-container{
+        width: 300px
     }
 }
 @media only screen and (max-width: 767px){

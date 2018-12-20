@@ -408,7 +408,7 @@ def get_prediction_real_time(sparkEngine, model=None, url_weight="", dim=15, pre
     end = end - timedelta(hours=1)
     # end = datetime.strptime("2018-06-19 11:01:00", p.fm)
     # e_ = end.strftime(p.fm)
-    start = end - timedelta(days=1)
+    start = end - timedelta(hours=23)
     start = start.replace(minute=0, second=0, microsecond=0)
     # s_ = start.strftime(p.fm)
     # 2. process normalize data
@@ -460,7 +460,8 @@ def get_prediction_real_time(sparkEngine, model=None, url_weight="", dim=15, pre
                 cuda.select_device(0)
                 cuda.close()
         return (preds_pm25, preds_pm10), timestamp, np.transpose(china_vectors[:,:2] * 500)
-    return [], []
+    else:
+        return ([],[]), [], []
     
 
 def realtime_execute(model, session, saver, decoder_length, prediction_weight):
@@ -588,6 +589,8 @@ if __name__ == "__main__":
     # """
     sparkEngine = SparkEngine()
     preds, timestamp, china = get_prediction_real_time(sparkEngine)
+    print(preds)
+    print(china)
     #  0.00183376428791 0.00183376425411552
     """
     if "GAN" in args.model:

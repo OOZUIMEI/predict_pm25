@@ -27,7 +27,8 @@ export class AppComponent implements OnInit {
             opacity: 1,
             dashArray: '3',
             fillOpacity: 0.8
-        }
+        },
+        fontSize: 15
     }
 
     // public iconAnchor: Point = new Point(30, 30)
@@ -128,10 +129,15 @@ export class AppComponent implements OnInit {
             sz = 140
             this.mapConfig["zoom"] = 10
             this.mapConfig["lng"] = 126.8923
+            this.mapConfig["fontSize"] = 11
         } else if (wd < 768) {
             this.mapConfig["zoom"] = 9
             this.mapConfig["minZoom"] = 8
             this.mapConfig["lng"] = 126.96923
+            this.mapConfig["fontSize"] = 11
+            this.mapConfig["chartWidth"] = "auto"
+        } else if (wd >= 1200 && wd <= 1366){
+            this.mapConfig["fontSize"] = 12
         }
         let default_categories = ["1h","2h","3h","4h","5h","6h","7h","8h","9h","10h","11h","12h","13h","14h","15h","16h","17h","18h","19h","20h","21h","22h","23h","24h"]
         let minus_categories = ["-24h","-23h","-22h","-21h","-20h","-19h","-18h","-17h","-16h","-15h","-14h","-13h","-12h","-11h","-10h","-9h","-8h","-7h","-6h","-5h","-4h","-3h","-2h","-1h"]
@@ -146,6 +152,7 @@ export class AppComponent implements OnInit {
     }
 
     initChart(sz: number, name: string, title: string, yAxis:string="Values", xcategories=[], tooltip: object=null) {
+        console.log(this.mapConfig["fontSize"])
         if(!tooltip){
             tooltip = {
                 headerFormat: '<span>+{point.key}h</span><br/>',
@@ -159,7 +166,8 @@ export class AppComponent implements OnInit {
                 animation: false
             },
             title: {
-                text: title
+                text: title,
+                "style": {"fontSize": this.mapConfig["fontSize"] + "px"}
             },
             xAxis: {
                 categories: xcategories
@@ -369,7 +377,7 @@ export class AppComponent implements OnInit {
             if (obj.code == code) {
                 this.dchartpm25.ref.setTitle({
                     "text": '24h Forecast of PM2.5 of ' + obj.name,
-                    "style": "font-size: 12px"
+                    "style": "font-size: 11px"
                 })
                 this.dchartpm25.removeSerie(0)
                 this.dchartpm25.addSerie({
@@ -378,7 +386,7 @@ export class AppComponent implements OnInit {
                 })
                 this.dchartpm10.ref.setTitle({
                     "text": '24h Forecast of PM10 of ' + obj.name,
-                    "style": "font-size: 12px"
+                    "style": "font-size: 11px"
                 })
                 this.dchartpm10.removeSerie(0)
                 this.dchartpm10.addSerie({

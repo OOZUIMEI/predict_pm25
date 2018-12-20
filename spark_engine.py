@@ -97,8 +97,10 @@ class SparkEngine():
         p2 = "data/seoul_aws.csv"
         p3 = "data/weather_forecasts.csv"
         p4 = "data/aqicn.csv"
-        timestamps = self.get_timestamp_df(start, end)
-        timestamp_df = self.spark.parallelize(timestamps).toDF(["timestamp"])
+        timestamps = self.get_timestamp_df(start, end, p.fm)
+        timestamp_df = self.spark.createDataFrame(timestamps, StringType())
+        timestamps2 = self.get_timestamp_df(start, end, p.fm2)
+        timestamp_df2 = self.spark.createDataFrame(timestamps2, StringType())
         air = self.spark.read.format("csv").option("header", "false").schema(self.sp_schema).load(p1) \
                     .select("timestamp","district_code","pm10_val","pm2_5_val","o3_val","no2_val","co_val","so2_val","pm10_aqi","pm2_5_aqi",
                     self.udf_pm(col("pm2_5_aqi")).cast("double").alias("pm2_5_norm"), self.udf_pm(col("pm10_aqi")).cast("double").alias("pm10_norm"))
@@ -115,7 +117,7 @@ class SparkEngine():
                         avg("temp").alias("temp"), avg("precip").alias("precip"), avg("humidity").alias("humidity"))
         
         merge = air.filter(col("district_code") != 0) \
-                    .join(timestamp_df, [timestamp_df.timestamp == air.timestamp], "right_outer") \
+                    .join(timestamp_df, [timestamp_df.value == air.timestamp], "right_outer") \
                     .join(aws_mean, [air.timestamp == aws_mean.timestamp, air.district_code == aws_mean.code], "left_outer") \
                     .withColumn("is_holiday", self.udf_holiday(date_format(air.timestamp, "E"), air.timestamp)) \
                     .withColumn("hour", hour(air.timestamp).cast("double") / 23) \
@@ -219,22 +221,19 @@ class SparkEngine():
         shenyang_w_pred = w_pred.filter(col("city") == "shenyang").orderBy("timestamp").limit(24).collect()
 
         aqicn_be = aqicn.filter(col("city") == "beijing") \
-                        .join(timestamp_df, timestamp_df.timestamp == aqicn.timestamp) \
-                        .na.fill(0.0, ["pm2_5"]) \
+                        .join(timestamp_df2, timestamp_df2.value == aqicn.timestamp, "right_outer") \
                         .orderBy("timestamp").limit(24).collect()
+
         aqicn_sh = aqicn.filter(col("city") == "shenyang").orderBy("timestamp") \
-                        .join(timestamp_df, timestamp_df.timestamp == aqicn.timestamp) \
-                        .na.fill(0.0, ["pm2_5"]) \
+                        .join(timestamp_df2, timestamp_df2.value == aqicn.timestamp, "right_outer") \
                         .orderBy("timestamp").limit(24).collect()
-        china_vectors = []
-
         # interpolate missing values in china
-        aqicn_be = self.interpolate(aqicn_be)
-        aqicn_sh = self.interpolate(aqicn_sh)
-
+        aqicn_be = self.interpolate(aqicn_be, 148.13191783928295)
+        aqicn_sh = self.interpolate(aqicn_sh, 130.082152826693)
         china_max = np.array(p.max_cn_values)
         china_min = np.array(p.min_cn_values)
         china_delta = china_max - china_min
+        china_vectors = []
         for x in xrange(24):
             idx = x + 1
             if idx < len(beijing_w_pred):
@@ -260,33 +259,36 @@ class SparkEngine():
             china_vectors.append(china_vector)
         return res, w_, china_vectors, timestamp
 
-    def get_timestamp_df(self, start, end):
+    def get_timestamp_df(self, start, end, fm):
         # concat string timestamp to make a df
         st = []
         while start < end:
-            st.append(start.strftime(p.fm))
+            st.append(start.strftime(fm))
             start = start + timedelta(hours=1)
         return st
 
     # filling missing values in china with mean of range values
-    def interpolate(self, china):
+    def interpolate(self, china, mv=0.):
         values = []
         missings = []
         m = 0.
         t = 0
         for i, x in enumerate(china):
-            v = float(china['pm2_5'])
-            if v:
-                v = v / 500
-                m += v
-                t += 1
-                values.append(v)
+            pm = x["pm2_5"]
+            if pm:
+                v = float(x['pm2_5'])
+                if v:
+                    v = v / 500
+                    m += v
+                    t += 1
+                    values.append(v)
             else:
                 values.append(0.)
                 missings.append(i)
-        m = m / t
+        if t:
+            mv = m / t
         for i in missings:
-            values[i] = m
+                values[i] = mv
         return values
 
     def get_china_weather_factors(self, rows):
