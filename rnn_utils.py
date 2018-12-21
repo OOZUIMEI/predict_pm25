@@ -246,7 +246,7 @@ def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8, use_b
         conv2 = get_cnn_transpose_unit(conv1, max_filters / 2, upscale_k, activation, "VALID", "transpose_conv2", use_batch_norm, dropout)
         cnn_outputs = get_cnn_transpose_unit(conv2, 1, upscale_k, activation, "VALID", "transpose_conv3", use_batch_norm, dropout)
         cnn_outputs = tf.squeeze(cnn_outputs, [-1])
-    else:
+    elif mtype == 6:
         """
             remove all msf layers (same as == 3)
         """
@@ -256,6 +256,11 @@ def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8, use_b
         conv2 = get_cnn_unit(conv1, 32, (5,5), activation, "VALID", "rep_conv2", use_batch_norm, dropout)
         # 4x4x32 => 2x2x16
         cnn_outputs = get_cnn_unit(conv2, 16, (3,3), activation, "SAME", "rep_conv3", use_batch_norm, dropout)
+    else:
+        # 25 x 25 x H => 11x11x32
+        conv1 = get_cnn_unit(cnn_inputs, 32, (5,5), activation, "VALID", "rep_conv1", use_batch_norm, dropout)
+        # 11x11x32 => 4x4x32
+        cnn_outputs = get_cnn_unit(conv1, 32, (5,5), activation, "VALID", "rep_conv2", use_batch_norm, dropout)
     return cnn_outputs
 
 

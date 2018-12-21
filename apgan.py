@@ -25,14 +25,15 @@ class APGan(MaskGan):
         # ? 0.0009
         # 0.0005 is mode collapse. 0.01 is mode collapse when use_flip = False
         self.use_flip = True
-        self.alpha = 0.01 
+        self.alpha = 0.005 
         self.use_gen_cnn = True
-        self.dropout = 0.0
+        self.dropout = 0.5 # help maintain the discriminator
         self.use_batch_norm = False
         self.strides = [2]
         self.beta1 = 0.5
         self.lamda = 100
-        self.gmtype = 6
+        # discriminator unit type 6 & 7 is hard to control
+        self.gmtype = 6 
         self.mtype = 3
         self.z_dim = [self.batch_size, self.decoder_length, 128]
         self.z = tf.placeholder(tf.float32, shape=self.z_dim)   
@@ -118,8 +119,10 @@ class APGan(MaskGan):
             dec_input = tf.concat([enc_outputs, dec_rep], axis=1)
             if not attention is None:
                 dec_input = tf.concat([dec_input, attention], axis=1)
-            # dec_hidden_vectors with shape bs x 128
-            dec_hidden_vectors = tf.layers.dense(dec_input, self.rnn_hidden_units, name="conditional_layer", activation=tf.nn.tanh)
+            # dec_hidden_vectors with shape bs x 128 
+            dec_hidden_vectors = tf.layers.dense(dec_input, 128, name="conditional_layer", activation=tf.nn.tanh)
+            if self.dropout:
+                dec_hidden_vectors = tf.nn.dropout(dec_hidden_vectors, 0.5)
             return dec_hidden_vectors
 
     #perform decoder to produce outputs of the generator
@@ -150,7 +153,14 @@ class APGan(MaskGan):
         inputs_rep = rnn_utils.get_cnn_rep(inputs, self.gmtype, tf.nn.leaky_relu, 8, self.use_batch_norm, self.dropout, False)
         inputs_rep = tf.layers.flatten(inputs_rep)
         inputs_rep = tf.concat([inputs_rep, conditional_vectors], axis=1)
-        output = tf.layers.dense(inputs_rep, 1, name="validation_value")
+        # add new hidden layer in the middle
+        # help maintain the discriminator
+        output = tf.layers.dense(inputs_rep, 128, name="hidden_validation")
+        if self.dropout:
+            output = tf.nn.dropout(output, 0.5)
+        output = tf.layers.dense(output, 1, name="validation_value")
+        if self.dropout:
+            output = tf.nn.dropout(output, 0.5)
         output = tf.reshape(output, [self.batch_size, self.decoder_length])
         return output, None
 

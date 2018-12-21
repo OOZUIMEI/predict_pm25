@@ -259,7 +259,7 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
             print('==> starting training')
             train_f = train_writer
             suffix = p.weight_saving_break
-            for epoch in xrange(p.total_iteration):
+            for epoch in xrange(100):
                 _ = model.run_epoch(session, train, offset + epoch, train_f, train=True, verbose=False, stride=2)
                 tmp_e = epoch + 1
                 if tmp_e % 10 == 0:
