@@ -23,11 +23,11 @@ class APGan(MaskGan):
         # alpha is used for generator loss function
         # [0.001 nodp > 0.001 dp0.5 > 0.005 nodp > 0.005 dp0.5]
         # ? 0.0009
-        # 0.0005 is mode collapse
-        self.use_flip = False
-        self.alpha = 0.001
+        # 0.0005 is mode collapse. 0.01 is mode collapse when use_flip = False
+        self.use_flip = True
+        self.alpha = 0.01 
         self.use_gen_cnn = True
-        self.dropout = 0.5
+        self.dropout = 0.0
         self.use_batch_norm = False
         self.strides = [2]
         self.beta1 = 0.5
@@ -56,6 +56,7 @@ class APGan(MaskGan):
             fn_state, enc_outputs = self.exe_encoder(enc, False, 0.0)
             attention = None
             if self.use_attention:
+                print("use attention")
                 # batch size x rnn_hidden_size
                 inputs = tf.nn.embedding_lookup(self.attention_embedding, att)
                 attention = self.get_attention_rep(inputs)
@@ -186,11 +187,11 @@ class APGan(MaskGan):
         dec_t = np.asarray([range(int(x) + self.encoder_length, int(x) + self.encoder_length + self.decoder_length) for x in idx])
 
         feed = {
-            self.encoder_inputs : ct_t,
-            self.decoder_inputs: dec_t
+            self.encoder_inputs: ct_t,
+            self.decoder_inputs: dec_t,
+            self.z: self.sample_z()
         }
         if self.use_flip:
-            feed[self.z] = self.sample_z()
             feed[self.flag] = np.asarray(np.random.randint(0, 1, [self.batch_size, 1]), dtype=np.float32)
         
         if self.use_attention:

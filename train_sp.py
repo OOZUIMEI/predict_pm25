@@ -296,6 +296,7 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
     saver = None
     if not utils.check_file(sum_dir):
         os.makedirs(sum_dir)
+    # train multiple gpu computation
     if "gpu" in p.device and len(dv) > 1:
         model.add_placeholders()
         with tf.Session(config=tconfig) as session:       
@@ -333,9 +334,7 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
             model.init_ops(not is_test)
             init = tf.global_variables_initializer()
             saver = tf.train.Saver()
-            
         train_writer = None
-        
         with tf.Session(config=tconfig) as session:       
             if not restore:
                 session.run(init)
@@ -350,19 +349,26 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
                 train_writer = tf.summary.FileWriter("%s/%s_%i" % (sum_dir, url_weight, csn), session.graph, filename_suffix=suf)
             folders = None
             if is_folder:
-                folders = os.listdir(url_feature)
+                folders = sorted(os.listdir(url_feature))
                 if attention_url:
-                    a_folders = os.listdir(attention_url)
+                    a_folders = sorted(os.listdir(attention_url))
                     folders = zip(folders, a_folders)
-                for i, files in enumerate(folders):
-                    if attention_url:
-                        x, y = files
-                        att_url = os.path.join(attention_url, y)
-                        print("==> Training set (%i, %s, %s)" % (i + 1, x, y))
-                    else: 
-                        x = files
-                        print("==> Training set (%i, %s)" % (i + 1, x))
-                    execute_gan(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer, i * p.total_iteration)
+                print(folders)
+                fl = len(folders)
+                # train each year in 100 epochs then repeat until it match total_iteration
+                repeat_steps = int(p.total_iteration / 100)
+                for t in xrange(repeat_steps):
+                    # loop over data folders
+                    for i, files in enumerate(folders):
+                        if attention_url:
+                            x, y = files
+                            att_url = os.path.join(attention_url, y)
+                            print("==> Training set (%i, %s, %s)" % (i + 1, x, y))
+                        else: 
+                            x = files
+                            print("==> Training set (%i, %s)" % (i + 1, x))
+                        # train each year 2013 - 2016 in 100 epochs intervally
+                        execute_gan(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer, (fl * t + i) * 100)
             else:
                 execute_gan(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
 
