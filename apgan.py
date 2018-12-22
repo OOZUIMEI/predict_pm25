@@ -25,7 +25,7 @@ class APGan(MaskGan):
         # ? 0.0009
         # 0.0005 is mode collapse. 0.01 is mode collapse when use_flip = False
         self.use_flip = True
-        self.alpha = 0.005 
+        self.alpha = 0.01 
         self.use_gen_cnn = True
         self.dropout = 0.5 # help maintain the discriminator
         self.use_batch_norm = False
