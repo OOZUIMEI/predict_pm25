@@ -306,7 +306,6 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
         if attention_url:
             a_folders = sorted(os.listdir(attention_url))
             folders = zip(folders, a_folders)
-        print(folders)
         fl = len(folders)
         # train each year in 100 epochs then repeat until it match total_iteration
         repeat_steps = int(p.total_iteration / 100)
@@ -317,7 +316,8 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
             with tf.Session(config=gpu_configs) as session:
                 train_writer.add_graph(session.graph, global_step=(fl * t * 100))
                 if restore:
-                    saver.restore(session, "weights/%.weights" % url_weight)
+                    print("restore previous weights")
+                    saver.restore(session, "weights/%s.weights" % url_weight)
                 else:
                     init = tf.global_variables_initializer()
                     session.run(init)
@@ -334,10 +334,16 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
                     # train each year 2013 - 2016 in 100 epochs intervally
                     execute_gan(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer, offset)
                 session.close()
+            restore = True
     else:
-        model = get_gan_model(model_name, encoder_length, embed_size, batch_size, decoder_size, decoder_length, grid_siize, True)
+        model = get_gan_model(model_name, encoder_length, embed_size, batch_size, decoder_size, decoder_length, grid_size, True)
         saver = tf.train.Saver(max_to_keep=2)
         with tf.Session(config=gpu_configs) as session:
+            if restore:
+                saver.restore(session, "weights/%s.weights" % url_weight)
+            else:
+                init = tf.global_variables_initializer()
+                session.run(init)
             if train_writer is not None:
                 train_writer.add_graph(session.graph)
             execute_gan(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)

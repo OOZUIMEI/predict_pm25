@@ -25,7 +25,7 @@ class APGan(MaskGan):
         # ? 0.0009
         # 0.0005 is mode collapse. 0.01 is mode collapse when use_flip = False
         self.use_flip = True
-        self.alpha = 0.01 
+        self.alpha = 0.001 
         self.use_gen_cnn = True
         self.dropout = 0.5 # help maintain the discriminator
         self.use_batch_norm = False
@@ -33,7 +33,7 @@ class APGan(MaskGan):
         self.beta1 = 0.5
         self.lamda = 100
         # discriminator unit type 6 & 7 is hard to control
-        self.gmtype = 6 
+        self.gmtype = 7 
         self.mtype = 3
         self.z_dim = [self.batch_size, self.decoder_length, 128]
         self.z = tf.placeholder(tf.float32, shape=self.z_dim)   
