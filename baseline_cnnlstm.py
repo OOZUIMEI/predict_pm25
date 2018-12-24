@@ -19,7 +19,7 @@ class BaselineModel(object):
     def __init__(self, encoder_length=24, decoder_length=24, grid_size=25, rnn_hidden_units=128, 
                 encode_vector_size=12, decode_vector_size=6, learning_rate=0.01, batch_size=64, loss="mse", 
                 df_ele=6, rnn_layers=1, dtype="grid", attention_length=24, atttention_hidden_size=17,
-                use_attention=True, use_cnn=False, forecast_factor=0, **kwargs):
+                use_attention=True, use_cnn=False, forecast_factor=1, **kwargs):
         self.encoder_length = encoder_length
         self.decoder_length = decoder_length
         self.sequence_length = encoder_length + decoder_length
@@ -42,7 +42,7 @@ class BaselineModel(object):
         self.initializer = tf.contrib.layers.xavier_initializer()
         self.e_params = {
             "fw_cell_size" : self.rnn_hidden_units,
-            "fw_cell": "cudnn_lstm",
+            "fw_cell": "cudnn_gru",
             "batch_size" : self.batch_size,
             "type": 0,
             "rnn_layer": self.rnn_layers,
@@ -107,7 +107,7 @@ class BaselineModel(object):
         # check if dtype is grid then just look up index from the datasets 
         enc, dec = self.lookup_input(self.encoder_inputs, self.decoder_inputs)
         # return final_state and enc_output
-        enc_output, _ = self.exe_encoder(enc)
+        enc_output, _  = self.exe_encoder(enc)
         attention = None
         if self.use_attention:
             # batch size x rnn_hidden_size
@@ -171,7 +171,7 @@ class BaselineModel(object):
     def exe_decoder(self, dec, enc_output, attention=None):
         params = copy.deepcopy(self.e_params)
         if "gru" in self.e_params["fw_cell"]:
-            params["fw_cell"] = "   _block"
+            params["fw_cell"] = "gru_block"
         elif "rnn" in self.e_params["fw_cell"]:
             params["fw_cell"] = "rnn"
         else:
@@ -184,7 +184,7 @@ class BaselineModel(object):
                 if "gru" in self.e_params["fw_cell"] or self.e_params["fw_cell"] == "rnn":
                     enc_output = tf.squeeze(enc_output[0], 0)
                 else:
-                    enc_output = enc_output[-1]
+                     enc_output = enc_output[-1]
                 dec_data = tf.transpose(dec,[0, 2, 1, 3])
                 dec_data = tf.reduce_mean(dec_data, axis=1)
                 outputs = rnn_utils.execute_decoder(dec_data, enc_output, self.decoder_length, params, attention, self.dropout_placeholder)
@@ -272,12 +272,12 @@ class BaselineModel(object):
             index = range(step * cons_b,
                           (step + 1) * cons_b, stride)
             # just the starting points of encoding batch_size,
-            ct_t = ct[index]
+            idx = ct[index]
             # switch batchsize, => batchsize * encoding_length
             # lookup from x => x + encoder_length
             # ct_t = batch_size x encoder_length
-            ct_t = np.asarray([range(int(x), int(x) + self.encoder_length) for x in ct_t])
-            dec_t = ct_t + self.decoder_length
+            ct_t = np.asarray([range(int(x), int(x) + self.encoder_length) for x in idx])
+            dec_t = np.asarray([range(int(x) + self.encoder_length, int(x) + self.encoder_length + self.decoder_length) for x in idx])
 
             feed = {
                 self.encoder_inputs : ct_t,

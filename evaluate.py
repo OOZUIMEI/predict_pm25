@@ -357,7 +357,7 @@ if __name__ == "__main__":
     elif args.task == 3:
         evaluate_lstm(args.url, args.url2, args.time_lags)
     elif args.task == 4:
-        evaluate_by_districts(args.url, args.url2, pr.strides, forecast_factor=args.forecast_factor)
+        evaluate_by_districts(args.url, args.url2, pr.strides, args.time_lags, forecast_factor=args.forecast_factor)
     else:
         # train_data
         # pm25: 0.24776679025820308, 0.11997866025609479
