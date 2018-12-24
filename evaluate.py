@@ -159,25 +159,7 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
     loss_mae = np.array(loss_mae) / lt * 300
     loss_rmse = [sqrt(x / lt)  * 300 for x in loss_rmse]
     # calculate accumulated loss
-    for x in xrange(decoder_length):
-        print("%ih" % (x + 1))
-        if not forecast_factor:
-            print("S MAE: %.6f %.6f" % (loss_mae[x], cr.ConcPM25(loss_mae[x])))
-            print("S RMSE: %.6f %.6f" % (loss_rmse[x], cr.ConcPM25(loss_rmse[x])))
-        else: 
-            print("S PM10 MAE: %.6f %.6f" % (loss_mae[x], cr.ConcPM10(loss_mae[x])))
-            print("S PM10 RMSE: %.6f %.6f" % (loss_rmse[x], cr.ConcPM10(loss_rmse[x])))
-        if x > 0:
-            loss_mae[x] += loss_mae[x-1]
-            t_mae = loss_mae[x] / (x + 1)
-            loss_rmse[x] += loss_rmse[x-1]
-            t_rmse = loss_rmse[x] / (x + 1)
-            if not forecast_factor:
-                print("T MAE: %.6f %.6f" % (t_mae, cr.ConcPM25(t_mae)))
-                print("T RMSE: %.6f %.6f" % (t_rmse, cr.ConcPM25(t_rmse)))
-            else:
-                print("T PM10 MAE: %.6f %.6f" % (t_mae, cr.ConcPM10(t_mae)))
-                print("T PM10 RMSE: %.6f %.6f" % (t_rmse, cr.ConcPM10(t_rmse)))
+    print_accumulate_error(loss_mae, loss_rmse, decoder_length)
 
 
 # evaluate grid training
@@ -286,7 +268,7 @@ def evaluate_transportation(url, url2):
 
 
 # evaluate grid training
-def evaluate_lstm(url, url2, decoder_length=24):
+def evaluate_lstm(url, url2, decoder_length=24, forecast_factor=0):
     data = utils.load_file(url)
     if type(data) is list:
         data = np.asarray(data)
@@ -297,28 +279,29 @@ def evaluate_lstm(url, url2, decoder_length=24):
     dtl = len(data)
     labels = utils.load_file(url2)
     labels = np.asarray(labels)
-    loss_mae = 0.0
-    loss_rmse = 0.0
-    r2_total = 0.0
+    loss_mae = [0.0] * decoder_length
+    loss_rmse = [0.0] * decoder_length
+    # r2_total = 0.0
     for i, d in enumerate(data):
         if decoder_length < data.shape[-1]:
             pred_t = d[:decoder_length]
         else:
             pred_t = d
-        pred_t = pred_t.flatten()
         lb_i = i * pr.strides + 24
         lbt = np.mean(labels[lb_i:(lb_i+decoder_length),:,0], axis=1)
-        mae, mse, r2 = get_evaluation(pred_t, lbt)
-        loss_mae += mae
-        loss_rmse += mse
-        r2_total += r2
+        for t_i, (p, l) in enumerate(zip(pred_t, lbt)):
+            mae, mse, _ = get_evaluation(p, l)
+            loss_mae[t_i] += mae
+            loss_rmse[t_i] += mse
+        # r2_total += r2
         utils.update_progress((i + 1.0) / dtl)
     loss_mae = loss_mae / lt * 300
     loss_rmse = sqrt(loss_rmse / lt) * 300
     r2_total = r2_total / lt
     print("MAE: %.6f" % loss_mae)
     print("RMSE: %.6f" % loss_rmse)
-    print("R2 score: %.6f" % r2_total)
+    # print("R2 score: %.6f" % r2_total)
+    print_accumulate_error(loss_mae, loss_rmse, decoder_length)
 
 
 def get_evaluation(pr, lb):
@@ -328,6 +311,28 @@ def get_evaluation(pr, lb):
     mae = mean_absolute_error(pr, lb)
     # r2 = r2_score(lb, pr)
     return mae, mse, 0.0
+
+
+def print_accumulate_error(loss_mae, loss_rmse, decoder_length):
+    for x in xrange(decoder_length):
+        print("%ih" % (x + 1))
+        if not forecast_factor:
+            print("S MAE: %.6f %.6f" % (loss_mae[x], cr.ConcPM25(loss_mae[x])))
+            print("S RMSE: %.6f %.6f" % (loss_rmse[x], cr.ConcPM25(loss_rmse[x])))
+        else: 
+            print("S PM10 MAE: %.6f %.6f" % (loss_mae[x], cr.ConcPM10(loss_mae[x])))
+            print("S PM10 RMSE: %.6f %.6f" % (loss_rmse[x], cr.ConcPM10(loss_rmse[x])))
+        if x > 0:
+            loss_mae[x] += loss_mae[x-1]
+            t_mae = loss_mae[x] / (x + 1)
+            loss_rmse[x] += loss_rmse[x-1]
+            t_rmse = loss_rmse[x] / (x + 1)
+            if not forecast_factor:
+                print("T MAE: %.6f %.6f" % (t_mae, cr.ConcPM25(t_mae)))
+                print("T RMSE: %.6f %.6f" % (t_rmse, cr.ConcPM25(t_rmse)))
+            else:
+                print("T PM10 MAE: %.6f %.6f" % (t_mae, cr.ConcPM10(t_mae)))
+                print("T PM10 RMSE: %.6f %.6f" % (t_rmse, cr.ConcPM10(t_rmse)))
 
 
 if __name__ == "__main__":
