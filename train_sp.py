@@ -236,6 +236,24 @@ def save_gan_preds(url_weight, preds):
     utils.save_file("test_sp/%s" % name_s, preds)
 
 
+def get_gan_model(model_name, encoder_length, embed_size, batch_size, decoder_size, decoder_length, grid_size, is_test):
+    if model_name == "APGAN":
+        model = APGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, decoder_length=decoder_length, grid_size=grid_size)
+    elif model_name == "MASKGAN":
+        model = MaskGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size, use_cnn=1)
+    elif model_name == "APGAN_LSTM":
+        model = APGAN_LSTM(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, decoder_length=decoder_length, grid_size=grid_size)
+    elif model_name == "CAPGAN":
+        model = CAPGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
+    elif model_name == "TGAN":
+        model = TGAN(encoder_length=8, decoder_length=8, grid_size=32)
+    else:
+        model = TGANLSTM(encoder_length=8, decoder_length=8, grid_size=32)
+    with tf.device('/%s' % p.device):
+        model.init_ops(not is_test)
+    return model
+
+
 def execute_gan(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None, offset=0):
     #if restore and not is_test:
     #    tf.reset_default_graph()
@@ -271,24 +289,6 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
         print('==> running model')
         _, preds = model.run_epoch(session, train, train=False, verbose=False, shuffle=False, stride=2)
         save_gan_preds(url_weight, preds)
-
-
-def get_gan_model(model_name, encoder_length, embed_size, batch_size, decoder_size, decoder_length, grid_size, is_test):
-    if model_name == "APGAN":
-        model = APGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, decoder_length=decoder_length, grid_size=grid_size)
-    elif model_name == "MASKGAN":
-        model = MaskGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size, use_cnn=1)
-    elif model_name == "APGAN_LSTM":
-        model = APGAN_LSTM(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, decoder_length=decoder_length, grid_size=grid_size)
-    elif model_name == "CAPGAN":
-        model = CAPGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
-    elif model_name == "TGAN":
-        model = TGAN(encoder_length=8, decoder_length=8, grid_size=32)
-    else:
-        model = TGANLSTM(encoder_length=8, decoder_length=8, grid_size=32)
-    with tf.device('/%s' % p.device):
-        model.init_ops(not is_test)
-    return model
 
 
 def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, 

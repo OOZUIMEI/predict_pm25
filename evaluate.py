@@ -341,7 +341,17 @@ if __name__ == "__main__":
     parser.add_argument("-gev", "--grid_eval", type=int, default=1)
     parser.add_argument("-tl", "--time_lags", type=int, default=24)
     parser.add_argument("-f", "--forecast_factor", type=int, default=0)
-
+    """
+    SVR         & \textbf{0.657} & 0.618 & 0.582 & 0.551 & 0.525 & 0.501 & 0.480 & 0.462 & 0.446 & 0.432 & 0.419 \\
+    SAE         & 0.462 & 0.421 & 0.384 & 0.379 & 0.349 & 0.315 & 0.310 & 0.289 & 0.278 & 0.281 & 0.262 \\
+    ADAIN       & 0.442 & 0.418 & 0.398 & 0.369 & 0.340 & 0.320 & 0.311 & 0.294 & 0.279 & 0.266 & 0.256 \\
+    FC-LSTM     & 0.574 & 0.512 & 0.437 & 0.392 & 0.376 & 0.359 & 0.329 & 0.321 & 0.302 & 0.291 & 0.288 \\
+    FC-GRU      & 0.563 & 0.496 & 0.422 & 0.381 & 0.363 & 0.347 & 0.324 & 0.316 & 0.294 & 0.286 & 0.284 \\
+    ConvLSTM    & 0.658 & 0.651 & 0.651 & 0.651 & 0.647 & 0.642 & 0.638 & 0.635 & 0.633 & 0.632 & 0.631 \\
+    \hline
+    APNet       & \underline{0.716} & \underline{0.700} & \underline{0.697} & \underline{0.695} & \underline{0.686} & \underline{0.668} & \underline{0.662} & \underline{0.650} & \underline{0.657} & \underline{0.647} & \underline{0.638} \\
+    APGAN       & \textbf{0.752} & \textbf{0.743} & \textbf{0.737} & \textbf{0.729} & \textbf{0.720} & \textbf{0.678} & \textbf{0.689} & \textbf{0.680} & \textbf{0.682} & \textbf{0.682} & \textbf{0.683} \\
+    """
     args = parser.parse_args()
     if args.task == 0:
         # evaluate_sp(args.url, args.url2, args.time_lags, bool(args.grid), bool(args.grid_eval))

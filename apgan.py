@@ -33,7 +33,7 @@ class APGan(MaskGan):
         self.beta1 = 0.5
         self.lamda = 100
         # discriminator unit type 6 & 7 is hard to control
-        self.gmtype = 7 
+        self.gmtype = 4 
         self.mtype = 3
         self.z_dim = [self.batch_size, self.decoder_length, 128]
         self.z = tf.placeholder(tf.float32, shape=self.z_dim)   
@@ -57,7 +57,7 @@ class APGan(MaskGan):
             fn_state, enc_outputs = self.exe_encoder(enc, False, 0.0)
             attention = None
             if self.use_attention:
-                print("use attention")
+                # print("use attention")
                 # batch size x rnn_hidden_size
                 inputs = tf.nn.embedding_lookup(self.attention_embedding, att)
                 attention = self.get_attention_rep(inputs)
