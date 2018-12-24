@@ -19,7 +19,7 @@ class BaselineModel(object):
     def __init__(self, encoder_length=24, decoder_length=24, grid_size=25, rnn_hidden_units=128, 
                 encode_vector_size=12, decode_vector_size=6, learning_rate=0.01, batch_size=64, loss="mse", 
                 df_ele=6, rnn_layers=1, dtype="grid", attention_length=24, atttention_hidden_size=17,
-                use_attention=True, use_cnn=False, forecast_factor=1, **kwargs):
+                use_attention=True, use_cnn=False, forecast_factor=0, **kwargs):
         self.encoder_length = encoder_length
         self.decoder_length = decoder_length
         self.sequence_length = encoder_length + decoder_length
@@ -42,7 +42,7 @@ class BaselineModel(object):
         self.initializer = tf.contrib.layers.xavier_initializer()
         self.e_params = {
             "fw_cell_size" : self.rnn_hidden_units,
-            "fw_cell": "cudnn_gru",
+            "fw_cell": "cudnn_lstm",
             "batch_size" : self.batch_size,
             "type": 0,
             "rnn_layer": self.rnn_layers,
@@ -71,6 +71,7 @@ class BaselineModel(object):
         self.use_batch_norm = False
         # 0 is predict pm2.5 while 1 is predict pm10
         self.forecast_factor = forecast_factor
+        print(self.decoder_length)
     
     def set_training(self, training):
         self.is_training = training
@@ -131,7 +132,7 @@ class BaselineModel(object):
             self.pred_placeholder = dec_f[:,:,:,:, self.forecast_factor]
         else:
             enc.set_shape((self.batch_size, self.encoder_length, 25, self.encode_vector_size))
-            dec_f.set_shape((self.batch_size, self.encoder_length, 25, self.encode_vector_size))
+            dec_f.set_shape((self.batch_size, self.decoder_length, 25, self.encode_vector_size))
             dec = dec_f[:,:,:,self.df_ele:]
             dec.set_shape((self.batch_size, self.decoder_length, 25, self.decode_vector_size))
             self.pred_placeholder = dec_f[:,:,:, self.forecast_factor]

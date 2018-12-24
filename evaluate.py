@@ -281,7 +281,7 @@ def evaluate_lstm(url, url2, decoder_length=24, forecast_factor=0):
     labels = np.asarray(labels)
     loss_mae = [0.0] * decoder_length
     loss_rmse = [0.0] * decoder_length
-    # r2_total = 0.0
+    #: r2_total = 0.0
     for i, d in enumerate(data):
         if decoder_length < data.shape[-1]:
             pred_t = d[:decoder_length]
@@ -295,12 +295,10 @@ def evaluate_lstm(url, url2, decoder_length=24, forecast_factor=0):
             loss_rmse[t_i] += mse
         # r2_total += r2
         utils.update_progress((i + 1.0) / dtl)
-    loss_mae = loss_mae / lt * 300
-    loss_rmse = sqrt(loss_rmse / lt) * 300
-    r2_total = r2_total / lt
-    print("MAE: %.6f" % loss_mae)
-    print("RMSE: %.6f" % loss_rmse)
+    loss_mae = np.array(loss_mae) / lt * 300
+    loss_rmse = [sqrt(x / lt)  * 300 for x in loss_rmse]
     # print("R2 score: %.6f" % r2_total)
+    print(decoder_length)
     print_accumulate_error(loss_mae, loss_rmse, decoder_length)
 
 
@@ -313,7 +311,8 @@ def get_evaluation(pr, lb):
     return mae, mse, 0.0
 
 
-def print_accumulate_error(loss_mae, loss_rmse, decoder_length):
+def print_accumulate_error(loss_mae, loss_rmse, decoder_length, forecast_factor=0):
+    cr = Crawling() 
     for x in xrange(decoder_length):
         print("%ih" % (x + 1))
         if not forecast_factor:
@@ -370,9 +369,9 @@ if __name__ == "__main__":
     elif args.task == 2:
         evaluate_transportation(args.url, args.url2)
     elif args.task == 3:
-        evaluate_lstm(args.url, args.url2, args.time_lags)
+        evaluate_lstm(args.url, args.url2, args.time_lags, args.forecast_factor)
     elif args.task == 4:
-        evaluate_by_districts(args.url, args.url2, pr.strides, args.time_lags, forecast_factor=args.forecast_factor)
+        evaluate_by_districts(args.url, args.url2, pr.strides, decoder_length=args.time_lags, forecast_factor=args.forecast_factor)
     else:
         # train_data
         # pm25: 0.24776679025820308, 0.11997866025609479

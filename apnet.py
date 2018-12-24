@@ -13,8 +13,8 @@ class APNet(APGan):
         super(APNet, self).__init__(**kwargs)
         self.dropout = 0.5
         self.alpha = 0
-        self.mtype = 3
-        self.use_attention = False
+        self.mtype = 6
+        self.use_attention = True
 
     def inference(self, is_train=True):
         fake_outputs, _ = self.create_generator(self.encoder_inputs, self.decoder_inputs, self.attention_inputs)
@@ -44,7 +44,6 @@ class APNet(APGan):
         # switch batchsize, => batchsize * encoding_length (x -> x + 24)
         ct_t = np.asarray([range(int(x), int(x) + self.encoder_length) for x in idx])
         dec_t = np.asarray([range(int(x) + self.encoder_length, int(x) + self.encoder_length + self.decoder_length) for x in idx])
-
         feed = {
             self.encoder_inputs : ct_t,
             self.decoder_inputs: dec_t

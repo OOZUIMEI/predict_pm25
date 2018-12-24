@@ -146,8 +146,7 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
     return global_t, best_val_loss
 
 
-def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, rnn_layers=1,
-        dtype="grid", is_folder=False, is_test=False, use_cnn=True, restore=False, model_name="", validation_url="", attention_valid_url="", best_val_loss=None):
+def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, rnn_layers=1, dtype="grid", is_folder=False, is_test=False, use_cnn=True, restore=False, model_name="", validation_url="", attention_valid_url="", best_val_loss=None):
     if model_name == "APNET":
         model = APNet(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
     elif model_name == "TNET": 
@@ -157,8 +156,7 @@ def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size
     elif model_name == "SRCN":
         model = SRCN(encoder_length=8, decoder_length=8, grid_size=32)
     else:
-        model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, rnn_layers=rnn_layers,
-                            dtype=dtype, grid_size=grid_size, use_cnn=use_cnn, loss=loss, use_attention=True)
+        model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decoder_length=decoder_length, decode_vector_size=decoder_size, rnn_layers=rnn_layers, dtype=dtype, grid_size=grid_size, use_cnn=use_cnn, loss=loss, use_attention=bool(attention_url))
     print('==> initializing models')
     with tf.device('/%s' % p.device):
         model.init_ops(is_train=(not is_test))
