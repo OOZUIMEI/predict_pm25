@@ -129,7 +129,6 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
         districts = convert_coordinate_to_idx()
     else:
         districts = utils.load_file("district_idx.pkl")
-    cr = Crawling() 
     data = utils.load_file(url)
     if type(data) is list:
         data = np.asarray(data)
