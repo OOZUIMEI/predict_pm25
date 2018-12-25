@@ -137,6 +137,7 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
         lt = data.shape[0] * data.shape[1]
     else:
         lt = data.shape[0]
+    print(np.shape(data))
     data = np.reshape(data, (lt, data.shape[-2], data.shape[-1]))
     labels = utils.load_file(url2)
     labels = np.asarray(labels)
