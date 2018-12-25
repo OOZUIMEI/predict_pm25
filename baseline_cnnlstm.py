@@ -121,7 +121,7 @@ class BaselineModel(object):
     def lookup_input(self, enc, dec):
         enc = tf.nn.embedding_lookup(self.embedding, enc)
         dec_f = tf.nn.embedding_lookup(self.embedding, dec)
-        
+        print("predict %i" % self.forecast_factor)
         if self.dtype == "grid":
             enc.set_shape((self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.encode_vector_size))
             dec_f.set_shape((self.batch_size, self.decoder_length, self.grid_size, self.grid_size, self.encode_vector_size))

@@ -146,9 +146,9 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
     return global_t, best_val_loss
 
 
-def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, rnn_layers=1, dtype="grid", is_folder=False, is_test=False, use_cnn=True, restore=False, model_name="", validation_url="", attention_valid_url="", best_val_loss=None):
+def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, rnn_layers=1, dtype="grid", is_folder=False, is_test=False, use_cnn=True, restore=False, model_name="", validation_url="", attention_valid_url="", best_val_loss=None, forecast_factor=0):
     if model_name == "APNET":
-        model = APNet(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decoder_length=decoder_length, decode_vector_size=decoder_size, grid_size=grid_size)
+        model = APNet(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decoder_length=decoder_length, decode_vector_size=decoder_size, grid_size=grid_size, forecast_factor=forecast_factor)
     elif model_name == "TNET": 
         model = TNet(encoder_length=8, decoder_length=8, grid_size=32)
     elif model_name == "TNETLSTM": 
@@ -156,7 +156,7 @@ def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size
     elif model_name == "SRCN":
         model = SRCN(encoder_length=8, decoder_length=8, grid_size=32)
     else:
-        model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decoder_length=decoder_length, decode_vector_size=decoder_size, rnn_layers=rnn_layers, dtype=dtype, grid_size=grid_size, use_cnn=use_cnn, loss=loss, use_attention=bool(attention_url))
+        model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decoder_length=decoder_length, decode_vector_size=decoder_size, rnn_layers=rnn_layers, dtype=dtype, grid_size=grid_size, use_cnn=use_cnn, loss=loss, use_attention=bool(attention_url), forecast_factor=forecast_factor)
     print('==> initializing models')
     with tf.device('/%s' % p.device):
         model.init_ops(is_train=(not is_test))
@@ -234,15 +234,15 @@ def save_gan_preds(url_weight, preds):
     utils.save_file("test_sp/%s" % name_s, preds)
 
 
-def get_gan_model(model_name, encoder_length, embed_size, batch_size, decoder_size, decoder_length, grid_size, is_test):
+def get_gan_model(model_name, encoder_length, embed_size, batch_size, decoder_size, decoder_length, grid_size, is_test, forecast_factor):
     if model_name == "APGAN":
-        model = APGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, decoder_length=decoder_length, grid_size=grid_size)
+        model = APGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, decoder_length=decoder_length, grid_size=grid_size, forecast_factor=forecast_factor)
     elif model_name == "MASKGAN":
-        model = MaskGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size, use_cnn=1)
+        model = MaskGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size, use_cnn=1, forecast_factor=forecast_factor)
     elif model_name == "APGAN_LSTM":
-        model = APGAN_LSTM(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, decoder_length=decoder_length, grid_size=grid_size)
+        model = APGAN_LSTM(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, decoder_length=decoder_length, grid_size=grid_size, forecast_factor=forecast_factor)
     elif model_name == "CAPGAN":
-        model = CAPGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
+        model = CAPGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size, forecast_factor=forecast_factor)
     elif model_name == "TGAN":
         model = TGAN(encoder_length=8, decoder_length=8, grid_size=32)
     else:
@@ -290,7 +290,7 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
 
 
 def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, 
-    decoder_length=24, decoder_size=4, grid_size=25, is_folder=False, is_test=False, restore=False, model_name="APGAN"):
+    decoder_length=24, decoder_size=4, grid_size=25, is_folder=False, is_test=False, restore=False, model_name="APGAN", forecast_factor==):
     gpu_configs = get_gpu_options()
     folders = None
     train_writer = None
@@ -309,7 +309,7 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
         repeat_steps = int(p.total_iteration / 100)
         for t in xrange(repeat_steps):
             tf.reset_default_graph()
-            model = get_gan_model(model_name, encoder_length, embed_size, batch_size, decoder_size, decoder_length, grid_size, False)
+            model = get_gan_model(model_name, encoder_length, embed_size, batch_size, decoder_size, decoder_length, grid_size, False, forecast_factor=forecast_factor)
             saver = tf.train.Saver(max_to_keep=2)
             with tf.Session(config=gpu_configs) as session:
                 train_writer.add_graph(session.graph, global_step=(fl * t * 100))
@@ -565,6 +565,7 @@ if __name__ == "__main__":
     parser.add_argument("-rs", "--restore", default=0, help="Restore pre-trained model", type=int)
     parser.add_argument("-p", "--pretrain", default=0, help="Pretrain model: only use of SAE networks", type=int)
     parser.add_argument("-bv", "--best_val_loss", type=float, help="best validation loss from previous training")
+    parser.add_argument("fc", "--forecast_factor", type=int, default=0, help="0 is pm2.5 1 is pm10")
     args = parser.parse_args()
     """
     # sparkEngine = SparkEngine()
@@ -573,11 +574,11 @@ if __name__ == "__main__":
     #  0.00183376428791 0.00183376425411552
     if "GAN" in args.model:
         train_gan(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, 
-            args.grid_size, is_folder=bool(args.folder), is_test=bool(args.is_test), restore=bool(args.restore), model_name=args.model)
+            args.grid_size, is_folder=bool(args.folder), is_test=bool(args.is_test), restore=bool(args.restore), model_name=args.model, forecast_factor=args.forecast_factor)
     elif args.model in ["CNN_LSTM", "TNET", "TNETLSTM", "APNET", "SRCN"] :
         train_baseline(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
         args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn),  restore=bool(args.restore), 
-        model_name=args.model, validation_url=args.validation_url, attention_valid_url=args.valid_attention_url, best_val_loss=args.best_val_loss)
+        model_name=args.model, validation_url=args.validation_url, attention_valid_url=args.valid_attention_url, best_val_loss=args.best_val_loss, forecast_factor=args.forecast_factor)
     elif args.model == "ADAIN":
         run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore), args.model)
     elif args.model == "SAE":
