@@ -50,6 +50,7 @@ class BaselineModel(object):
         }
         self.dropout = 0.5
         self.use_attention = use_attention
+        print(self.use_attention)
         self.attention_length = attention_length
         if self.dtype == "grid":
             if self.use_cnn:
@@ -71,7 +72,6 @@ class BaselineModel(object):
         self.use_batch_norm = False
         # 0 is predict pm2.5 while 1 is predict pm10
         self.forecast_factor = forecast_factor
-        print(self.decoder_length)
     
     def set_training(self, training):
         self.is_training = training
@@ -107,14 +107,14 @@ class BaselineModel(object):
         # embedding = tf.Variable(self.datasets, name="Embedding")
         # check if dtype is grid then just look up index from the datasets 
         enc, dec = self.lookup_input(self.encoder_inputs, self.decoder_inputs)
-        # return final_state and enc_output
-        enc_output, _  = self.exe_encoder(enc)
+        # return final_state and enc_output (enc_ou)
+        final_state, _  = self.exe_encoder(enc)
         attention = None
         if self.use_attention:
             # batch size x rnn_hidden_size
             inputs = tf.nn.embedding_lookup(self.attention_embedding, self.attention_inputs)
             attention = self.get_attention_rep(inputs)
-        outputs = self.exe_decoder(dec, enc_output, attention)
+        outputs = self.exe_decoder(dec, final_state, attention)
         return outputs
 
     # mapping input indices to dataset
@@ -184,8 +184,6 @@ class BaselineModel(object):
             else: 
                 if "gru" in self.e_params["fw_cell"] or self.e_params["fw_cell"] == "rnn":
                     enc_output = tf.squeeze(enc_output[0], 0)
-                else:
-                     enc_output = enc_output[-1]
                 dec_data = tf.transpose(dec,[0, 2, 1, 3])
                 dec_data = tf.reduce_mean(dec_data, axis=1)
                 outputs = rnn_utils.execute_decoder(dec_data, enc_output, self.decoder_length, params, attention, self.dropout_placeholder)
@@ -196,7 +194,7 @@ class BaselineModel(object):
     def get_attention_rep(self, inputs):
         with tf.variable_scope("attention_rep", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             params = {
-                "fw_cell": "cudnn_lstm",
+                "fw_cell": self.e_params["fw_cell"],
                 "fw_cell_size": self.rnn_hidden_units
             }
             inputs.set_shape((self.batch_size, self.attention_length, self.atttention_hidden_size))

@@ -290,7 +290,7 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
 
 
 def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, 
-    decoder_length=24, decoder_size=4, grid_size=25, is_folder=False, is_test=False, restore=False, model_name="APGAN", forecast_factor==):
+    decoder_length=24, decoder_size=4, grid_size=25, is_folder=False, is_test=False, restore=False, model_name="APGAN", forecast_factor=0):
     gpu_configs = get_gpu_options()
     folders = None
     train_writer = None
@@ -334,10 +334,11 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
                 session.close()
             restore = True
     else:
-        model = get_gan_model(model_name, encoder_length, embed_size, batch_size, decoder_size, decoder_length, grid_size, True)
+        model = get_gan_model(model_name, encoder_length, embed_size, batch_size, decoder_size, decoder_length, grid_size, True, forecast_factor=forecast_factor)
         saver = tf.train.Saver(max_to_keep=2)
         with tf.Session(config=gpu_configs) as session:
             if restore:
+                print("reload pretrained model")
                 saver.restore(session, "weights/%s.weights" % url_weight)
             else:
                 init = tf.global_variables_initializer()
@@ -565,7 +566,7 @@ if __name__ == "__main__":
     parser.add_argument("-rs", "--restore", default=0, help="Restore pre-trained model", type=int)
     parser.add_argument("-p", "--pretrain", default=0, help="Pretrain model: only use of SAE networks", type=int)
     parser.add_argument("-bv", "--best_val_loss", type=float, help="best validation loss from previous training")
-    parser.add_argument("fc", "--forecast_factor", type=int, default=0, help="0 is pm2.5 1 is pm10")
+    parser.add_argument("-fc", "--forecast_factor", type=int, default=0, help="0 is pm2.5 1 is pm10")
     args = parser.parse_args()
     """
     # sparkEngine = SparkEngine()

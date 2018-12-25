@@ -239,7 +239,7 @@ def evaluate_multi(url, url2, time_lags=24):
 
 # predict multiple dimension
 # pm2.5, pm10
-def evaluate_transportation(url, url2):
+def evaluate_transportation(url, url2, pred_length=8):
     preds = utils.load_file(url)
     preds = np.array(preds)
     lt = len(preds)
@@ -247,24 +247,29 @@ def evaluate_transportation(url, url2):
     labels = np.array(labels)
     labels = labels.reshape(len(labels), 32, 32)
     shape = np.shape(preds)
-    # pred_length = shape[1]
-    pred_length = 1
-    loss_mae0 = 0.0
-    loss_rmse0 = 0.0
+    if preds.shape[-1] < pred_length:
+        print("data shape is ", preds.shape)
+        pred_length = preds[-1]
+    loss_mae0 = [0.0] * pred_length
+    loss_rmse0 = [0.0] * pred_length
     r2_total = 0.0
     for i, d in enumerate(preds):
-        lb_i = i + 8
-        mae0, mse0, r2 = get_evaluation(d[:pred_length,:,:], labels[lb_i:(pred_length+lb_i),:,:])
-        # mae0, mse0, r2 = get_evaluation(d[0,:,:], labels[lb_i,:,:])
-        loss_rmse0 += mse0 
-        loss_mae0 += mae0
-        r2_total += r2
-    loss_mae0 = loss_mae0 / lt * 131
-    loss_rmse0 = sqrt(loss_rmse0 / lt) * 131
-    r2_total = r2_total / lt
-    print("MAE: %.6f" % loss_mae0)
-    print("RMSE: %.6f" % loss_rmse0)
-    print("R2 Score: %.6f" % r2_total)
+        # 8 is encoder_length
+        lb_i = i + 8 
+        # labels[lb_i:(pred_length+lb_i),:,:]
+        for x in xrange(pred_length):
+            mae0, mse0, _ = get_evaluation(d[x,:,:], labels[lb_i+x,:,:])
+            # mae0, mse0, r2 = get_evaluation(d[0,:,:], labels[lb_i,:,:])
+            loss_rmse0[x] += mse0 
+            loss_mae0[x] += mae0
+            # r2_total += r2
+    loss_mae0 = [(x / lt * 131) for x in loss_mae0]
+    loss_rmse0 = [(sqrt(x / lt) * 131) for x in loss_rmse0]
+    # r2_total = r2_total / lt
+    # print("MAE: %.6f" % loss_mae0)
+    # print("RMSE: %.6f" % loss_rmse0)
+    # print("R2 Score: %.6f" % r2_total)
+    print_accumulate_error(loss_mae0, loss_rmse0, pred_length, 0)
 
 
 # evaluate grid training
@@ -367,7 +372,7 @@ if __name__ == "__main__":
         # Neural nets 8h: MAE: 38.66 RMSE: 45.67
         evaluate_single_pred(args.url, args.url2, args.time_lags)
     elif args.task == 2:
-        evaluate_transportation(args.url, args.url2)
+        evaluate_transportation(args.url, args.url2, args.time_lags)
     elif args.task == 3:
         evaluate_lstm(args.url, args.url2, args.time_lags, args.forecast_factor)
     elif args.task == 4:
