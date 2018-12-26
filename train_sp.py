@@ -102,7 +102,6 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
         model.assign_datasets(session)
         if not is_test:
             best_val_epoch = 0
-            print(best_val_loss)
             if not best_val_loss:
                 best_val_loss = float('inf')
             # best_overall_val_loss = float('inf')
@@ -148,7 +147,7 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
 
 def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, rnn_layers=1, dtype="grid", is_folder=False, is_test=False, use_cnn=True, restore=False, model_name="", validation_url="", attention_valid_url="", best_val_loss=None, forecast_factor=0):
     if model_name == "APNET":
-        model = APNet(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decoder_length=decoder_length, decode_vector_size=decoder_size, grid_size=grid_size, forecast_factor=forecast_factor)
+        model = APNet(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decoder_length=decoder_length, decode_vector_size=decoder_size, grid_size=grid_size,  use_attention=bool(attention_url), forecast_factor=forecast_factor)
     elif model_name == "TNET": 
         model = TNet(encoder_length=8, decoder_length=8, grid_size=32)
     elif model_name == "TNETLSTM": 
@@ -188,6 +187,7 @@ def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size
                 url_weight = url_weight + "_" + str(csn)
        
         folders = None
+        best_val_loss = float('inf')
         if is_folder:
             folders = sorted(os.listdir(url_feature))
             if attention_url:

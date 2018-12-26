@@ -159,7 +159,7 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
     loss_mae = np.array(loss_mae) / lt * 300
     loss_rmse = [sqrt(x / lt)  * 300 for x in loss_rmse]
     # calculate accumulated loss
-    print_accumulate_error(loss_mae, loss_rmse, decoder_length)
+    print_accumulate_error(loss_mae, loss_rmse, decoder_length, forecast_factor)
 
 
 # evaluate grid training
@@ -279,6 +279,7 @@ def evaluate_lstm(url, url2, decoder_length=24, forecast_factor=0):
         data = np.asarray(data)
     lt = data.shape[0] * data.shape[1]
     data = np.reshape(data, (lt, data.shape[-1]))
+    print(data.shape)
     if decoder_length > data.shape[-1]:
         decoder_length = data.shape[-1]
     dtl = len(data)
@@ -293,7 +294,7 @@ def evaluate_lstm(url, url2, decoder_length=24, forecast_factor=0):
         else:
             pred_t = d
         lb_i = i * pr.strides + 24
-        lbt = np.mean(labels[lb_i:(lb_i+decoder_length),:,0], axis=1)
+        lbt = np.mean(labels[lb_i:(lb_i+decoder_length),:,forecast_factor], axis=1)
         for t_i, (p, l) in enumerate(zip(pred_t, lbt)):
             mae, mse, _ = get_evaluation(p, l)
             loss_mae[t_i] += mae
@@ -303,8 +304,7 @@ def evaluate_lstm(url, url2, decoder_length=24, forecast_factor=0):
     loss_mae = np.array(loss_mae) / lt * 300
     loss_rmse = [sqrt(x / lt)  * 300 for x in loss_rmse]
     # print("R2 score: %.6f" % r2_total)
-    print(decoder_length)
-    print_accumulate_error(loss_mae, loss_rmse, decoder_length)
+    print_accumulate_error(loss_mae, loss_rmse, decoder_length, forecast_factor=forecast_factor)
 
 
 def get_evaluation(pr, lb):

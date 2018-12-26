@@ -48,9 +48,8 @@ class BaselineModel(object):
             "rnn_layer": self.rnn_layers,
             "grid_size": grid_size,
         }
-        self.dropout = 0.5
+        self.dropout = 0.9
         self.use_attention = use_attention
-        print(self.use_attention)
         self.attention_length = attention_length
         if self.dtype == "grid":
             if self.use_cnn:

@@ -14,7 +14,6 @@ class APNet(APGan):
         self.dropout = 0.5
         self.alpha = 0
         self.mtype = 3
-        self.use_attention = False
 
     def inference(self, is_train=True):
         fake_outputs, _ = self.create_generator(self.encoder_inputs, self.decoder_inputs, self.attention_inputs)

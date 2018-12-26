@@ -56,7 +56,6 @@ class APGan(MaskGan):
             enc, dec = self.lookup_input(enc, dec)
             fn_state, enc_outputs = self.exe_encoder(enc, False, 0.0)
             attention = None
-            print("apnet",self.use_attention)
             if self.use_attention:
                 # print("use attention")
                 # batch size x rnn_hidden_size
