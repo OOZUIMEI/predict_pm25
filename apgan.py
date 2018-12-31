@@ -33,7 +33,7 @@ class APGan(MaskGan):
         self.beta1 = 0.5
         self.lamda = 100
         # discriminator unit type 6 & 7 is hard to control
-        self.gmtype = 4 
+        self.gmtype = 7 
         self.mtype = 3
         self.z_dim = [self.batch_size, self.decoder_length, 128]
         self.z = tf.placeholder(tf.float32, shape=self.z_dim)   
