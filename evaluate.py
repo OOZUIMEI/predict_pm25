@@ -5,7 +5,8 @@ from math import sqrt
 import properties as pr
 import utils
 from crawling_base import Crawling  
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+import aqi
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score, accuracy_score, confusion_matrix
 
 
 # old eval
@@ -124,7 +125,7 @@ def aggregate_predictions(districts, timstep_data):
 
 
 # evaluate grid training
-def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length=24, forecast_factor=0):
+def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length=24, forecast_factor=0, is_classify=False):
     if not utils.validate_path("district_idx.pkl"):
         districts = convert_coordinate_to_idx()
     else:
@@ -140,8 +141,11 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
     data = np.reshape(data, (lt, data.shape[-2], data.shape[-1]))
     labels = utils.load_file(url2)
     labels = np.asarray(labels)
-    loss_mae = [0.0] * decoder_length
-    loss_rmse = [0.0] * decoder_length
+    if not is_classify:
+        loss_mae = [0.0] * decoder_length
+        loss_rmse = [0.0] * decoder_length
+    else:
+        acc = 0.
     for i, d in enumerate(data):
         d = d[:decoder_length,:]
         lb_i = i * stride + encoder_length
@@ -150,16 +154,20 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
             pred_t = aggregate_predictions(districts, t)
             pred_t = np.array(pred_t)
             pred_t = pred_t.flatten()
-            mae, mse, _ = get_evaluation(pred_t, l_t)
-            # sum loss for each timestep prediction
-            loss_mae[t_i] += mae
-            loss_rmse[t_i] += mse
+            if not is_classify:
+                mae, mse, _ = get_evaluation(pred_t, l_t)
+                # sum loss for each timestep prediction
+                loss_mae[t_i] += mae
+                loss_rmse[t_i] += mse
+            else:
+                acc += classify_data(pred_t, l_t, forecast_factor)
         utils.update_progress((i + 1.0) / lt)
-    # caculate loss for each timestep
-    loss_mae = np.array(loss_mae) / lt * 300
-    loss_rmse = [sqrt(x / lt)  * 300 for x in loss_rmse]
-    # calculate accumulated loss
-    print_accumulate_error(loss_mae, loss_rmse, decoder_length, forecast_factor)
+    if not is_classify:
+        # caculate loss for each timestep
+        loss_mae = np.array(loss_mae) / lt * 300
+        loss_rmse = [sqrt(x / lt)  * 300 for x in loss_rmse]
+        # calculate accumulated loss
+        print_accumulate_error(loss_mae, loss_rmse, decoder_length, forecast_factor)
 
 
 # evaluate grid training
@@ -339,6 +347,38 @@ def print_accumulate_error(loss_mae, loss_rmse, decoder_length, forecast_factor=
                 print("T PM10 RMSE: %.6f %.6f" % (t_rmse, cr.ConcPM10(t_rmse)))
 
 
+def classify_data(pr, lb, factor):
+    pr = [get_class(x * 300, factor) for x in pr]
+    lb = [get_class(x * 300, factor) for x in pr]
+    acc = accuracy_score(lb, pr)
+    # conf = confusion_matrix(lb, pr)
+    return acc
+
+
+def get_class(x, factor):    
+    if not factor: # classify pm25
+        x = round(aqi.ConcPM25(x))
+        if x <= 15:
+            return 0
+        elif x <= 35:
+            return 1
+        elif x <= 75:
+            return 2
+        else:
+            return 3
+    else: # classify pm10
+        x = round(aqi.ConcPM10(x))
+        if x <= 30:
+            return 0
+        elif x <= 80:
+            return 1
+        elif x <= 150:
+            return 2
+        else:
+            return 3
+    
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-u", "--url", help="predictions file path")
@@ -376,7 +416,7 @@ if __name__ == "__main__":
     elif args.task == 3:
         evaluate_lstm(args.url, args.url2, args.time_lags, args.forecast_factor)
     elif args.task == 4:
-        evaluate_by_districts(args.url, args.url2, pr.strides, decoder_length=args.time_lags, forecast_factor=args.forecast_factor)
+        evaluate_by_districts(args.url, args.url2, pr.strides, decoder_length=args.time_lags, forecast_factor=args.forecast_factor, is_classify=args.is_classify)
     else:
         # train_data
         # pm25: 0.24776679025820308, 0.11997866025609479

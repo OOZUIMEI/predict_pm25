@@ -1,3 +1,6 @@
+import math 
+
+
 # convert pm10 micro value to aqi value
 def AQIPM10(Concentration):
     Conc = float(Concentration)
