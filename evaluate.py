@@ -442,7 +442,9 @@ def draw_confusion_matrix(conf, title="Confusion Matrix"):
     plt.tight_layout()
     plt.ylabel("Labels")
     plt.xlabel("Prediction")
-    plt.show()
+    name = title.lower().replace(" ", "_")
+    plt.savefig("results/%s" % name, format="png", bbox_inches="tight")
+    # plt.show()
     
 
 if __name__ == "__main__":
@@ -491,4 +493,15 @@ if __name__ == "__main__":
         # test data 
         # (0.25498451500807523, 0.12531802770836317)
         # (0.12908470683363008, 0.06754419659245953)
-        evaluate_multi(args.url, args.url2, args.time_lag)
+        # evaluate_multi(args.url, args.url2, args.time_lag)
+        pm10_title = ["Confusion Matrix of ConvLSTM on PM10","Confusion Matrix of APNET Simple on PM10","Confusion Matrix of APNET on PM10","Confusion Matrix of APGAN on PM10"]
+        pm25_title = ["Confusion Matrix of ConvLSTM on PM2.5","Confusion Matrix of APNET Simple on PM2.5","Confusion Matrix of APNET on PM2.5","Confusion Matrix of APGAN on PM2.5"]
+        pm10 = ["cnn_simple6_pm10","apnet_noatt_pm10","apnet_lstm_pm10_1544774761","apnet_apgan_pm10"]
+        pm25 = ["cnn_simple_6_48","apnet_noatt_3","apnet_lstm_gen_dp_1544702820_24","apgannet_combinedpm25"]
+        for x, t in zip(pm10, pm10_title):
+            print(x, t)
+            evaluate_by_districts("test_sp/apnet_apgan/pm10/" + x, "vectors/sp_china_combined/seoul_test_labels", 2, decoder_length=24, forecast_factor=1, is_classify=True, confusion_title=True)
+        
+        for x, t in zip(pm25, pm25_title):
+            print(x, t)
+            evaluate_by_districts("test_sp/apnet_apgan/pm25/" + x, "vectors/sp_china_combined/seoul_test_labels", 2, decoder_length=24, forecast_factor=0, is_classify=True, confusion_title=True)
