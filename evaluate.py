@@ -1,4 +1,9 @@
+import matplotlib
+matplotlib.use('qt5agg')
+import matplotlib.pyplot as plt
+
 import argparse
+import itertools
 import numpy as np
 import heatmap
 from math import sqrt
@@ -125,7 +130,7 @@ def aggregate_predictions(districts, timstep_data):
 
 
 # evaluate grid training
-def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length=24, forecast_factor=0, is_classify=False):
+def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length=24, forecast_factor=0, is_classify=False, confusion_title=""):
     if not utils.validate_path("district_idx.pkl"):
         districts = convert_coordinate_to_idx()
     else:
@@ -144,12 +149,18 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
     if not is_classify:
         loss_mae = [0.0] * decoder_length
         loss_rmse = [0.0] * decoder_length
-    else:
+    elif not confusion_title:
         acc = 0.
+    else:
+        acc = None
     for i, d in enumerate(data):
         d = d[:decoder_length,:]
         lb_i = i * stride + encoder_length
         lbt = labels[lb_i:(lb_i+decoder_length),:,forecast_factor]
+        if not confusion_title:
+            a = 0.
+        else:
+            a = None
         for t_i, (t, l_t) in enumerate(zip(d, lbt)):
             pred_t = aggregate_predictions(districts, t)
             pred_t = np.array(pred_t)
@@ -159,15 +170,37 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
                 # sum loss for each timestep prediction
                 loss_mae[t_i] += mae
                 loss_rmse[t_i] += mse
+            elif not confusion_title:
+                a += classify_data(pred_t, l_t, forecast_factor)
+            elif a is None:
+                a = classify_data(pred_t, l_t, forecast_factor)
             else:
-                acc += classify_data(pred_t, l_t, forecast_factor)
+                a += classify_data(pred_t, l_t, forecast_factor)
+        if is_classify:
+            a = a / decoder_length
+            if not confusion_title:
+                acc += a
+            elif acc is None:
+                acc = a
+            else:
+                acc += a
         utils.update_progress((i + 1.0) / lt)
     if not is_classify:
+        # print mae loss score
         # caculate loss for each timestep
         loss_mae = np.array(loss_mae) / lt * 300
         loss_rmse = [sqrt(x / lt)  * 300 for x in loss_rmse]
         # calculate accumulated loss
         print_accumulate_error(loss_mae, loss_rmse, decoder_length, forecast_factor)
+    elif not confusion_title:
+        # print classification score
+        acc = acc / lt * 100
+        print("accuracy %.4f" % acc)
+    else:
+        name = url.split("/")[-1]
+        # print confusion matrix
+        utils.save_file("results/confusion_%s" % name, acc)
+        draw_confusion_matrix(acc, confusion_title)
 
 
 # evaluate grid training
@@ -281,20 +314,22 @@ def evaluate_transportation(url, url2, pred_length=8):
 
 
 # evaluate grid training
-def evaluate_lstm(url, url2, decoder_length=24, forecast_factor=0):
+def evaluate_lstm(url, url2, decoder_length=24, forecast_factor=0, is_classify=False):
     data = utils.load_file(url)
     if type(data) is list:
         data = np.asarray(data)
     lt = data.shape[0] * data.shape[1]
     data = np.reshape(data, (lt, data.shape[-1]))
-    print(data.shape)
     if decoder_length > data.shape[-1]:
         decoder_length = data.shape[-1]
     dtl = len(data)
     labels = utils.load_file(url2)
     labels = np.asarray(labels)
-    loss_mae = [0.0] * decoder_length
-    loss_rmse = [0.0] * decoder_length
+    if not is_classify:
+        loss_mae = [0.0] * decoder_length
+        loss_rmse = [0.0] * decoder_length
+    else:
+        acc = 0.
     #: r2_total = 0.0
     for i, d in enumerate(data):
         if decoder_length < data.shape[-1]:
@@ -303,16 +338,27 @@ def evaluate_lstm(url, url2, decoder_length=24, forecast_factor=0):
             pred_t = d
         lb_i = i * pr.strides + 24
         lbt = np.mean(labels[lb_i:(lb_i+decoder_length),:,forecast_factor], axis=1)
+        a = 0.
         for t_i, (p, l) in enumerate(zip(pred_t, lbt)):
-            mae, mse, _ = get_evaluation(p, l)
-            loss_mae[t_i] += mae
-            loss_rmse[t_i] += mse
+            if not is_classify:
+                mae, mse, _ = get_evaluation(p, l)
+                loss_mae[t_i] += mae
+                loss_rmse[t_i] += mse
+            else:
+                a += classify_data(pred_t, lbt, forecast_factor)
+        if is_classify:
+            a = a / decoder_length
+            acc += a
         # r2_total += r2
         utils.update_progress((i + 1.0) / dtl)
-    loss_mae = np.array(loss_mae) / lt * 300
-    loss_rmse = [sqrt(x / lt)  * 300 for x in loss_rmse]
-    # print("R2 score: %.6f" % r2_total)
-    print_accumulate_error(loss_mae, loss_rmse, decoder_length, forecast_factor=forecast_factor)
+    if not is_classify:
+        loss_mae = np.array(loss_mae) / lt * 300
+        loss_rmse = [sqrt(x / lt)  * 300 for x in loss_rmse]
+        # print("R2 score: %.6f" % r2_total)
+        print_accumulate_error(loss_mae, loss_rmse, decoder_length, forecast_factor=forecast_factor)
+    else: 
+        acc = acc / lt * 100
+        print("accuracy %.4f" % acc)
 
 
 def get_evaluation(pr, lb):
@@ -347,11 +393,13 @@ def print_accumulate_error(loss_mae, loss_rmse, decoder_length, forecast_factor=
                 print("T PM10 RMSE: %.6f %.6f" % (t_rmse, cr.ConcPM10(t_rmse)))
 
 
-def classify_data(pr, lb, factor):
+def classify_data(pr, lb, factor, is_conf=False):
     pr = [get_class(x * 300, factor) for x in pr]
-    lb = [get_class(x * 300, factor) for x in pr]
-    acc = accuracy_score(lb, pr)
-    # conf = confusion_matrix(lb, pr)
+    lb = [get_class(x * 300, factor) for x in lb]
+    if not is_conf:
+        acc = confusion_matrix(lb, pr, labels=[0,1,2,3])
+    else:
+        acc = accuracy_score(lb, pr)
     return acc
 
 
@@ -378,6 +426,24 @@ def get_class(x, factor):
             return 3
     
 
+def draw_confusion_matrix(conf, title="Confusion Matrix"):
+    plt.figure()
+    tick_marks = [0,1,2,3]
+    classes = ["Good", "Average", "Bad", "Very Bad"]
+    conf = conf.astype("float") / conf.sum(axis=1, keepdims=True)
+    plt.imshow(conf, interpolation="nearest", cmap=plt.cm.Blues)
+    plt.title(title)
+    plt.colorbar()
+    plt.xticks(tick_marks, classes, rotation=45)
+    plt.yticks(tick_marks, classes)
+    thresh = conf.max() / 2.
+    for i, j in itertools.product(range(conf.shape[0]), range(conf.shape[1])):
+        plt.text(j, i, format(conf[i,j], ".3f"), horizontalalignment="center", color="white" if conf[i,j] > thresh else "black")
+    plt.tight_layout()
+    plt.ylabel("Labels")
+    plt.xlabel("Prediction")
+    plt.show()
+    
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -385,6 +451,7 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--url2", help="labels file path")
     parser.add_argument("-r", "--range", type=int, default=5)
     parser.add_argument("-c", "--classify", type=int, default=0)
+    parser.add_argument("-cf", "--confusion", default="")
     parser.add_argument("-t", "--task", type=int, default=0)
     parser.add_argument("-g", "--grid", type=int, default=1)
     parser.add_argument("-gev", "--grid_eval", type=int, default=1)
@@ -414,9 +481,9 @@ if __name__ == "__main__":
     elif args.task == 2:
         evaluate_transportation(args.url, args.url2, args.time_lags)
     elif args.task == 3:
-        evaluate_lstm(args.url, args.url2, args.time_lags, args.forecast_factor)
+        evaluate_lstm(args.url, args.url2, args.time_lags, args.forecast_factor, args.classify)
     elif args.task == 4:
-        evaluate_by_districts(args.url, args.url2, pr.strides, decoder_length=args.time_lags, forecast_factor=args.forecast_factor, is_classify=args.is_classify)
+        evaluate_by_districts(args.url, args.url2, pr.strides, decoder_length=args.time_lags, forecast_factor=args.forecast_factor, is_classify=args.classify, confusion_title=args.confusion)
     else:
         # train_data
         # pm25: 0.24776679025820308, 0.11997866025609479
