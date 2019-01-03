@@ -252,38 +252,31 @@ def get_gan_model(model_name, encoder_length, embed_size, batch_size, decoder_si
     return model
 
 
-def execute_gan(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None, offset=0):
-    #if restore and not is_test:
-    #    tf.reset_default_graph()
-    #    print(tf.get_default_graph())
-        #with tf.device('/%s' % p.device):
-        #    model.init_ops(not is_test)
-        #    #model.add_placeholders()
-        #trainable_vars = tf.trainable_variables()
-        #saver = tf.train.Saver(trainable_vars)
+def execute_gan(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None, offset=0, gpu_nums=1):
     print("==> Loading dataset")
     dataset = utils.load_file(path)
     if dataset:
         dataset = np.asarray(dataset, dtype=np.float32)
         lt = len(dataset)
         train, _ = utils.process_data_grid(lt, batch_size, encoder_length, decoder_length, True)
-   
     attention_data = None
     if attention_url:
         attention_data = utils.load_file(attention_url)
-   
     model.set_data(dataset, train, None, attention_data)
-        #with tf.Session(config=gpu_configs) as session:
-            #init = tf.global_variables_initializer()
-            #session.run(init)
     model.assign_datasets(session)
-    if not is_test:   
-        print("start training")
-        for epoch in xrange(100):
-             _ = model.run_epoch(session, train, offset + epoch, train_writer, train=True, verbose=False, stride=2)
-        saver.save(session, 'weights/%s.weights' % url_weight)
+    if not is_test:
+        print('==> starting training')
+        suffix = p.weight_saving_break
+        for epoch in xrange(p.total_iteration):
+            _ = model.run_epoch(session, train, offset + epoch, train_writer, train=True, verbose=False, stride=2)
+            tmp_e = epoch + 1
+            if tmp_e % 10 == 0:
+                suffix = math.ceil(float(tmp_e) / p.weight_saving_break)
+                # utils.update_progress((epoch + 1) * 1.0 / p.total_iteration)
+                saver.save(session, 'weights/%s_%i.weights' % (url_weight, suffix))
+        saver.save(session, 'weights/%s_%i.weights' % (url_weight, suffix))
     else:
-         # saver.restore(session, url_weight)
+        # saver.restore(session, url_weight)
         print('==> running model')
         _, preds = model.run_epoch(session, train, train=False, verbose=False, shuffle=False, stride=2)
         save_gan_preds(url_weight, preds)
@@ -291,61 +284,57 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
 
 def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, 
     decoder_length=24, decoder_size=4, grid_size=25, is_folder=False, is_test=False, restore=False, model_name="APGAN", forecast_factor=0):
-    gpu_configs = get_gpu_options()
-    folders = None
-    train_writer = None
-    if not is_test:
-        csn = int(time.time())
-        url_weight = url_weight.split("/")[-1]
-        url_weight = url_weight.rstrip(".weights")
-        train_writer =  tf.summary.FileWriter("summaries/%s_%i" % (url_weight, csn))
-    if is_folder:
-        folders = sorted(os.listdir(url_feature))
-        if attention_url:
-            a_folders = sorted(os.listdir(attention_url))
-            folders = zip(folders, a_folders)
-        fl = len(folders)
-        # train each year in 100 epochs then repeat until it match total_iteration
-        repeat_steps = int(p.total_iteration / 100)
-        for t in xrange(repeat_steps):
-            tf.reset_default_graph()
-            model = get_gan_model(model_name, encoder_length, embed_size, batch_size, decoder_size, decoder_length, grid_size, False, forecast_factor=forecast_factor, use_attention=bool(attention_url))
-            saver = tf.train.Saver(max_to_keep=2)
-            with tf.Session(config=gpu_configs) as session:
-                train_writer.add_graph(session.graph, global_step=(fl * t * 100))
-                if restore:
-                    print("restore previous weights")
-                    saver.restore(session, "weights/%s.weights" % url_weight)
-                else:
-                    init = tf.global_variables_initializer()
-                    session.run(init)
-                # loop over data folders
-                for i, files in enumerate(folders):
-                    offset = (fl * t + i) * 100
-                    if attention_url:
-                        x, y = files
-                        att_url = os.path.join(attention_url, y)
-                        print("==> Training set (%i, %s, %s)" % (i + 1, x, y))
-                    else: 
-                        x = files
-                        att_url = None
-                        print("==> Training set (%i, %s)" % (i + 1, x))
-                    # train each year 2013 - 2016 in 100 epochs intervally
-                    execute_gan(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer, offset)
-                session.close()
-            restore = True
+    if model_name == "APGAN":
+        model = APGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, 
+                    decoder_length=decoder_length, grid_size=grid_size, forecast_factor=forecast_factor)
+    elif model_name == "MASKGAN":
+        model = MaskGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size, use_cnn=1)
+    elif model_name == "APGAN_LSTM":
+        model = APGAN_LSTM(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, decoder_length=decoder_length, grid_size=grid_size)
+    elif model_name == "CAPGAN":
+        model = CAPGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
+    elif model_name == "TGAN":
+        model = TGAN(encoder_length=8, decoder_length=8, grid_size=32)
     else:
-        model = get_gan_model(model_name, encoder_length, embed_size, batch_size, decoder_size, decoder_length, grid_size, True, forecast_factor=forecast_factor, use_attention=bool(attention_url))
-        saver = tf.train.Saver(max_to_keep=2)
-        with tf.Session(config=gpu_configs) as session:
-            if restore:
-                print("reload pretrained model")
-                saver.restore(session, "weights/%s.weights" % url_weight)
-            else:
-                init = tf.global_variables_initializer()
-                session.run(init)
-            if train_writer is not None:
-                train_writer.add_graph(session.graph)
+        model = TGANLSTM(encoder_length=8, decoder_length=8, grid_size=32)
+    tconfig = get_gpu_options()
+    utils.assert_url(url_feature)
+    if not utils.check_file('summaries'):
+        os.makedirs('summaries')
+    print('==> initializing models')
+    with tf.device('/%s' % p.device):
+        model.init_ops(not is_test)
+        init = tf.global_variables_initializer()
+        saver = tf.train.Saver()
+    train_writer = None
+    with tf.Session(config=tconfig) as session:       
+        if not restore:
+            session.run(init)
+        else:
+            print("==> Reload pre-trained weights")
+            saver.restore(session, url_weight)
+        csn = int(time.time())
+        if not is_test:
+            url_weight = url_weight.split("/")[-1]
+            url_weight = url_weight.rstrip(".weights")
+            train_writer = tf.summary.FileWriter("summaries/%s_%i" % (url_weight, csn), session.graph)
+        folders = None
+        if is_folder:
+            folders = os.listdir(url_feature)
+            folders = sorted(folders)
+            if attention_url:
+                a_folders = sorted(os.listdir(attention_url))
+                folders = zip(folders, a_folders)
+            for i, files in enumerate(folders):
+                if attention_url:
+                    x, y = files
+                    att_url = os.path.join(attention_url, y)
+                    print("==> Training set (%i, %s, %s)" % (i + 1, x, y))
+                else: 
+                    x = files
+                    print("==> Training set (%i, %s)" % (i + 1, x))
+                execute_gan(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer, i * p.total_iteration)
+        else:
             execute_gan(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
 
 
