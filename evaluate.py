@@ -1,5 +1,5 @@
 import matplotlib
-matplotlib.use('qt5agg')
+matplotlib.use('agg')
 import matplotlib.pyplot as plt
 
 import argparse
@@ -130,7 +130,7 @@ def aggregate_predictions(districts, timstep_data):
 
 
 # evaluate grid training
-def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length=24, forecast_factor=0, is_classify=False, confusion_title=""):
+def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length=24, forecast_factor=0, is_classify=False, confusion_title="", norm=True):
     if not utils.validate_path("district_idx.pkl"):
         districts = convert_coordinate_to_idx()
     else:
@@ -200,7 +200,7 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
         name = url.split("/")[-1]
         # print confusion matrix
         utils.save_file("results/confusion_%s" % name, acc)
-        draw_confusion_matrix(acc, confusion_title)
+        draw_confusion_matrix(acc, confusion_title, norm)
 
 
 # evaluate grid training
@@ -426,24 +426,26 @@ def get_class(x, factor):
             return 3
     
 
-def draw_confusion_matrix(conf, title="Confusion Matrix"):
+def draw_confusion_matrix(conf, title="Confusion Matrix", norm=True):
     plt.figure()
     tick_marks = [0,1,2,3]
     classes = ["Good", "Average", "Bad", "Very Bad"]
-    conf = conf.astype("float") / conf.sum(axis=1, keepdims=True)
+    if norm:
+        conf = conf.astype("float") / conf.sum(axis=1, keepdims=True)
     plt.imshow(conf, interpolation="nearest", cmap=plt.cm.Blues)
     plt.title(title)
     plt.colorbar()
     plt.xticks(tick_marks, classes, rotation=45)
     plt.yticks(tick_marks, classes)
+    fm = ".3f" if norm else "d"
     thresh = conf.max() / 2.
     for i, j in itertools.product(range(conf.shape[0]), range(conf.shape[1])):
-        plt.text(j, i, format(conf[i,j], ".3f"), horizontalalignment="center", color="white" if conf[i,j] > thresh else "black")
+        plt.text(j, i, format(conf[i,j], fm), horizontalalignment="center", color="white" if conf[i,j] > thresh else "black")
     plt.tight_layout()
-    plt.ylabel("Labels")
+    plt.ylabel("Label")
     plt.xlabel("Prediction")
     name = title.lower().replace(" ", "_")
-    plt.savefig("results/%s" % name, format="png", bbox_inches="tight")
+    plt.savefig("results/figures/%s.png" % name, format="png", bbox_inches="tight")
     # plt.show()
     
 
@@ -500,8 +502,12 @@ if __name__ == "__main__":
         pm25 = ["cnn_simple_6_48","apnet_noatt_3","apnet_lstm_gen_dp_1544702820_24","apgannet_combinedpm25"]
         for x, t in zip(pm10, pm10_title):
             print(x, t)
-            evaluate_by_districts("test_sp/apnet_apgan/pm10/" + x, "vectors/sp_china_combined/seoul_test_labels", 2, decoder_length=24, forecast_factor=1, is_classify=True, confusion_title=True)
+            conf = utils.load_file("results/confusion/confusion_%s" % x)
+            draw_confusion_matrix(conf, t, True)
+            # evaluate_by_districts("test_sp/apnet_apgan/pm10/" + x, "vectors/sp_china_combined/seoul_test_labels", 2, decoder_length=24, forecast_factor=1, is_classify=True, confusion_title=t, norm=False)
         
         for x, t in zip(pm25, pm25_title):
             print(x, t)
-            evaluate_by_districts("test_sp/apnet_apgan/pm25/" + x, "vectors/sp_china_combined/seoul_test_labels", 2, decoder_length=24, forecast_factor=0, is_classify=True, confusion_title=True)
+            conf = utils.load_file("results/confusion/confusion_%s" % x)
+            draw_confusion_matrix(conf, t, True)
+            # evaluate_by_districts("test_sp/apnet_apgan/pm25/" + x, "vectors/sp_china_combined/seoul_test_labels", 2, decoder_length=24, forecast_factor=0, is_classify=True, confusion_title=t, norm=False)

@@ -5,6 +5,7 @@ index of N/A in one_hot feature 0,41,73,112,129,146
 
 import utils
 import tensorflow as tf
+from numba import cuda
 import numpy as np
 import math
 import os
@@ -37,7 +38,7 @@ from srcns import SRCN
 
 import matplotlib
 import matplotlib.pyplot as plt
-# from  spark_engine import SparkEngine
+from  spark_engine import SparkEngine
 import district_neighbors as dd
 
 
@@ -52,12 +53,16 @@ def convert_element_to_grid(self, context):
     return np.asarray(res, dtype=np.float)
 
 
-def get_gpu_options():
+def get_gpu_options(use_fraction=True):
     gpu_options = None
     device_count = None
     if "gpu" in p.device:
-        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=p.gpu_fraction)
-        os.environ["CUDA_VISIBLE_DEVICES"]=p.gpu_devices
+        if use_fraction:
+            gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=p.gpu_fraction)
+            os.environ["CUDA_VISIBLE_DEVICES"]=p.gpu_devices
+        else:
+            gpu_options = tf.GPUOptions(allow_growth=True)
+            os.environ["CUDA_VISIBLE_DEVICES"]="2"
     else:
         device_count={"GPU":0}
     configs = tf.ConfigProto(allow_soft_placement=True, gpu_options=gpu_options, device_count=device_count)
@@ -97,7 +102,6 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
         model.assign_datasets(session)
         if not is_test:
             best_val_epoch = 0
-            print(best_val_loss)
             if not best_val_loss:
                 best_val_loss = float('inf')
             # best_overall_val_loss = float('inf')
@@ -141,10 +145,9 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
     return global_t, best_val_loss
 
 
-def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, rnn_layers=1,
-        dtype="grid", is_folder=False, is_test=False, use_cnn=True, restore=False, model_name="", validation_url="", attention_valid_url="", best_val_loss=None):
+def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, rnn_layers=1, dtype="grid", is_folder=False, is_test=False, use_cnn=True, restore=False, model_name="", validation_url="", attention_valid_url="", best_val_loss=None, forecast_factor=0):
     if model_name == "APNET":
-        model = APNet(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
+        model = APNet(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decoder_length=decoder_length, decode_vector_size=decoder_size, grid_size=grid_size,  use_attention=bool(attention_url), forecast_factor=forecast_factor)
     elif model_name == "TNET": 
         model = TNet(encoder_length=8, decoder_length=8, grid_size=32)
     elif model_name == "TNETLSTM": 
@@ -152,8 +155,7 @@ def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size
     elif model_name == "SRCN":
         model = SRCN(encoder_length=8, decoder_length=8, grid_size=32)
     else:
-        model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, rnn_layers=rnn_layers,
-                            dtype=dtype, grid_size=grid_size, use_cnn=use_cnn, loss=loss)
+        model = BaselineModel(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decoder_length=decoder_length, decode_vector_size=decoder_size, rnn_layers=rnn_layers, dtype=dtype, grid_size=grid_size, use_cnn=use_cnn, loss=loss, use_attention=bool(attention_url), forecast_factor=forecast_factor)
     print('==> initializing models')
     with tf.device('/%s' % p.device):
         model.init_ops(is_train=(not is_test))
@@ -185,10 +187,11 @@ def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size
                 url_weight = url_weight + "_" + str(csn)
        
         folders = None
+        best_val_loss = float('inf')
         if is_folder:
-            folders = os.listdir(url_feature)
+            folders = sorted(os.listdir(url_feature))
             if attention_url:
-                a_folders = os.listdir(attention_url)
+                a_folders = sorted(os.listdir(attention_url))
                 folders = zip(folders, a_folders)
             last_epoch = 0
             for i, files in enumerate(folders):
@@ -198,6 +201,7 @@ def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size
                     print("==> Training set (%i, %s, %s)" % (i + 1, x, y))
                 else: 
                     x = files
+                    att_url = ""
                     print("==> Training set (%i, %s)" % (i + 1, x))
                 last_epoch, best_val_loss = execute(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, 
                                     is_test, (train_writer, valid_writer), last_epoch, validation_url=validation_url, attention_valid_url=attention_valid_url, best_val_loss=best_val_loss)
@@ -230,123 +234,94 @@ def save_gan_preds(url_weight, preds):
     utils.save_file("test_sp/%s" % name_s, preds)
 
 
-def execute_gan(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None, offset=0, gpu_nums=1):
-    if gpu_nums > 1:
-        if not is_test:
-            _ = model.run_multiple_gpu(session, path, attention_url, url_weight, train_writer, offset, train=True, gpu_nums=gpu_nums)
-        else:
-            preds = model.run_multiple_gpu(session, path, attention_url, url_weight, train=False, shuffle=False, gpu_nums=gpu_nums)
-            save_gan_preds(preds, url_weight)
-    else:
-        print("==> Loading dataset")
-        dataset = utils.load_file(path)
-        if dataset:
-            dataset = np.asarray(dataset, dtype=np.float32)
-            lt = len(dataset)
-            train, _ = utils.process_data_grid(lt, batch_size, encoder_length, decoder_length, True)
-        attention_data = None
-        if attention_url:
-            attention_data = utils.load_file(attention_url)
-        model.set_data(dataset, train, None, attention_data)
-        model.assign_datasets(session)
-        if not is_test:
-            print('==> starting training')
-            train_f = train_writer
-            suffix = p.weight_saving_break
-            for epoch in xrange(p.total_iteration):
-                _ = model.run_epoch(session, train, offset + epoch, train_f, train=True, verbose=False, stride=2)
-                tmp_e = epoch + 1
-                if tmp_e % 100 == 0:
-                    suffix = math.ceil(float(tmp_e) / p.weight_saving_break)
-                    # utils.update_progress((epoch + 1) * 1.0 / p.total_iteration)
-                    saver.save(session, 'weights/%s_%i.weights' % (url_weight, suffix))
-            saver.save(session, 'weights/%s_%i.weights' % (url_weight, suffix))
-        else:
-            # saver.restore(session, url_weight)
-            print('==> running model')
-            _, preds = model.run_epoch(session, train, train=False, verbose=False, shuffle=False, stride=2)
-            save_gan_preds(url_weight, preds)
-
-
-def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, 
-    decoder_length=24, decoder_size=4, grid_size=25, is_folder=False, is_test=False, restore=False, model_name="APGAN"):
+def get_gan_model(model_name, encoder_length, embed_size, batch_size, decoder_size, decoder_length, grid_size, is_test, forecast_factor):
     if model_name == "APGAN":
-        model = APGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, decoder_length=decoder_length, grid_size=grid_size)
+        model = APGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, decoder_length=decoder_length, grid_size=grid_size, forecast_factor=forecast_factor)
     elif model_name == "MASKGAN":
-        model = MaskGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size, use_cnn=1)
+        model = MaskGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size, use_cnn=1, forecast_factor=forecast_factor)
     elif model_name == "APGAN_LSTM":
-        model = APGAN_LSTM(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, decoder_length=decoder_length, grid_size=grid_size)
+        model = APGAN_LSTM(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, decoder_length=decoder_length, grid_size=grid_size, forecast_factor=forecast_factor)
     elif model_name == "CAPGAN":
-        model = CAPGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size)
+        model = CAPGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size, forecast_factor=forecast_factor)
     elif model_name == "TGAN":
         model = TGAN(encoder_length=8, decoder_length=8, grid_size=32)
     else:
         model = TGANLSTM(encoder_length=8, decoder_length=8, grid_size=32)
-    #dv = p.gpu_devices.split(",")
-    dv=[1]
-    tconfig = get_gpu_options()
-    utils.assert_url(url_feature)
-    sum_dir = 'summaries'
-    saver = None
-    if not utils.check_file(sum_dir):
-        os.makedirs(sum_dir)
-    if "gpu" in p.device and len(dv) > 1:
-        model.add_placeholders()
-        with tf.Session(config=tconfig) as session:       
-            csn = int(time.time())
-            if not is_test:
-                url_weight = url_weight.split("/")[-1]
-                url_weight = url_weight.rstrip(".weights")
-                # suf = time.strftime("%Y.%m.%d_%H.%M")
-                train_writer = tf.summary.FileWriter("%s/%s_%i" % (sum_dir, url_weight, csn), session.graph)
-                if restore:
-                    url_weight = url_weight + "_" + str(csn)
-            folders = None
-            if is_folder:
-                folders = os.listdir(url_feature)
-                if attention_url:
-                    a_folders = os.listdir(attention_url)
-                    folders = zip(folders, a_folders)
-                for i, files in enumerate(folders):
-                    if attention_url:
-                        x, y = files
-                        att_url = os.path.join(attention_url, y)
-                        print("==> Training set (%i, %s, %s)" % (i + 1, x, y))
-                    else: 
-                        x = files
-                        print("==> Training set (%i, %s)" % (i + 1, x))
-                    execute_gan(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer, i * p.total_iteration, gpu_nums=len(dv))
-            else:
-                execute_gan(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer, gpu_nums=len(dv))
-        model.run_multiple_gpu(session, data)
+    with tf.device('/%s' % p.device):
+        model.init_ops(not is_test)
+    return model
+
+
+def execute_gan(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None, offset=0):
+    #if restore and not is_test:
+    #    tf.reset_default_graph()
+    #    print(tf.get_default_graph())
+        #with tf.device('/%s' % p.device):
+        #    model.init_ops(not is_test)
+        #    #model.add_placeholders()
+        #trainable_vars = tf.trainable_variables()
+        #saver = tf.train.Saver(trainable_vars)
+    print("==> Loading dataset")
+    dataset = utils.load_file(path)
+    if dataset:
+        dataset = np.asarray(dataset, dtype=np.float32)
+        lt = len(dataset)
+        train, _ = utils.process_data_grid(lt, batch_size, encoder_length, decoder_length, True)
+   
+    attention_data = None
+    if attention_url:
+        attention_data = utils.load_file(attention_url)
+   
+    model.set_data(dataset, train, None, attention_data)
+        #with tf.Session(config=gpu_configs) as session:
+            #init = tf.global_variables_initializer()
+            #session.run(init)
+    model.assign_datasets(session)
+    if not is_test:   
+        print("start training")
+        for epoch in xrange(100):
+             _ = model.run_epoch(session, train, offset + epoch, train_writer, train=True, verbose=False, stride=2)
+        saver.save(session, 'weights/%s.weights' % url_weight)
     else:
-        print('==> initializing models')
-        with tf.device('/%s' % p.device):
-            model.init_ops(not is_test)
-            init = tf.global_variables_initializer()
-            saver = tf.train.Saver()
-            
-        train_writer = None
-        
-        with tf.Session(config=tconfig) as session:       
-            if not restore:
-                session.run(init)
-            else:
-                print("==> Reload pre-trained weights")
-                saver.restore(session, url_weight)
-            csn = int(time.time())
-            if not is_test:
-                url_weight = url_weight.split("/")[-1]
-                url_weight = url_weight.rstrip(".weights")
-                suf = time.strftime("%Y.%m.%d_%H.%M")
-                train_writer = tf.summary.FileWriter("%s/%s_%i" % (sum_dir, url_weight, csn), session.graph, filename_suffix=suf)
-            folders = None
-            if is_folder:
-                folders = os.listdir(url_feature)
-                if attention_url:
-                    a_folders = os.listdir(attention_url)
-                    folders = zip(folders, a_folders)
+         # saver.restore(session, url_weight)
+        print('==> running model')
+        _, preds = model.run_epoch(session, train, train=False, verbose=False, shuffle=False, stride=2)
+        save_gan_preds(url_weight, preds)
+
+
+def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, 
+    decoder_length=24, decoder_size=4, grid_size=25, is_folder=False, is_test=False, restore=False, model_name="APGAN", forecast_factor=0):
+    gpu_configs = get_gpu_options()
+    folders = None
+    train_writer = None
+    if not is_test:
+        csn = int(time.time())
+        url_weight = url_weight.split("/")[-1]
+        url_weight = url_weight.rstrip(".weights")
+        train_writer =  tf.summary.FileWriter("summaries/%s_%i" % (url_weight, csn))
+    if is_folder:
+        folders = sorted(os.listdir(url_feature))
+        if attention_url:
+            a_folders = sorted(os.listdir(attention_url))
+            folders = zip(folders, a_folders)
+        fl = len(folders)
+        # train each year in 100 epochs then repeat until it match total_iteration
+        repeat_steps = int(p.total_iteration / 100)
+        for t in xrange(repeat_steps):
+            tf.reset_default_graph()
+            model = get_gan_model(model_name, encoder_length, embed_size, batch_size, decoder_size, decoder_length, grid_size, False, forecast_factor=forecast_factor)
+            saver = tf.train.Saver(max_to_keep=2)
+            with tf.Session(config=gpu_configs) as session:
+                train_writer.add_graph(session.graph, global_step=(fl * t * 100))
+                if restore:
+                    print("restore previous weights")
+                    saver.restore(session, "weights/%s.weights" % url_weight)
+                else:
+                    init = tf.global_variables_initializer()
+                    session.run(init)
+                # loop over data folders
                 for i, files in enumerate(folders):
+                    offset = (fl * t + i) * 100
                     if attention_url:
                         x, y = files
                         att_url = os.path.join(attention_url, y)
@@ -354,9 +329,23 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
                     else: 
                         x = files
                         print("==> Training set (%i, %s)" % (i + 1, x))
-                    execute_gan(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer, i * p.total_iteration)
+                    # train each year 2013 - 2016 in 100 epochs intervally
+                    execute_gan(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer, offset)
+                session.close()
+            restore = True
+    else:
+        model = get_gan_model(model_name, encoder_length, embed_size, batch_size, decoder_size, decoder_length, grid_size, True, forecast_factor=forecast_factor)
+        saver = tf.train.Saver(max_to_keep=2)
+        with tf.Session(config=gpu_configs) as session:
+            if restore:
+                print("reload pretrained model")
+                saver.restore(session, "weights/%s.weights" % url_weight)
             else:
-                execute_gan(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
+                init = tf.global_variables_initializer()
+                session.run(init)
+            if train_writer is not None:
+                train_writer.add_graph(session.graph)
+            execute_gan(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
 
 
 # def  get_districts_preds(preds):
@@ -393,15 +382,14 @@ def aggregate_predictions(preds):
 
 """
 activate spark engine & real time prediction service
-"""
-def get_prediction_real_time(sparkEngine, url_weight="", dim=15):
+"""        
+def get_prediction_real_time(sparkEngine, model=None, url_weight="", dim=15, prediction_weight="", encoder_length=24, decoder_length=24, attention_length=24, is_close_cuda=True):
     # continuously crawl aws and aqi & weather
-    encoder_length = 24
-    decoder_length = 24
     end = utils.get_datetime_now()
+    end = end - timedelta(hours=1)
     # end = datetime.strptime("2018-06-19 11:01:00", p.fm)
     # e_ = end.strftime(p.fm)
-    start = end - timedelta(days=1)
+    start = end - timedelta(hours=23)
     start = start.replace(minute=0, second=0, microsecond=0)
     # s_ = start.strftime(p.fm)
     # 2. process normalize data
@@ -421,29 +409,52 @@ def get_prediction_real_time(sparkEngine, url_weight="", dim=15):
             # know nothing about future weather forecast
             de_vectors = np.zeros((decoder_length, p.grid_size, p.grid_size, dim))
         sp_vectors = np.concatenate((sp_vectors, de_vectors), axis=0)
+
+        c_l = len(china_vectors)
+        if c_l < attention_length:
+            # print(attention_length - c_l)
+            china_vectors = np.pad(china_vectors, ((attention_length - c_l, 0), (0, 0)), 'constant', constant_values=0)
+
         # 4. Feed to model
-        # model = BaselineModel(encoder_length=encoder_length, encode_vector_size=12, batch_size=1, decoder_length=decoder_length, rnn_layers=1,
-        #                 dtype='grid', grid_size=25, use_cnn=True)
-        # model.set_data(sp_vectors, [0], None)
-        model = MaskGan(encoder_length=encoder_length, encode_vector_size=15, batch_size=1, decode_vector_size=9, grid_size=25, use_cnn=True)
+        if model is None:
+            # model = BaselineModel(encoder_length=encoder_length, encode_vector_size=12, batch_size=1, decoder_length=decoder_length, rnn_layers=1,
+            #                 dtype='grid', grid_size=25, use_cnn=True)
+            # model.set_data(sp_vectors, [0], None)
+            # model = MaskGan(encoder_length=encoder_length, encode_vector_size=15, batch_size=1, decode_vector_size=9, grid_size=25, use_cnn=True)
+            model = APGan(encoder_length=24, decoder_length=24, encode_vector_size=15, batch_size=1, decode_vector_size=9, grid_size=25, forecast_factor=0)
+            # model = APNet(encoder_length=24, decoder_length=24, encode_vector_size=15, batch_size=1, decode_vector_size=9, grid_size=25, forecast_factor=0)
         model.set_data(sp_vectors, [0], None, china_vectors)
         with tf.device('/%s' % p.device):
-            model.init_ops()
+            model.init_ops(is_train=False)
             saver = tf.train.Saver()
-        
-        tconfig = get_gpu_options()
+        tconfig = get_gpu_options(False)        
         with tf.Session(config=tconfig) as session:
-            model.assign_datasets(session)              
-            print('==> restore model')
-            saver.restore(session, 'weights/%s' % p.prediction_weight)
-            print('==> running model')
-            preds = model.run_epoch(session, model.train, train=False, verbose=False, shuffle=False)
-            preds = np.reshape(preds, (decoder_length, p.grid_size, p.grid_size))
-            utils.save_file("test_acc/current_preds", preds) 
-            aggregate_predictions(preds)
-            return preds, timestamp
-    return [], []
+            model.assign_datasets(session)    
+            preds_pm25 = realtime_execute(model, session, saver, decoder_length, p.prediction_weight_pm25)
+            model.forecast_factor = 1
+            preds_pm10 = realtime_execute(model, session, saver, decoder_length, p.prediction_weight_pm10)
+            china_vectors = np.array(china_vectors)
+            # print("china", china_vectors.shape)
+            # tf.reset_default_graph()
+            # session.close()
+            if is_close_cuda:
+                cuda.select_device(0)
+                cuda.close()
+        return (preds_pm25, preds_pm10), timestamp, np.transpose(china_vectors[:,:2] * 500)
+    else:
+        return ([],[]), [], []
     
+
+def realtime_execute(model, session, saver, decoder_length, prediction_weight):
+        print('==> restore model')
+        saver.restore(session, 'weights/%s' % prediction_weight)
+        print('==> running model')
+        _, preds = model.run_epoch(session, model.train, train=False, verbose=False, shuffle=False)
+        preds = np.reshape(preds, (decoder_length, p.grid_size, p.grid_size))
+        # utils.save_file("test_acc/current_preds", preds) 
+        preds = aggregate_predictions(preds)
+        return preds
+
 
 # call neural networks, stack autoencoder, or adain 
 def run_neural_nets(url_feature="", attention_url="", url_weight="sp", encoder_length=24, encoder_size=15, decoder_length=8, decoder_size=9, is_test=False, restore=False, model="NN", pre_train=False):
@@ -527,7 +538,6 @@ def run_neural_nets(url_feature="", attention_url="", url_weight="sp", encoder_l
                     name_s = name.group(1)
                 else:
                     name_s = url_weight
-                print(np.shape(preds))
                 utils.save_file("test_sp/%s" % name_s, preds)
 
 
@@ -556,21 +566,20 @@ if __name__ == "__main__":
     parser.add_argument("-rs", "--restore", default=0, help="Restore pre-trained model", type=int)
     parser.add_argument("-p", "--pretrain", default=0, help="Pretrain model: only use of SAE networks", type=int)
     parser.add_argument("-bv", "--best_val_loss", type=float, help="best validation loss from previous training")
+    parser.add_argument("-fc", "--forecast_factor", type=int, default=0, help="0 is pm2.5 1 is pm10")
     args = parser.parse_args()
-    """ 
-    sparkEngine = SparkEngine()
-    preds, timestamp = get_prediction_real_time(sparkEngine)
-
-     0.00183376428791 0.00183376425411552
     """
-    print("Train" + args.model)
+    # sparkEngine = SparkEngine()
+    # preds, timestamp, china = get_prediction_real_time(sparkEngine)
+    """
+    #  0.00183376428791 0.00183376425411552
     if "GAN" in args.model:
         train_gan(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, 
-            args.grid_size, is_folder=bool(args.folder), is_test=bool(args.is_test), restore=bool(args.restore), model_name=args.model)
+            args.grid_size, is_folder=bool(args.folder), is_test=bool(args.is_test), restore=bool(args.restore), model_name=args.model, forecast_factor=args.forecast_factor)
     elif args.model in ["CNN_LSTM", "TNET", "TNETLSTM", "APNET", "SRCN"] :
         train_baseline(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, 
         args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn),  restore=bool(args.restore), 
-        model_name=args.model, validation_url=args.validation_url, attention_valid_url=args.valid_attention_url, best_val_loss=args.best_val_loss)
+        model_name=args.model, validation_url=args.validation_url, attention_valid_url=args.valid_attention_url, best_val_loss=args.best_val_loss, forecast_factor=args.forecast_factor)
     elif args.model == "ADAIN":
         run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore), args.model)
     elif args.model == "SAE":
@@ -579,4 +588,3 @@ if __name__ == "__main__":
         run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore))
     elif args.model == "TGAN" or args.model == "TGANLSTM":
         train_gan(args.feature, "", args.url_weight, args.batch_size, args.encoder_length, 1, args.decoder_length, 1, 32, False, is_test=bool(args.is_test), restore=bool(args.restore), model_name=args.model)
-
