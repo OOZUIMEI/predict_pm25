@@ -66,8 +66,8 @@ class APGan(MaskGan):
         return outputs, conditional_vectors
     
     def sample_z(self):
-        return np.random.uniform(-1., 1., size=self.z_dim)
-        # return np.random.normal(0., 1., size=self.z_dim)
+        # return np.random.uniform(-1., 1., size=self.z_dim)
+        return np.random.normal(0., 0.01, size=self.z_dim)
     
     def get_generator_loss(self, fake_preds, outputs, fake_rewards=None):
         labels = tf.reshape(self.pred_placeholder, shape=(self.batch_size, self.decoder_length, self.grid_square))
