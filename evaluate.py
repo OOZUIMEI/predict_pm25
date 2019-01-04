@@ -173,9 +173,9 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
             elif not confusion_title:
                 a += classify_data(pred_t, l_t, forecast_factor)
             elif a is None:
-                a = classify_data(pred_t, l_t, forecast_factor)
+                a = classify_data(pred_t, l_t, forecast_factor, True)
             else:
-                a += classify_data(pred_t, l_t, forecast_factor)
+                a += classify_data(pred_t, l_t, forecast_factor, True)
         if is_classify:
             a = a / decoder_length
             if not confusion_title:
@@ -396,7 +396,7 @@ def print_accumulate_error(loss_mae, loss_rmse, decoder_length, forecast_factor=
 def classify_data(pr, lb, factor, is_conf=False):
     pr = [get_class(x * 300, factor) for x in pr]
     lb = [get_class(x * 300, factor) for x in lb]
-    if not is_conf:
+    if is_conf:
         acc = confusion_matrix(lb, pr, labels=[0,1,2,3])
     else:
         acc = accuracy_score(lb, pr)

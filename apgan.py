@@ -25,16 +25,16 @@ class APGan(MaskGan):
         # ? 0.0009
         # 0.0005 is mode collapse. 0.01 is mode collapse when use_flip = False
         self.use_flip = True
-        self.alpha = 0.001 
+        self.alpha = 0.001
         self.use_gen_cnn = True
-        self.dropout = 0.5 # help maintain the discriminator
+        self.dropout = 0.5 # help maintain the discriminator (0.5/0.0)
         self.use_batch_norm = False
         self.strides = [2]
         self.beta1 = 0.5
         self.lamda = 100
-        # discriminator unit type 6 & 7 is hard to control
-        self.gmtype = 7 
-        self.mtype = 3
+        # discriminator unit type 6 & 7 is hard to control / should be 4
+        self.gmtype = 7
+        self.mtype = 7
         self.z_dim = [self.batch_size, self.decoder_length, 128]
         self.z = tf.placeholder(tf.float32, shape=self.z_dim)   
         self.flag = tf.placeholder(tf.float32, shape=[self.batch_size, 1]) 
@@ -155,12 +155,12 @@ class APGan(MaskGan):
         inputs_rep = tf.concat([inputs_rep, conditional_vectors], axis=1)
         # add new hidden layer in the middle
         # help maintain the discriminator
-        output = tf.layers.dense(inputs_rep, 128, name="hidden_validation")
-        if self.dropout:
-            output = tf.nn.dropout(output, 0.5)
-        output = tf.layers.dense(output, 1, name="validation_value")
-        if self.dropout:
-            output = tf.nn.dropout(output, 0.5)
+        # output = tf.layers.dense(inputs_rep, 128, name="hidden_validation")
+        # if self.dropout:
+        #     output = tf.nn.dropout(output, 0.5)
+        output = tf.layers.dense(inputs_rep, 1, name="validation_value")
+        # if self.dropout:
+        #     output = tf.nn.dropout(output, 0.5)
         output = tf.reshape(output, [self.batch_size, self.decoder_length])
         return output, None
 
@@ -178,6 +178,8 @@ class APGan(MaskGan):
         if self.use_flip:
             real_labels = np.absolute(self.flag - np.random.uniform(0.8, 1., [self.batch_size, self.decoder_length]))
             fake_labels = np.absolute(self.flag - np.random.uniform(0., 0.2, [self.batch_size, self.decoder_length]))
+            # real_labels = np.absolute(self.flag - tf.constant(0.9, shape=[self.batch_size, self.decoder_length]))
+            # fake_labels = np.absolute(self.flag - tf.constant(0.1, shape=[self.batch_size, self.decoder_length]))
         else:
             # smooth one side (real - side)
             real_labels = tf.constant(0.9, shape=[self.batch_size, self.decoder_length])

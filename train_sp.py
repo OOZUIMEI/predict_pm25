@@ -268,7 +268,7 @@ def execute_gan(path, attention_url, url_weight, model, session, saver, batch_si
         print('==> starting training')
         suffix = p.weight_saving_break
         for epoch in xrange(p.total_iteration):
-            _ = model.run_epoch(session, train, offset + epoch, train_writer, train=True, verbose=False, stride=2)
+            _ = model.run_epoch(session, train, offset + epoch, train_writer, train=True, verbose=False, stride=4)
             tmp_e = epoch + 1
             if tmp_e % 10 == 0:
                 suffix = math.ceil(float(tmp_e) / p.weight_saving_break)
@@ -286,7 +286,7 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
     decoder_length=24, decoder_size=4, grid_size=25, is_folder=False, is_test=False, restore=False, model_name="APGAN", forecast_factor=0):
     if model_name == "APGAN":
         model = APGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, 
-                    decoder_length=decoder_length, grid_size=grid_size, forecast_factor=forecast_factor)
+                    decoder_length=decoder_length, grid_size=grid_size, forecast_factor=forecast_factor, use_attention=bool(attention_url))
     elif model_name == "MASKGAN":
         model = MaskGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size, use_cnn=1)
     elif model_name == "APGAN_LSTM":
@@ -330,7 +330,8 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
                     x, y = files
                     att_url = os.path.join(attention_url, y)
                     print("==> Training set (%i, %s, %s)" % (i + 1, x, y))
-                else: 
+                else:
+                    att_url = None
                     x = files
                     print("==> Training set (%i, %s)" % (i + 1, x))
                 execute_gan(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer, i * p.total_iteration)
