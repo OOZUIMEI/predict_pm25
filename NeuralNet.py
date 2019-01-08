@@ -12,7 +12,8 @@ import utils
 
 class NeuralNetwork(object):
 
-    def __init__(self, encoder_length=24, encoder_vector_size=15, decoder_length=8, decoder_vector_size=9, attention_length=24, attention_vector_size=17, learning_rate=0.01, dtype="grid", **kwargs):
+    def __init__(self, encoder_length=24, encoder_vector_size=15, decoder_length=8, decoder_vector_size=9, attention_length=24, attention_vector_size=17, 
+                learning_rate=0.01, dtype="grid", forecast_factor=0, **kwargs):
         # super(NeuralNetwork, self).__init__(**kwargs)
         self.encoder_length = encoder_length
         self.decoder_length = decoder_length
@@ -22,6 +23,7 @@ class NeuralNetwork(object):
         self.attention_vector_size = attention_vector_size
         self.learning_rate = learning_rate
         self.dtype = dtype
+        self.forecast_factor = forecast_factor
         self.initializer = tf.contrib.layers.xavier_initializer()
     
     def add_placeholders(self):
@@ -46,12 +48,13 @@ class NeuralNetwork(object):
         self.train_op = model_utils.add_training_op(self.loss, self.learning_rate)
 
     def lookup_input(self):
+        print("predict %i" % self.forecast_factor)
         enc = tf.nn.embedding_lookup(self.embedding, self.encoder_inputs)
         enc.set_shape((pr.batch_size, self.encoder_length, 25, self.encoder_vector_size))
         dec_f = tf.nn.embedding_lookup(self.embedding, self.decoder_inputs)
         dec_f.set_shape((pr.batch_size, self.decoder_length, 25, self.encoder_vector_size))
         # predict only one timestep
-        self.pred_placeholder = dec_f[:,self.decoder_length - 1,:,0]
+        self.pred_placeholder = dec_f[:,self.decoder_length - 1,:,self.forecast_factor]
         return enc
     
     def inference(self):
@@ -66,7 +69,11 @@ class NeuralNetwork(object):
             pred = tf.layers.dropout(pred, self.dropout_placeholder)
             pred = tf.squeeze(pred, axis=2)
         return pred
-        
+    
+    def add_single_net(self, inputs, units=100, activation=tf.nn.relu, name="hidden_relu_basic"):
+        out_hid1 = tf.layers.dense(inputs, units=units, activation=activation, name=name)
+        return out_hid1
+    
     def add_neural_nets(self, inputs, activation=tf.nn.tanh):
         out_hid1 = tf.layers.dense(inputs, units=256, activation=activation, name="hidden_256")
         out_hid2 = tf.layers.dense(out_hid1, units=128, activation=activation, name="hidden_128")
@@ -105,6 +112,8 @@ class NeuralNetwork(object):
             ct_ = ct[index]
             ct_t = np.asarray([range(int(x), int(x) + self.encoder_length) for x in ct_])
             dec_t = np.asarray([range(int(x) + self.encoder_length, int(x) + self.encoder_length + self.decoder_length) for x in ct_])
+            # print(np.shape(ct_t))
+            # print(np.shape(dec_t))
             feed = {
                 self.encoder_inputs : ct_t,
                 self.decoder_inputs: dec_t

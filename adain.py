@@ -19,6 +19,16 @@ class  Adain(NeuralNetwork):
         }
         self.dtype = "dis"
 
+    def lookup_input(self):
+        print("predict %i" % self.forecast_factor)
+        enc = tf.nn.embedding_lookup(self.embedding, self.encoder_inputs)
+        enc.set_shape((pr.batch_size, self.encoder_length, 25, self.encoder_vector_size))
+        dec_f = tf.nn.embedding_lookup(self.embedding, self.decoder_inputs)
+        dec_f.set_shape((pr.batch_size, self.decoder_length, 25, self.encoder_vector_size))
+        # predict only one timestep
+        self.pred_placeholder = dec_f[:,:,:,self.forecast_factor]
+        return enc
+
     def inference(self):
         enc = self.lookup_input()        
         with tf.variable_scope("encoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
@@ -51,19 +61,17 @@ class  Adain(NeuralNetwork):
                 attention_vectors = tf.reduce_sum(attention_vectors, axis=1)
                 current = tf.concat([current, attention_vectors], axis=1)
                 with tf.name_scope("prediction_%i" % x):
-                    pred = tf.layers.dense(current, units=1, activation=tf.nn.sigmoid, name="predictions")
+                    # pred = tf.layers.dense(current, units=1, activation=tf.nn.sigmoid, name="predictions")
+                    pred = tf.layers.dense(current, units=self.decoder_length, activation=tf.nn.sigmoid, name="predictions")
                     pred = tf.layers.dropout(pred, self.dropout_placeholder)
                     tf.get_variable_scope().reuse_variables()
                 outputs.append(pred)
 
             outputs = tf.stack(outputs, axis=1)
             outputs = tf.transpose(outputs, [0, 2, 1])
-
+            print(outputs)
         return outputs
 
-    def add_single_net(self, inputs, units=100, activation=tf.nn.relu, name="hidden_relu_basic"):
-        out_hid1 = tf.layers.dense(inputs, units=units, activation=activation, name=name)
-        return out_hid1
 
     def add_upper_net(self, inputs):
         out_hid1 = tf.layers.dense(inputs, units=200, activation=tf.nn.relu, name="hidden_relu_upper_1")

@@ -130,7 +130,7 @@ def aggregate_predictions(districts, timstep_data):
 
 
 # evaluate grid training
-def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length=24, forecast_factor=0, is_classify=False, confusion_title="", norm=True):
+def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length=24, forecast_factor=0, is_classify=False, confusion_title="", norm=True, is_grid=True):
     if not utils.validate_path("district_idx.pkl"):
         districts = convert_coordinate_to_idx()
     else:
@@ -140,10 +140,15 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
         data = np.asarray(data)
     if len(data.shape) == 4:
         lt = data.shape[0] * data.shape[1]
+        # if not is_grid:
+        # data = np.reshape(data, (lt, data.shape[-1]))
+        # else:
+        data = np.reshape(data, (lt, data.shape[-2], data.shape[-1]))
     else:
         lt = data.shape[0]
+        data = np.reshape(data, (lt, data.shape[-2], data.shape[-1]))
     print(np.shape(data))
-    data = np.reshape(data, (lt, data.shape[-2], data.shape[-1]))
+    
     labels = utils.load_file(url2)
     labels = np.asarray(labels)
     if not is_classify:
@@ -154,7 +159,10 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
     else:
         acc = None
     for i, d in enumerate(data):
-        d = d[:decoder_length,:]
+        if not is_grid:
+            d = d[:decoder_length]
+        else:
+            d = d[:decoder_length,:]
         lb_i = i * stride + encoder_length
         lbt = labels[lb_i:(lb_i+decoder_length),:,forecast_factor]
         if not confusion_title:
@@ -162,8 +170,11 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
         else:
             a = None
         for t_i, (t, l_t) in enumerate(zip(d, lbt)):
-            pred_t = aggregate_predictions(districts, t)
-            pred_t = np.array(pred_t)
+            if is_grid:
+                pred_t = aggregate_predictions(districts, t)
+                pred_t = np.array(pred_t)
+            else:
+                pred_t = t
             pred_t = pred_t.flatten()
             if not is_classify:
                 mae, mse, _ = get_evaluation(pred_t, l_t)
@@ -199,7 +210,7 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
     else:
         name = url.split("/")[-1]
         # print confusion matrix
-        utils.save_file("results/confusion_%s" % name, acc)
+        utils.save_file("results/confusion/confusion_%s" % name, acc)
         draw_confusion_matrix(acc, confusion_title, norm)
 
 
@@ -444,7 +455,7 @@ def draw_confusion_matrix(conf, title="Confusion Matrix", norm=True):
     plt.tight_layout()
     plt.ylabel("Label")
     plt.xlabel("Prediction")
-    name = title.lower().replace(" ", "_")
+    name = title.lower().replace(" ", "_").replace(".", "")
     plt.savefig("results/figures/%s.png" % name, format="png", bbox_inches="tight")
     # plt.show()
     
@@ -487,7 +498,7 @@ if __name__ == "__main__":
     elif args.task == 3:
         evaluate_lstm(args.url, args.url2, args.time_lags, args.forecast_factor, args.classify)
     elif args.task == 4:
-        evaluate_by_districts(args.url, args.url2, pr.strides, decoder_length=args.time_lags, forecast_factor=args.forecast_factor, is_classify=args.classify, confusion_title=args.confusion)
+        evaluate_by_districts(args.url, args.url2, pr.strides, decoder_length=args.time_lags, forecast_factor=args.forecast_factor, is_classify=args.classify, confusion_title=args.confusion, is_grid=bool(args.grid))
     else:
         # train_data
         # pm25: 0.24776679025820308, 0.11997866025609479
@@ -496,10 +507,10 @@ if __name__ == "__main__":
         # (0.25498451500807523, 0.12531802770836317)
         # (0.12908470683363008, 0.06754419659245953)
         # evaluate_multi(args.url, args.url2, args.time_lag)
-        pm10_title = ["Confusion Matrix of ConvLSTM on PM10","Confusion Matrix of APNET Simple on PM10","Confusion Matrix of APNET on PM10","Confusion Matrix of APGAN on PM10"]
-        pm25_title = ["Confusion Matrix of ConvLSTM on PM2.5","Confusion Matrix of APNET Simple on PM2.5","Confusion Matrix of APNET on PM2.5","Confusion Matrix of APGAN on PM2.5"]
-        pm10 = ["cnn_simple6_pm10","apnet_noatt_pm10","apnet_lstm_pm10_1544774761","apnet_apgan_pm10"]
-        pm25 = ["cnn_simple_6_48","apnet_noatt_3","apnet_lstm_gen_dp_1544702820_24","apgannet_combinedpm25"]
+        pm10_title = ["Confusion Matrix of ConvLSTM on PM10","Confusion Matrix of APNET Simple on PM10","Confusion Matrix of APNET on PM10","Confusion Matrix of APGAN on PM10", "Confusion Matrix of APGAN Simple on PM10"]
+        pm25_title = ["Confusion Matrix of ConvLSTM on PM2.5","Confusion Matrix of APNET Simple on PM2.5","Confusion Matrix of APNET on PM2.5","Confusion Matrix of APGAN on PM2.5", "Confusion Matrix of APGAN Simple on PM2.5"]
+        pm10 = ["cnn_simple6_pm10","apnet_noatt_pm10","apnet_lstm_pm10_1544774761","apgan77gau_apnet", "apgannoattgau1_apnet_noatt"]
+        pm25 = ["cnn_simple_6_48","apnet_noatt_3","apnet_lstm_gen_dp_1544702820_24","apgan77_apnet", "apgannoatt_apnetnoatt"]
         for x, t in zip(pm10, pm10_title):
             print(x, t)
             conf = utils.load_file("results/confusion/confusion_%s" % x)

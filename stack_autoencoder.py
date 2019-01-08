@@ -3,13 +3,13 @@ import sys
 import numpy as np
 import tensorflow as tf
 import properties as pr
-from adain import Adain
+from NeuralNet import NeuralNetwork
 
 # reference: deep learning architecture for air quality predictions
 # hidden layer = 300
 # the number of total layers in stack = 3
 # time intervals in the paper 
-class StackAutoEncoder(Adain):
+class StackAutoEncoder(NeuralNetwork):
     
     def __init__(self, pre_train=False, learning_rate=0.01, **kwargs): 
         super(StackAutoEncoder, self).__init__(**kwargs)
@@ -19,8 +19,9 @@ class StackAutoEncoder(Adain):
         self.optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
 
     def inference(self):
-        
-        enc = self.process_inputs()
+        with tf.name_scope("embedding"):
+            enc = self.process_inputs()
+
         with tf.name_scope("train_stack"):
             output_ae_0, train_ae_0 = self.add_encoder(enc)
             output_ae_1, train_ae_1 = self.add_encoder(output_ae_0)
@@ -39,6 +40,7 @@ class StackAutoEncoder(Adain):
     # lookup input's vectors from datasets
     def process_inputs(self):
         enc = self.lookup_input()
+        # print(enc.get_shape())
         enc = tf.gather(enc, range(self.encoder_length - self.time_intervals, self.encoder_length), axis=1)
         # enc: b x 8 x 25 x H
         enc = tf.transpose(enc, [0, 2, 1, 3])
