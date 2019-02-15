@@ -32,7 +32,7 @@ class BaselineModel(object):
         self.batch_size = batch_size
         self.grid_square = grid_size * grid_size
         self.loss = loss
-        self.df_ele = df_ele
+        self.df_ele = encode_vector_size - decode_vector_size
         self.dtype = dtype        
         self.map = heatmap.build_map()
         self.use_cnn = use_cnn
@@ -149,6 +149,7 @@ class BaselineModel(object):
             if self.dtype == "grid":
                 if self.use_cnn:
                     # add one cnn layer here
+                    print(enc.get_shape())
                     cnn = rnn_utils.get_cnn_rep(enc, mtype=self.mtype, use_batch_norm=use_batch_norm, dropout=dropout)
                 else:
                     cnn = enc
@@ -196,6 +197,7 @@ class BaselineModel(object):
                 "fw_cell": self.e_params["fw_cell"],
                 "fw_cell_size": self.rnn_hidden_units
             }
+            print("attention_length", self.attention_length)
             inputs.set_shape((self.batch_size, self.attention_length, self.atttention_hidden_size))
             # inputs = tf.unstack(inputs, self.attention_length, 1)
             outputs, _ = rnn_utils.execute_sequence(inputs, params)
@@ -206,13 +208,7 @@ class BaselineModel(object):
     # return attentional vector of a set of vectors
     # compute softmax -> multiple softmax score with original vectors -> reduce_sum
     def get_softmax_attention(self, inputs):
-        attention_logits = tf.squeeze(tf.layers.dense(inputs, units=1, activation=None, name="attention_logits"))
-        attention = tf.nn.softmax(attention_logits)
-        outputs = tf.transpose(inputs, [2, 0, 1])
-        outputs = tf.multiply(outputs, attention)
-        outputs = tf.transpose(outputs, [1, 2, 0])
-        outputs = tf.reduce_sum(outputs, axis=1)
-        return outputs
+        return rnn_utils.get_softmax_attention(inputs)
     
     # add loss function
     # output will be loss scalar    

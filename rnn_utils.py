@@ -11,6 +11,17 @@ import properties as prp
 import utils
 
 
+def get_softmax_attention(inputs):
+    logits = tf.layers.dense(inputs, units=1, activation=None, name="attention_logits")
+    attention_logits = tf.squeeze(logits)
+    attention = tf.nn.softmax(attention_logits)
+    outputs = tf.transpose(inputs, [2, 0, 1])
+    outputs = tf.multiply(outputs, attention)
+    outputs = tf.transpose(outputs, [1, 2, 0])
+    outputs = tf.reduce_sum(outputs, axis=1)
+    return outputs
+
+
 def get_cell(cell_type, size, layers=1):
     if cell_type == "layer_norm_basic":
         cell = LayerNormBasicLSTMCell(size)
@@ -60,6 +71,7 @@ def execute_sequence(inputs, params):
                 fn_state = (c, h)
         else:
             outputs, fn_state = fw_cell(inputs, dtype=tf.float32)
+        # => bs x length x hsize
         outputs = tf.transpose(outputs, [1, 0, 2])
     else:
         if "rnn_layer" in params and params["rnn_layer"] > 1:
@@ -103,7 +115,7 @@ def execute_decoder(inputs, init_state, sequence_length, params, attention=None,
 
 
 # perform cnn on pm2_5 output
-def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=None, cnn_rep=True, cnn_gen=False, mtype=4, use_batch_norm=True, dropout=0.5):
+def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=None, cnn_rep=True, cnn_gen=False, mtype=4, use_batch_norm=True, dropout=0.5, dctype=5):
     # push final state of encoder to decoder
     if params["fw_cell"] == "gru_block" or params["fw_cell"] == "rnn":
         dec_state = tf.squeeze(init_state[0], [0])
@@ -135,7 +147,7 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=N
                 pm2_5_input = tf.reshape(pm2_5_input, [params["batch_size"], 2, 2, 64])
             else:
                 pm2_5_input = tf.reshape(pm2_5_input, [params["batch_size"], 4, 4, 16])
-            pm2_5_cnn = get_cnn_rep(pm2_5_input, 5, max_filters=64, use_batch_norm=use_batch_norm, dropout=dropout)
+            pm2_5_cnn = get_cnn_rep(pm2_5_input, dctype, max_filters=64, use_batch_norm=use_batch_norm, dropout=dropout)
             pm2_5 = tf.layers.flatten(pm2_5_cnn)
         else:
             pm2_5 = tf.layers.dense(dec_out, 
@@ -190,7 +202,7 @@ def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8, use_b
         length = inp_shape[0] * inp_shape[1]
     else: 
         length = inp_shape[0]
-    
+
     if inp_length == 5:
         cnn_inputs = tf.reshape(cnn_inputs, [length, inp_shape[2], inp_shape[2], inp_shape[-1]])
     if mtype == 0:
@@ -257,6 +269,16 @@ def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8, use_b
         conv2 = get_cnn_unit(conv1, 32, (5,5), activation, "VALID", "rep_conv2", use_batch_norm, dropout)
         # 4x4x32 => 2x2x16
         cnn_outputs = get_cnn_unit(conv2, 16, (3,3), activation, "SAME", "rep_conv3", use_batch_norm, dropout)
+    elif mtype == 7:
+        """
+            same as 5 but for us data (output 32 x 32) 
+            input should be 2 * 2 * 64  => 4 * 4 * 32 => 8 * 8 * 16 => 16 x 16 x 8 => 32 x 32 x 1
+        """
+        conv1 = get_cnn_transpose_unit(cnn_inputs, max_filters, upscale_k, activation, "SAME", "transpose_conv1", use_batch_norm, dropout)
+        conv2 = get_cnn_transpose_unit(conv1, max_filters / 2, upscale_k, activation, "SAME", "transpose_conv2", use_batch_norm, dropout)
+        conv3 = get_cnn_transpose_unit(conv2, max_filters / 4, upscale_k, activation, "SAME", "transpose_conv3", use_batch_norm, dropout)
+        cnn_outputs = get_cnn_transpose_unit(conv3, 1, upscale_k, activation, "SAME", "transpose_conv4", use_batch_norm, dropout)
+        cnn_outputs = tf.squeeze(cnn_outputs, [-1])
     else:
         # 25 x 25 x H => 11x11x32
         conv1 = get_cnn_unit(cnn_inputs, 32, (5,5), activation, "VALID", "rep_conv1", use_batch_norm, dropout)
@@ -266,15 +288,29 @@ def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8, use_b
 
 
 # get multiscale convolution output
-def get_multiscale_conv(inputs, filters, kernel=[7,5,3,1], activation=tf.nn.relu, is_trans=False, prefix="msf", strides=(1,1)):
+def get_multiscale_conv(inputs, filters, kernel=[7,5,3,1], activation=tf.nn.relu, is_trans=False, prefix="msf", strides=(1,1), use_softmax=True):
     convs = []
+    conv_shape = None
     for k in kernel:
         if not is_trans:
             conv1 = get_cnn_unit(inputs, filters, (k, k), activation, "SAME", "%s_%ix%i" % (prefix, k,k), strides=strides)
         else:
             conv1 = get_cnn_transpose_unit(inputs, filters, (k, k), activation, "SAME", "%s_%ix%i" % (prefix, k,k), strides=strides)
+        if not conv_shape:
+            conv_shape = conv1.get_shape()
+        if use_softmax:
+            conv1 = tf.layers.flatten(conv1)
         convs.append(conv1)
-    conv_ = tf.concat(convs, axis=-1)
+    if use_softmax:
+        # get shape: bs * l x w x h x k
+        temp_shape = convs[0].get_shape()
+        convs = tf.reshape(tf.concat(convs, axis=1), (temp_shape[0], len(convs), temp_shape[1]))
+        # conv = tf.transpose(convs, [0, 2, 1])
+        with tf.variable_scope("attention_%s" %prefix, initializer=tf.contrib.layers.xavier_initializer()):
+            conv_ = get_softmax_attention(convs)
+            conv_ = tf.reshape(conv_, conv_shape)
+    else:
+        conv_ = tf.concat(convs, axis=-1)
     return conv_
 
 
@@ -285,7 +321,7 @@ def get_multiscale_conv3d(inputs, filters, kernel=[7,5,3,1], activation=tf.nn.re
         if not is_trans:
             conv1 = get_cnn3d_unit(inputs, filters, (k, k, k), activation, "SAME", "%s_%ix%i" % (prefix, k,k), strides=strides)
         else:
-            conv1 = get_cnn3d_transpose_unit(inputs, filters, (k, k, k), activation, "SAME", "%s_%ix%i" % (prefix, k,k), strides=strides)
+            conv1 = get_cnn_transpose3d_unit(inputs, filters, (k, k, k), activation, "SAME", "%s_%ix%i" % (prefix, k,k), strides=strides)
         convs.append(conv1)
     conv_ = tf.concat(convs, axis=-1)
     return conv_

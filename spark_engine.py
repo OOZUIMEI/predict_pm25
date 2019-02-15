@@ -316,6 +316,6 @@ class SparkEngine():
                 # convert to mph  
                 val = val * 0.621371  
         elif convert == "m/s" and val != 0.0:
-            # default mph
+            # default mph => m/s
             val = val * 0.44704
         return val

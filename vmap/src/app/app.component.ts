@@ -14,13 +14,19 @@ import { Chart } from 'angular-highcharts'
 //https://www.npmjs.com/package/angular-highcharts
 export class AppComponent implements OnInit {
 
+    private zone: number = 0
     private selectedIndex: number = 0
     private mapConfig: object = {
-        minZoom: 10,
-        maxZoom: 14,
-        zoom: 11,
-        lat: 37.5617,
-        lng: 126.93923,
+        // minZoom: 10,
+        // maxZoom: 14,
+        // zoom: 11,
+        zoom: 6,
+        // lat: 37.5617, // seoul
+        // lng: 126.93923,
+        lat: 34.38344, // cali
+        lng: -118.5284,
+        // lat: 40.208718, // china
+        // lng: 116.422279,
         tileLayerUrl: "http://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
         style: {
             weight: 1,
@@ -28,9 +34,24 @@ export class AppComponent implements OnInit {
             dashArray: '3',
             fillOpacity: 0.8
         },
-        fontSize: 15
+        radius: 3,
+        fontSize: 15,
+        polyline: {
+            stroke: true,
+            color: "#f00",
+            weight: 0.3
+        }
     }
+    public ifShowGrid : Boolean = true
+    public chinaStations: any = []
+    public china_polylineH: any = []
+    public china_polylineV: any = []
 
+    // zone 1 & zone 2 of cali
+    public polylineH: any = []
+    public polylineV: any = []
+    public zone2_polylineH: any = []
+    public zone2_polylineV: any = []
     // public iconAnchor: Point = new Point(30, 30)
     // public heat: Array<number> = [78,74,69,54,63,61,45,73,67,53,57,65,73,89,115,64,66,98,52,63,88,49,71,43,35]
     public district_geo: Object
@@ -59,6 +80,7 @@ export class AppComponent implements OnInit {
         x: "0px",
         y: "0px"
     }
+    public stations: any
     public isMobile: boolean = false
 
     @ViewChild(MapComponent) private mapComponent: MapComponent;
@@ -70,7 +92,16 @@ export class AppComponent implements OnInit {
                 this.district_geo = res
             }
         )
-
+        this.services.getCaliStations().subscribe(
+            res => {
+                this.stations = res["data"]
+            }
+        )
+        this.services.getChinaStations().subscribe(
+            res => {
+                this.chinaStations = res["data"]
+            }
+        )
         this.services.getCurrentTimestamp().subscribe(
             res => {
                 let date = res["datetime"]
@@ -149,6 +180,18 @@ export class AppComponent implements OnInit {
         this.schart = this.initChart(sz, 'time (hours)', 'Shenyang Historic Air Pollution Data (PM2.5)', "PM2.5 Values", minus_categories)
         this.dchartpm25 = this.initChart(sz, '', '24h Forecast of PM2.5', "Values", default_categories)
         this.dchartpm10 = this.initChart(sz, '', '24h Forecast of PM10', "Values", default_categories)
+
+        let zone1_outputs = this.calculatePolyline(0)
+        this.polylineV = this.initPolyline(zone1_outputs[1])
+        this.polylineH = this.initPolyline(zone1_outputs[0])
+
+        let zone2_outputs = this.calculatePolyline(1)
+        this.zone2_polylineV = this.initPolyline(zone2_outputs[1])
+        this.zone2_polylineH = this.initPolyline(zone2_outputs[0])
+
+        let china_outputs = this.calculatePolyline(2)
+        this.china_polylineV = this.initPolyline(china_outputs[1])
+        this.china_polylineH = this.initPolyline(china_outputs[0])
     }
 
     initChart(sz: number, name: string, title: string, yAxis:string="Values", xcategories=[], tooltip: object=null) {
@@ -225,6 +268,64 @@ export class AppComponent implements OnInit {
         return chart
     }
 
+    // draw a polyline grid of pollutions on california area
+    calculatePolyline(zone: number = 0){
+        let total = 32
+        let outputsV = []
+        let outputsH = []
+        let wn = [-123.35364 , 39.412739999999995]
+        let ws = [-123.35364 , 36.101244]
+        let es = [-117.870036, 36.101244]
+        let en = [-117.870036, 39.412739999999995]
+        if(zone == 1){
+            wn = [-120.724363, 35.651152]
+            ws = [-120.724363, 32.714125]
+            es = [-116.325203, 32.714125]
+            en = [-116.325203, 35.651152]
+        }else if(zone == 2){
+            // for china
+            wn = [115.971999, 40.530] // + 0.02
+            ws = [115.971999, 39.52]
+            es = [117.12, 39.52]
+            en = [117.12, 40.530]
+        }
+        // let wn = [-124.409818, 41.995140]
+        // let ws = [-124.409818, 32.534125]
+        // let es = [-114.131055, 32.534125]
+        // let en = [-114.131055, 41.995140]
+        let deltaY = (es[0] - wn[0]) / total
+        let deltaX = (ws[1] - wn[1]) / total
+        outputsV.push(wn)
+        outputsV.push(ws)
+        for(var x = 1; x < total; x++){
+            let new_x = wn[1] + deltaX * x
+            let new_y = ws[0] + deltaY * x
+            outputsV.push([new_y, ws[1]])
+            outputsV.push([new_y, wn[1]])
+            outputsV.push([new_y, ws[1]])
+            
+            outputsH.push([es[0], new_x])
+            outputsH.push([ws[0], new_x])
+            outputsH.push([es[0], new_x])
+            
+        }
+        outputsV.push(es)
+        outputsV.push(en)
+        outputsH.push(en)
+        outputsH.push(wn)
+        return [outputsH, outputsV]
+    }
+    // init polyline 
+    initPolyline(inputs: any){
+        return {
+            "type": "Feature",
+            "properties": {},
+            "geometry": {
+                "type": "LineString",
+                "coordinates": inputs
+            }
+        }
+    }
     getDateFormat(d: Date) {
         let p1 = d.getFullYear() + "-" + this.format10(d.getMonth() + 1) + "-" + this.format10(d.getDate())
         let p2 = this.format10(d.getHours()) + ":" + this.format10(d.getMinutes()) + ":" + this.format10(d.getSeconds())
@@ -408,5 +509,8 @@ export class AppComponent implements OnInit {
         let date = new Date(this.current_timestamp)
         date.setHours(date.getHours() + this.current_time + 1)
         this.current_selected_timestamp = this.getDateFormat(date)
+    }
+    markerClick(s: any){
+        console.log(s)
     }
 }

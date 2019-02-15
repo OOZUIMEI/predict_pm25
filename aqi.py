@@ -52,6 +52,7 @@ def InvLinear(AQIhigh, AQIlow, Conchigh, Conclow, a):
     return c
 
 
+# aqi to concentration
 def ConcPM25(a):
     if a>=0 and a<=50:
         ConcCalc=InvLinear(50,0,12,0,a)
@@ -72,6 +73,7 @@ def ConcPM25(a):
     return ConcCalc
 
 
+# aqi to concentration
 def ConcPM10(a):
     if a>=0 and a<=50:
         ConcCalc=InvLinear(50,0,54,0,a)

@@ -72,8 +72,9 @@ def get_gpu_options(use_fraction=True):
 def execute(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None, offset=0, validation_url="", attention_valid_url="", best_val_loss=None):
     print("==> Loading dataset")
     dataset = utils.load_file(path)
+    print(np.shape(dataset))
     global_t = offset
-    if dataset:
+    if not dataset is None:
         dataset = np.asarray(dataset, dtype=np.float32)
         lt = len(dataset)
         if validation_url:

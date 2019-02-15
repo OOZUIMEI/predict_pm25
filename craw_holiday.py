@@ -20,11 +20,13 @@ def mine_data(year, html):
     months = np.array(pr.months)
     for r in rows:
         info = r.find_all("td")
+        print(info)
         tp = info[-1].get_text()
         name = info[1].get_text()
-        if tp != "Season" and tp != "Observance":
+        if tp != "Season" and tp != "Observance" and "observance" not in tp:
             d = r.find("th").get_text().split(" ")
             m_v = d[0]
+            print(d)
             d_v = utils.format10(int(d[1]))
             m = np.where(months == m_v)
             m = utils.format10(m[0][0] + 1)
@@ -70,14 +72,14 @@ if __name__ == "__main__":
         now = utils.get_datetime_now()
         if (now - start_point).total_seconds() >= args.interval:
             counter += 1
-            try:
-                year = start
-                html = craw_data(year, args.country)
-                data = mine_data(year, html)
-                if data:
-                    output += ",".join(data) + "\n"
-            except Exception as e:
-                print(e)
+            # try:
+            year = start
+            html = craw_data(year, args.country)
+            data = mine_data(year, html)
+            if data:
+                output += ",".join(data) + "\n"
+            # except Exception as e:
+            #     print(e)
             start += 1
             start_point = now   
             utils.update_progress(counter * 1.0 / length)

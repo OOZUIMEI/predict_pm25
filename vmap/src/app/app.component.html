@@ -9,6 +9,60 @@
             <yaga-geojson [data]="district_geo" *ngIf="district_geo" [defaultStyle]="mapConfig.style" [styler]="style"
                 (click)="openDistrict($event)">
             </yaga-geojson>
+
+            <yaga-layers-control opacity="1">
+                <yaga-feature-group yaga-overlay-layer="Marker" *ngFor="let s of stations">
+                    <yaga-circle-marker [title]="s.name" [(radius)]="mapConfig.radius" [(weight)]="mapConfig.polyline.stroke" [lat]="s.lat" [lng]="s.lng" (click)="markerClick(s)"></yaga-circle-marker>
+                </yaga-feature-group>
+            </yaga-layers-control>
+
+            <yaga-polyline *ngIf="ifShowGrid"
+                [(geoJSON)]="polylineH"
+                [(stroke)]="mapConfig.polyline.stroke"
+                [(color)]="mapConfig.polyline.color"
+                [(weight)]="mapConfig.polyline.weight">
+            </yaga-polyline>
+            <yaga-polyline *ngIf="ifShowGrid"
+                [(geoJSON)]="polylineV"
+                [(stroke)]="mapConfig.polyline.stroke"
+                [(color)]="mapConfig.polyline.color"
+                [(weight)]="mapConfig.polyline.weight">
+            </yaga-polyline>
+
+            
+            <yaga-polyline *ngIf="ifShowGrid"
+                [(geoJSON)]="zone2_polylineH"
+                [(stroke)]="mapConfig.polyline.stroke"
+                [(color)]="mapConfig.polyline.color"
+                [(weight)]="mapConfig.polyline.weight">
+            </yaga-polyline>
+            <yaga-polyline *ngIf="ifShowGrid"
+                [(geoJSON)]="zone2_polylineV"
+                [(stroke)]="mapConfig.polyline.stroke"
+                [(color)]="mapConfig.polyline.color"
+                [(weight)]="mapConfig.polyline.weight">
+            </yaga-polyline>
+
+            <yaga-layers-control opacity="1">
+                <yaga-feature-group yaga-overlay-layer="Marker" *ngFor="let s of chinaStations">
+                    <yaga-circle-marker [title]="s.name" [(radius)]="mapConfig.radius" [(weight)]="mapConfig.polyline.stroke" [lat]="s.lat" [lng]="s.lng" (click)="markerClick(s)"></yaga-circle-marker>
+                </yaga-feature-group>
+            </yaga-layers-control>
+
+            <yaga-polyline *ngIf="ifShowGrid"
+                [(geoJSON)]="china_polylineV"
+                [(stroke)]="mapConfig.polyline.stroke"
+                [(color)]="mapConfig.polyline.color"
+                [(weight)]="mapConfig.polyline.weight">
+            </yaga-polyline>
+
+            <yaga-polyline *ngIf="ifShowGrid"
+                [(geoJSON)]="china_polylineH"
+                [(stroke)]="mapConfig.polyline.stroke"
+                [(color)]="mapConfig.polyline.color"
+                [(weight)]="mapConfig.polyline.weight">
+            </yaga-polyline>
+
         </yaga-map>
     </div>
     <div class="info-box" [ngClass]="{'': isMobile}">

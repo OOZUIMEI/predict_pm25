@@ -1,6 +1,7 @@
+import os
 import argparse
 import numpy as np
-from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d, griddata
 from copy import deepcopy
 import pickle
 import utils
@@ -169,6 +170,54 @@ def convert_transport_data(url):
     utils.save_file("vectors/transportation/%s.pkl" % name, days)
 
 
+def interpolate_grid(data, idx, x, y, X, Y):
+    py = np.array([y[i / 32] for i in idx])
+    px = np.array([x[i % 32]  for i in idx])
+    inter_data = griddata((px, py), data, (X, Y), method="nearest")
+    return inter_data
+
+
+# 2014-2017: data have full length
+def convert_us_data(url):
+    print("Converting: %s" % url)
+    # start = datetime.strptime(start_date, "%Y%m%d") 
+    name = url.split("/")[-1]
+    name = name.split(".")[0]
+    data = utils.load_file(url, False)
+    days = []
+    old_h = -1
+    # old_d = -1
+    one_hour = []
+    stations = []
+    # prepare x, y  32 x 32 for interpolation
+    xi = np.linspace(-1,1,32)
+    yi =  np.linspace(-1,1,32)
+    X, Y = np.meshgrid(xi,yi)
+    for x in data[1:]:
+        rows = x.rstrip("\n").split(",")
+        tm = rows[0]
+        # d = datetime.strptime(tm[0:8], "%Y%m%d") 
+        # dt = (d - start).days
+        h = int(tm[-2:]) % 24
+        idx = int(rows[1])
+        if old_h != h:
+            if old_h != -1:
+                inter_data = interpolate_grid(np.array(one_hour), stations, xi, yi, X, Y)
+                days.append(inter_data)
+            # one_hour = [0]  * 1024
+            one_hour = []
+            stations = []
+        if idx < 1024:
+            one_hour.append(float(rows[-1]))
+            stations.append(idx)
+        old_h = h
+        # old_d = dt
+    inter_data = interpolate_grid(np.array(one_hour), stations, xi, yi, X, Y)
+    days.append(inter_data)
+    print("output_shape", np.shape(days))
+    utils.save_file("/media/data/us_data/grid/%s.pkl" % name, np.array(days))
+
+
 # def interpolate_missing(url="vectors/sp_china_combined/sp_seoul_train_bin"):
 #     print("Converting: %s" % url)
 #     data = utils.load_file(url)
@@ -265,6 +314,57 @@ if __name__ == "__main__":
         convert_data_to_grid(args.url, args.url1, args.aurl, args.aurl1, args.part)
     elif args.task == 2:
         convert_transport_data(args.url)
+    elif args.task == 3:
+        # convert us data
+        # path = "/media/data/us_data/output_map"
+        # path2 = "/media/data/us_data/files_grid"
+        # files = os.listdir(path2)
+        # merge = []
+        # for x in sorted(files):
+        #     print(x)
+        #     data = utils.load_file(path2 + "/" + x)
+        #     merge.append(data)
+        # # utils.save_file(path + "/merge.pkl", merge)
+        #     # convert_us_data(path + "/" + x)
+        # # data = utils.load_file(path2 + "/merge2.pkl")
+        # data = np.array(merge)
+        # test = data[:,-8760:,:,:]
+        # train = data[:,:-8760,:,:]
+        # utils.save_file(path2 + "/train.pkl", np.transpose(train, [1, 0, 2, 3]).tolist())
+        # utils.save_file(path2 + "/test.pkl", np.transpose(test, [1, 0, 2, 3]).tolist())
+
+        # data = utils.load_file("/media/data/us_data/additional_vectors.csv", False)
+        # totals = []
+        # for d in data[1:]:
+        #     rows = d.rstrip("\n").split(",")
+        #     month = float(rows[1])
+        #     day = float(rows[2])
+        #     hour = float(rows[3])
+        #     v = [month, day, hour]
+        #     totals.append(v)
+        # train = totals[:-8760]
+        # test = totals[-8760:]
+        # print(np.shape(train), np.shape(test))
+        # utils.save_file("/media/data/us_data/train_att.pkl", train)
+        # utils.save_file("/media/data/us_data/test_att.pkl", test)
+        data = utils.load_file("/media/data/us_data/train/train_.pkl")
+        # data = np.transpose(data, [0, 2, 3, 1])
+        data = np.array(data)
+        # data1 = data[:8760,:,:,:]
+        # data2 = data[8760:17520,:,:,:]
+        data3 = data[17520:,:,:,:]
+        # utils.save_file("/media/data/us_data/train/train_2014.pkl", data1.tolist())
+        # utils.save_file("/media/data/us_data/train/train_2015.pkl", data2.tolist())
+        utils.save_file("/media/data/us_data/train/train_2016.pkl", data3.tolist())
+
+        # data = utils.load_file("/media/data/us_data/train/train_att.pkl")
+        # data = np.array(data)
+        # data1 = data[:8760,:]
+        # data2 = data[8760:17520,:]
+        # data3 = data[17520:,:]
+        # utils.save_file("/media/data/us_data/train/train_att_2014.pkl", data1.tolist())
+        # utils.save_file("/media/data/us_data/train/train_att_2015.pkl", data2.tolist())
+        # utils.save_file("/media/data/us_data/train/train_att_2016.pkl", data3.tolist())
     else:
         interpolate_missing()
 

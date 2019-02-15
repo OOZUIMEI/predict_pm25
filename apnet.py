@@ -14,6 +14,7 @@ class APNet(APGan):
         self.dropout = 0.5
         self.alpha = 0
         self.mtype = 3
+        self.attention_length = 48
 
     def inference(self, is_train=True):
         fake_outputs, _ = self.create_generator(self.encoder_inputs, self.decoder_inputs, self.attention_inputs)
@@ -31,9 +32,12 @@ class APNet(APGan):
                 params["fw_cell"] = "gru_block"
             else:
                 params["fw_cell"] = "lstm_block"
-            outputs = rnn_utils.execute_decoder_cnn(None, fn_state, self.decoder_length, params, dec_hidden_vectors, self.use_cnn, self.use_gen_cnn, self.mtype, self.use_batch_norm, self.dropout)
+            dctype = 5
+            if self.grid_size == 32:
+                dctype = 7
+            outputs = rnn_utils.execute_decoder_cnn(None, fn_state, self.decoder_length, params, dec_hidden_vectors, self.use_cnn, self.use_gen_cnn, self.mtype, self.use_batch_norm, self.dropout, dctype=dctype)
             outputs = tf.stack(outputs, axis=1)
-            outputs = tf.reshape(outputs, [self.batch_size, self.decoder_length, pr.grid_size * pr.grid_size])
+            outputs = tf.reshape(outputs, [self.batch_size, self.decoder_length, self.grid_size * self.grid_size])
         return outputs
 
     # operate in each interation of an epoch

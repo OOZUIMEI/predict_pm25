@@ -1,3 +1,7 @@
+"""
+both decoder and encoder using same attention layers
+"""
+
 import numpy as np
 import tensorflow as tf
 
@@ -13,6 +17,7 @@ import rnn_utils
 # https://www.inference.vc/instance-noise-a-trick-for-stabilising-gan-training/
 # Reload graph
 # https://blog.metaflow.fr/tensorflow-saving-restoring-and-mixing-multiple-models-c4c94d5d7125
+# https://ww2.arb.ca.gov/resources/sources-air-pollution
 # flip labels
 # add noise to input & label
 
@@ -107,16 +112,41 @@ class APGan(MaskGan):
         return loss
     
     # the conditional layer that concat all attention vectors => produces a single vector
+    # def add_conditional_layer(self, dec, enc_outputs, attention=None):
+    #     with tf.name_scope("conditional"):
+    #         cnn_dec_input = rnn_utils.get_cnn_rep(dec, mtype=self.mtype, use_batch_norm=self.use_batch_norm, dropout=self.dropout)
+    #         cnn_dec_input = tf.layers.flatten(cnn_dec_input)
+    #         cnn_shape = cnn_dec_input.get_shape()
+    #         dec_data = tf.reshape(cnn_dec_input, [self.batch_size, self.decoder_length, int(cnn_shape[-1])])
+    #         dec_rep, _ = rnn_utils.execute_sequence(dec_data, self.e_params)
+    #         dec_rep = self.get_softmax_attention(dec_rep)
+    #         # add attentional layer here to measure the importance of each timestep.
+    #         enc_outputs = self.get_softmax_attention(enc_outputs)
+    #         # dec_input with shape bs x 3hidden_size
+    #         dec_input = tf.concat([enc_outputs, dec_rep], axis=1)
+    #         if not attention is None:
+    #             dec_input = tf.concat([dec_input, attention], axis=1)
+    #         # dec_hidden_vectors with shape bs x 128 
+    #         dec_hidden_vectors = tf.layers.dense(dec_input, 128, name="conditional_layer", activation=tf.nn.tanh)
+    #         if self.dropout:
+    #             dec_hidden_vectors = tf.nn.dropout(dec_hidden_vectors, 0.5)
+    #         return dec_hidden_vectors
+    
+    # the conditional layer that concat all attention vectors => produces a single vector
     def add_conditional_layer(self, dec, enc_outputs, attention=None):
-        with tf.name_scope("conditional"):
+        with tf.variable_scope("encoder_softmax", initializer=self.initializer):
+            enc_outputs = self.get_softmax_attention(enc_outputs)
+
+        with tf.variable_scope("decoder_softmax", initializer=self.initializer):
             cnn_dec_input = rnn_utils.get_cnn_rep(dec, mtype=self.mtype, use_batch_norm=self.use_batch_norm, dropout=self.dropout)
             cnn_dec_input = tf.layers.flatten(cnn_dec_input)
             cnn_shape = cnn_dec_input.get_shape()
             dec_data = tf.reshape(cnn_dec_input, [self.batch_size, self.decoder_length, int(cnn_shape[-1])])
             dec_rep, _ = rnn_utils.execute_sequence(dec_data, self.e_params)
             dec_rep = self.get_softmax_attention(dec_rep)
+
+        with tf.name_scope("conditional"):
             # add attentional layer here to measure the importance of each timestep.
-            enc_outputs = self.get_softmax_attention(enc_outputs)
             # dec_input with shape bs x 3hidden_size
             dec_input = tf.concat([enc_outputs, dec_rep], axis=1)
             if not attention is None:
@@ -125,7 +155,7 @@ class APGan(MaskGan):
             dec_hidden_vectors = tf.layers.dense(dec_input, 128, name="conditional_layer", activation=tf.nn.tanh)
             if self.dropout:
                 dec_hidden_vectors = tf.nn.dropout(dec_hidden_vectors, 0.5)
-            return dec_hidden_vectors
+        return dec_hidden_vectors
 
     #perform decoder to produce outputs of the generator
     def exe_decoder(self, dec_hidden_vectors, fn_state=None):
