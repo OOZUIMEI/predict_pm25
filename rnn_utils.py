@@ -290,6 +290,14 @@ def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8, use_b
         msf2 = get_multiscale_conv(conv2, 16, activation=activation, prefix="msf2")
         # 8x8x64 => 4x4x16
         cnn_outputs = get_cnn_unit(msf2, 16, (3,3), activation, "SAME", "rep_conv3", use_batch_norm, dropout)
+    elif mtype == 9:
+        # same as 8 but remove msf
+        # 32 x 32 x H => 16x16x32
+        conv1 = get_cnn_unit(cnn_inputs, 32, (5,5), activation, "SAME", "rep_conv1", use_batch_norm, dropout)
+        # 16x16x32 => 8x8x32
+        conv2 = get_cnn_unit(conv1, 32, (5,5), activation, "SAME", "rep_conv2", use_batch_norm, dropout)
+        # 8x8x64 => 4x4x16
+        cnn_outputs = get_cnn_unit(conv2, 16, (3,3), activation, "SAME", "rep_conv3", use_batch_norm, dropout)
     else:
         # 25 x 25 x H => 11x11x32
         conv1 = get_cnn_unit(cnn_inputs, 32, (5,5), activation, "VALID", "rep_conv1", use_batch_norm, dropout)
