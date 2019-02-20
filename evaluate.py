@@ -215,6 +215,62 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
 
 
 # evaluate grid training
+def evaluate_us(url, url2, stations, stride=2, encoder_length=48, decoder_length=48, forecast_factor=0):
+    data = utils.load_file(url)
+    if type(data) is list:
+        data = np.asarray(data)
+    if len(data.shape) == 4:
+        lt = data.shape[0] * data.shape[1]
+        data = np.reshape(data, (lt, data.shape[-2], data.shape[-1]))
+    else:
+        lt = data.shape[0]
+        data = np.reshape(data, (lt, data.shape[-2], data.shape[-1]))
+    
+    labels = utils.load_file(url2)
+    labels = np.asarray(labels)
+    loss_mae = [0.0] * decoder_length
+
+    for i, d in enumerate(data):
+        d = d[:decoder_length,:]
+        lb_i = i * stride + encoder_length
+        lbt = labels[lb_i:(lb_i+decoder_length),:,:]
+        # for t_i, (t, l_t) in enumerate(zip(d, lbt)):
+        #     mae, mse, _ = get_evaluation(t.flatten(), l_t.flatten())
+        #     # sum loss for each timestep prediction
+        #     loss_mae[t_i] += mae
+        #     loss_rmse[t_i] += mse
+        for t_i, (t, l_t) in enumerate(zip(d, lbt)):
+            l_t = l_t.flatten()
+            pred_t = []
+            label_t = []
+            t = np.reshape(t, (32, 32))
+            for r in stations:
+                er = r / 32
+                ex = r % 32
+                sty = er - 2
+                if sty < 0:
+                    sty = 0
+                stx = ex - 2
+                if stx < 0:
+                    stx = 0
+                pred_point = t[sty:er+3,stx:ex+3]
+                pred_t.append(np.mean(pred_point))
+                label_t.append(l_t[r])
+            mae = mean_absolute_error(pred_t, label_t)
+            loss_mae[t_i] += mae
+        utils.update_progress((i + 1.0) / lt)
+    # print mae loss score
+    # caculate loss for each timestep
+    barrier = 300
+    if forecast_factor:
+        barrier = 500
+    loss_mae = np.array(loss_mae) / lt * barrier
+    # calculate accumulated loss
+    for i, x in enumerate(loss_mae):
+        print("%i %.6f" % ((i+1), x))
+
+
+# evaluate grid training
 def evaluate_single_pred(url, url2, decoder_length=8):
     cr = Crawling() 
     data = utils.load_file(url)
@@ -263,7 +319,7 @@ def evaluate_multi(url, url2, time_lags=24):
         lb_i = i * pr.strides + time_lags + 1
         mae0, mse0, r2 = get_evaluation(d[:time_lags,:], labels[lb_i:(lb_i+time_lags),:,0])
         # mae1, mse1 = get_evaluation(d[:time_lags,:,1], labels[lb_i:(lb_i+time_lags),:,1])
-        loss_rmse0 += mse0 
+        loss_rmse0 += mse0  
         # loss_rmse1 += mse1
         loss_mae0 += mae0
         # loss_mae1 += mae1
@@ -402,6 +458,22 @@ def print_accumulate_error(loss_mae, loss_rmse, decoder_length, forecast_factor=
             else:
                 print("T PM10 MAE: %.6f %.6f" % (t_mae, cr.ConcPM10(t_mae)))
                 print("T PM10 RMSE: %.6f %.6f" % (t_rmse, cr.ConcPM10(t_rmse)))
+            
+
+def print_us_error(loss_mae, loss_rmse, decoder_length, forecast_factor=0):
+    for x in xrange(decoder_length):
+        print("%ih" % (x + 1))
+        if not forecast_factor:
+            print("S MAE: %.6f" % (loss_mae[x]))
+        else: 
+            print("S PM10 MAE: %.6f" % (loss_mae[x]))
+        if x > 0:
+            loss_mae[x] += loss_mae[x-1]
+            t_mae = loss_mae[x] / (x + 1)
+            if not forecast_factor:
+                print("T MAE: %.6f" % (t_mae))
+            else:
+                print("T PM10 MAE: %.6f" % (t_mae))
 
 
 def classify_data(pr, lb, factor, is_conf=False):
@@ -499,6 +571,15 @@ if __name__ == "__main__":
         evaluate_lstm(args.url, args.url2, args.time_lags, args.forecast_factor, args.classify)
     elif args.task == 4:
         evaluate_by_districts(args.url, args.url2, pr.strides, decoder_length=args.time_lags, forecast_factor=args.forecast_factor, is_classify=args.classify, confusion_title=args.confusion, is_grid=bool(args.grid))
+    elif args.task == 5:
+        us_pm10 = [344,404,414,439,440,497,500,502,505,523,558,582,583,601,603,612,613,632,640,641,690,762,770,800,801,818,864,908,940,960,992,1013] 
+        # us_pm10 = [(10,24),(12,20),(12,30),(13,23),(13,24),(15,17),(15,20),(15,22),(15,25),(16,11),(17,14),(18,6),(18,7),(18,25),(18,27),(19,4),(19,5), \
+        #             (19,24),(20,0),(20,1),(21,18),(23,26),(24,2),(25,0),(25,1),(25,18),(27,0),(28,12),(29,12),(30,0),(31,0),(31,21)]
+        us_pm25 = [31,60,184,250,402,444,470,523,525,558,582,583,586,589,632,641,690,770,800,801,818,864,960,1013]
+        # us_pm25 = [(0,31),(1,28),(5,24),(7,26),(12,18),(13,28),(14,22),(16,11),(16,13),(17,14),(18,6),(18,7),(18,10),(18,13),(19,24),(20,1),(21,18),(24,2),\
+        #             (25,0),(25,1),(25,18),(27,0),(30,0),(31,21)]
+        
+        evaluate_us(args.url, args.url2, us_pm10, pr.strides, encoder_length=args.time_lags, decoder_length=args.time_lags, forecast_factor=args.forecast_factor)
     else:
         # train_data
         # pm25: 0.24776679025820308, 0.11997866025609479

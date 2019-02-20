@@ -21,10 +21,10 @@ export class AppComponent implements OnInit {
         // maxZoom: 14,
         // zoom: 11,
         zoom: 6,
-        // lat: 37.5617, // seoul
-        // lng: 126.93923,
-        lat: 34.38344, // cali
-        lng: -118.5284,
+        lat: 37.5617, // seoul
+        lng: 126.93923,
+        // lat: 34.38344, // cali
+        // lng: -118.5284,
         // lat: 40.208718, // china
         // lng: 116.422279,
         tileLayerUrl: "http://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",

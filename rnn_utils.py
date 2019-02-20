@@ -143,7 +143,7 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=N
         
         if cnn_gen:
             pm2_5_input = tf.layers.dense(dec_out, 256, name="decoder_output_cnn")
-            if mtype == 3 or mtype == 6:
+            if mtype == 3 or mtype == 6 or mtype == 8 or mtype == 9:
                 pm2_5_input = tf.reshape(pm2_5_input, [params["batch_size"], 2, 2, 64])
             else:
                 pm2_5_input = tf.reshape(pm2_5_input, [params["batch_size"], 4, 4, 16])
@@ -226,7 +226,7 @@ def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8, use_b
         cnn_outputs = get_cnn_transpose_unit(conv2, max_filters / 4, upscale_k, activation, "VALID", "transpose_conv3", use_batch_norm, dropout)
         cnn_outputs = get_cnn_unit(conv3, 1, (8, 8), activation, "VALID", "cnn_gen_output", use_batch_norm, dropout, strides=(1,1))
         cnn_outputs = tf.squeeze(cnn_outputs, [-1])
-    elif mtype == 8:
+    elif mtype == 3:
         """
             use for generator only
         """
@@ -279,7 +279,7 @@ def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8, use_b
         conv3 = get_cnn_transpose_unit(conv2, max_filters / 4, upscale_k, activation, "SAME", "transpose_conv3", use_batch_norm, dropout)
         cnn_outputs = get_cnn_transpose_unit(conv3, 1, upscale_k, activation, "SAME", "transpose_conv4", use_batch_norm, dropout)
         cnn_outputs = tf.squeeze(cnn_outputs, [-1])
-    elif mtype == 3:
+    elif mtype == 8:
         # 32 x 32 x H => 16x16x32
         conv1 = get_cnn_unit(cnn_inputs, 32, (5,5), activation, "SAME", "rep_conv1", use_batch_norm, dropout)
         # 16x16x32 => 16 x 16 x 32
@@ -307,29 +307,29 @@ def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8, use_b
 
 
 # get multiscale convolution output
-def get_multiscale_conv(inputs, filters, kernel=[7,5,3,1], activation=tf.nn.relu, is_trans=False, prefix="msf", strides=(1,1), use_softmax=True):
+def get_multiscale_conv(inputs, filters, kernel=[7,5,3,1], activation=tf.nn.relu, is_trans=False, prefix="msf", strides=(1,1), use_softmax=False):
     convs = []
-    conv_shape = None
+    # conv_shape = None
     for k in kernel:
         if not is_trans:
             conv1 = get_cnn_unit(inputs, filters, (k, k), activation, "SAME", "%s_%ix%i" % (prefix, k,k), strides=strides)
         else:
             conv1 = get_cnn_transpose_unit(inputs, filters, (k, k), activation, "SAME", "%s_%ix%i" % (prefix, k,k), strides=strides)
-        if not conv_shape:
-            conv_shape = conv1.get_shape()
-        if use_softmax:
-            conv1 = tf.layers.flatten(conv1)
+        # if not conv_shape:
+        #     conv_shape = conv1.get_shape()
+        # if use_softmax:
+        #     conv1 = tf.layers.flatten(conv1)
         convs.append(conv1)
-    if use_softmax:
-        # get shape: bs * l x w x h x k
-        temp_shape = convs[0].get_shape()
-        convs = tf.reshape(tf.concat(convs, axis=1), (temp_shape[0], len(convs), temp_shape[1]))
-        # conv = tf.transpose(convs, [0, 2, 1])
-        with tf.variable_scope("attention_%s" %prefix, initializer=tf.contrib.layers.xavier_initializer()):
-            conv_ = get_softmax_attention(convs)
-            conv_ = tf.reshape(conv_, conv_shape)
-    else:
-        conv_ = tf.concat(convs, axis=-1)
+    # if use_softmax:
+    #     # get shape: bs * l x w x h x k
+    #     temp_shape = convs[0].get_shape()
+    #     convs = tf.reshape(tf.concat(convs, axis=1), (temp_shape[0], len(convs), temp_shape[1]))
+    #     # conv = tf.transpose(convs, [0, 2, 1])
+    #     with tf.variable_scope("attention_%s" %prefix, initializer=tf.contrib.layers.xavier_initializer()):
+    #         conv_ = get_softmax_attention(convs)
+    #         conv_ = tf.reshape(conv_, conv_shape)
+    # else:
+    conv_ = tf.concat(convs, axis=-1)
     return conv_
 
 
