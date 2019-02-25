@@ -1,5 +1,6 @@
 """
 craw weather from https://www.worldweatheronline.com/daegu-weather-history/kr.aspx
+https://www.worldweatheronline.com/weifang-weather/shandong/cn.aspx
 """
 
 # _*_ coding: utf-8 _*_
@@ -76,14 +77,16 @@ class CrawlWeather(Crawling):
                 "beijing": "https://www.worldweatheronline.com/beijing-weather-history/beijing/cn.aspx",
                 "seoul": "https://www.worldweatheronline.com/seoul-weather-history/kr.aspx",
                 "daegu": "https://www.worldweatheronline.com/daegu-weather-history/kr.aspx",
-                "shenyang": "https://www.worldweatheronline.com/shenyang-weather-history/liaoning/cn.aspx"
+                "shenyang": "https://www.worldweatheronline.com/shenyang-weather-history/liaoning/cn.aspx",
+                "shandong": "https://www.worldweatheronline.com/weifang-weather-history/shandong/cn.aspx"
             }
         else:
             keys = {
                 "seoul" : "https://www.worldweatheronline.com/seoul-weather/kr.aspx",
                 "daegu": "https://www.worldweatheronline.com/daegu-weather/kr.aspx",
                 "beijing": "https://www.worldweatheronline.com/beijing-weather/beijing/cn.aspx",
-                "shenyang": "https://www.worldweatheronline.com/shenyang-weather/liaoning/cn.aspx"
+                "shenyang": "https://www.worldweatheronline.com/shenyang-weather/liaoning/cn.aspx",
+                "shandong": "https://www.worldweatheronline.com/weifang-weather/shandong/cn.aspx"
             }
         return keys[key]
 

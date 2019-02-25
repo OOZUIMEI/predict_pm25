@@ -80,21 +80,20 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
         if validation_url:
             valid_set = utils.load_file(validation_url)
             valid_set = np.asarray(valid_set, dtype=np.float32)
+            dataset = np.concatenate((dataset, valid_set), axis=0)
             valid_length = len(valid_set)
             print("using separated valid data %i" % valid_length)
             train, _ = utils.process_data_grid(lt, batch_size, encoder_length, decoder_length, True)
             valid, _ = utils.process_data_grid(valid_length, batch_size, encoder_length, decoder_length, True)
             valid = valid + lt
-            if attention_url:
-                valid_att_data = utils.load_file(attention_valid_url)
-                print("using separated valid att %i" % len(valid_att_data))
-            dataset = np.concatenate((dataset, valid_set), axis=0)
             del(valid_set) 
         else:
             train, valid = utils.process_data_grid(lt, batch_size, encoder_length, decoder_length, is_test)
         if attention_url:
             attention_data = utils.load_file(attention_url)
             if attention_valid_url:
+                valid_att_data = utils.load_file(attention_valid_url)
+                print("using separated valid att %i" % len(valid_att_data))
                 attention_data += valid_att_data
                 del(valid_att_data)
         else:
@@ -134,7 +133,7 @@ def execute(path, attention_url, url_weight, model, session, saver, batch_size, 
             # saver.restore(session, url_weight)
             print('==> running model')
             loss, preds = model.run_epoch(session, model.train, shuffle=False, stride=2)
-            l_str = 'Test mae loss: %.4f' % loss
+            l_str = 'Test loss: %.6f' % loss
             print(l_str)
             pt = re.compile("weights/([A-Za-z0-9_.]*).weights")
             name = pt.match(url_weight)

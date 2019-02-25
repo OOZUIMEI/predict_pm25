@@ -1,11 +1,12 @@
 """
 both decoder and encoder using same attention layers
 """
-
+import time
 import numpy as np
 import tensorflow as tf
 
-from mask_gan import MaskGan
+# from mask_gan import MaskGan
+from baseline_cnnlstm import BaselineModel
 import properties as pr
 import rnn_utils
 
@@ -21,9 +22,9 @@ import rnn_utils
 # flip labels
 # add noise to input & label
 
-class APGan(MaskGan):
+class APGan(BaselineModel):
 
-    def __init__(self, **kwargs):
+    def __init__(self, gamma=0.9, learning_rate=0.0002, use_cnn=True, **kwargs):
         super(APGan, self).__init__(**kwargs)
         # alpha is used for generator loss function
         # [0.001 nodp > 0.001 dp0.5 > 0.005 nodp > 0.005 dp0.5]
@@ -40,9 +41,19 @@ class APGan(MaskGan):
         # discriminator unit type 6 & 7 is hard to control / should be 4
         self.gmtype = 7
         self.mtype = 7
+        self.all_pred = True
+        self.learning_rate = learning_rate
+        self.use_cnn = use_cnn
         self.z_dim = [self.batch_size, self.decoder_length, 128]
         self.z = tf.placeholder(tf.float32, shape=self.z_dim)   
         self.flag = tf.placeholder(tf.float32, shape=[self.batch_size, 1]) 
+        # set up multiple cnns layers to generate outputs
+        self.optimizer = tf.train.AdamOptimizer(self.learning_rate, self.beta1)
+
+    def init_ops(self, is_train=True):
+        self.add_placeholders()
+        self.outputs = self.inference(is_train)
+        # self.merged = tf.summary.merge_all()
 
     def inference(self, is_train=True):
         fake_outputs, conditional_vectors = self.create_generator(self.encoder_inputs, self.decoder_inputs, self.attention_inputs)
@@ -77,7 +88,10 @@ class APGan(MaskGan):
         return np.random.normal(0., 0.01, size=self.z_dim)
     
     def get_generator_loss(self, fake_preds, outputs, fake_rewards=None):
-        labels = tf.reshape(self.pred_placeholder, shape=(self.batch_size, self.decoder_length, self.grid_square))
+        if self.all_pred:
+            labels = tf.reshape(self.pred_placeholder, shape=(self.batch_size, self.decoder_length, self.grid_square))
+        else:
+            labels = tf.reshape(self.pred_placeholder, shape=(self.batch_size, self.grid_square))
         gen_loss = self.add_generator_loss(fake_preds, outputs, labels, fake_rewards)
         return gen_loss
     
@@ -112,26 +126,29 @@ class APGan(MaskGan):
         return loss
     
     # the conditional layer that concat all attention vectors => produces a single vector
-    # def add_conditional_layer(self, dec, enc_outputs, attention=None):
-    #     with tf.name_scope("conditional"):
-    #         cnn_dec_input = rnn_utils.get_cnn_rep(dec, mtype=self.mtype, use_batch_norm=self.use_batch_norm, dropout=self.dropout)
-    #         cnn_dec_input = tf.layers.flatten(cnn_dec_input)
-    #         cnn_shape = cnn_dec_input.get_shape()
-    #         dec_data = tf.reshape(cnn_dec_input, [self.batch_size, self.decoder_length, int(cnn_shape[-1])])
-    #         dec_rep, _ = rnn_utils.execute_sequence(dec_data, self.e_params)
-    #         dec_rep = self.get_softmax_attention(dec_rep)
-    #         # add attentional layer here to measure the importance of each timestep.
-    #         enc_outputs = self.get_softmax_attention(enc_outputs)
-    #         # dec_input with shape bs x 3hidden_size
-    #         dec_input = tf.concat([enc_outputs, dec_rep], axis=1)
-    #         if not attention is None:
-    #             dec_input = tf.concat([dec_input, attention], axis=1)
-    #         # dec_hidden_vectors with shape bs x 128 
-    #         dec_hidden_vectors = tf.layers.dense(dec_input, 128, name="conditional_layer", activation=tf.nn.tanh)
-    #         if self.dropout:
-    #             dec_hidden_vectors = tf.nn.dropout(dec_hidden_vectors, 0.5)
-    #         return dec_hidden_vectors
+    #"""
+    def add_conditional_layer(self, dec, enc_outputs, attention=None):
+        with tf.name_scope("conditional"):
+            cnn_dec_input = rnn_utils.get_cnn_rep(dec, mtype=self.mtype, use_batch_norm=self.use_batch_norm, dropout=self.dropout)
+            cnn_dec_input = tf.layers.flatten(cnn_dec_input)
+            cnn_shape = cnn_dec_input.get_shape()
+            dec_data = tf.reshape(cnn_dec_input, [self.batch_size, self.decoder_length, int(cnn_shape[-1])])
+            dec_rep, _ = rnn_utils.execute_sequence(dec_data, self.e_params)
+            dec_rep = self.get_softmax_attention(dec_rep)
+            # add attentional layer here to measure the importance of each timestep.
+            enc_outputs = self.get_softmax_attention(enc_outputs)
+            # dec_input with shape bs x 3hidden_size
+            dec_input = tf.concat([enc_outputs, dec_rep], axis=1)
+            if not attention is None:
+                dec_input = tf.concat([dec_input, attention], axis=1)
+            # dec_hidden_vectors with shape bs x 128 
+            dec_hidden_vectors = tf.layers.dense(dec_input, 128, name="conditional_layer", activation=tf.nn.tanh)
+            if self.dropout:
+                dec_hidden_vectors = tf.nn.dropout(dec_hidden_vectors, 0.5)
+            return dec_hidden_vectors
     
+    """
+
     # the conditional layer that concat all attention vectors => produces a single vector
     def add_conditional_layer(self, dec, enc_outputs, attention=None):
         with tf.variable_scope("encoder_softmax", initializer=self.initializer):
@@ -156,6 +173,7 @@ class APGan(MaskGan):
             if self.dropout:
                 dec_hidden_vectors = tf.nn.dropout(dec_hidden_vectors, 0.5)
         return dec_hidden_vectors
+    """
 
     #perform decoder to produce outputs of the generator
     def exe_decoder(self, dec_hidden_vectors, fn_state=None):
@@ -249,3 +267,69 @@ class APGan(MaskGan):
             total_dis_loss += dis_loss
 
         return pred, total_gen_loss, total_dis_loss
+
+    def train_discriminator(self, loss):
+        with tf.name_scope("train_discriminator"):
+            dis_optimizer = tf.train.AdamOptimizer(self.learning_rate, self.beta1)
+            dis_vars = [v for v in tf.trainable_variables() if v.op.name.startswith("discriminator")]
+            dis_grads = tf.gradients(loss, dis_vars)
+            dis_grads, _ = tf.clip_by_global_norm(dis_grads, 10.)
+            dis_train_op = dis_optimizer.apply_gradients(zip(dis_grads, dis_vars))
+            return dis_train_op
+    
+    # policy gradient
+    def train_generator(self, loss):
+        with tf.name_scope("train_generator"):
+            gen_optimizer = tf.train.AdamOptimizer(self.learning_rate, self.beta1)
+            gen_vars = [v for v in tf.trainable_variables() if v.op.name.startswith("generator")]
+            # if self.gen_loss_type == 0:
+            ## gradient ascent, maximum reward  => ascent the generator loss
+            # gen_grads = tf.gradients(-loss, gen_vars)
+            # else:
+            # using mse without critic
+            gen_grads = tf.gradients(loss, gen_vars)
+            gen_grads, _ = tf.clip_by_global_norm(gen_grads, 10.)
+            gen_train_op = gen_optimizer.apply_gradients(zip(gen_grads, gen_vars))
+            return gen_train_op
+    
+    # using stride to reduce the amount of data to loop over time intervals
+    def run_epoch(self, session, data, num_epoch=0, train_writer=None, verbose=False, train=False, shuffle=True, stride=4):
+        # print("Using stride: %i" % stride)
+        st = time.time()
+        dt_length = len(data)
+        # print("data_size: ", dt_length)
+        total_gen_loss = 0.0
+        total_dis_loss = 0.0
+        preds = []
+        ct = np.asarray(data, dtype=np.float32)
+        if shuffle:
+            r = np.random.permutation(dt_length)
+            ct = ct[r]
+
+        # if train:
+        #     np.random.shuffle(self.strides)        
+        
+        if len(self.strides) > 1:
+            stride = self.strides[0]
+        
+        if self.batch_size >= stride:
+            cons_b = self.batch_size * stride
+        else:
+            cons_b = self.batch_size
+            stride = 1
+        total_steps = dt_length // cons_b
+        for step in xrange(total_steps):
+            index = range(step * cons_b, (step + 1) * cons_b, stride)
+            pred, total_gen_loss, total_dis_loss = self.iterate(session, ct, index, train, total_gen_loss, total_dis_loss)
+            if not train:
+                preds.append(pred)      
+        
+        total_gen_loss, total_dis_loss = total_gen_loss / total_steps, total_dis_loss / total_steps
+        if train_writer is not None:
+            summary = tf.Summary()
+            summary.value.add(tag= "Generator Loss", simple_value=total_gen_loss)
+            summary.value.add(tag= "Discriminator Loss", simple_value=total_dis_loss)
+            train_writer.add_summary(summary, num_epoch)
+        dur = time.time() - st
+        #print("%.4f" % dur)
+        return total_gen_loss, preds

@@ -136,6 +136,7 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
     else:
         districts = utils.load_file("district_idx.pkl")
     data = utils.load_file(url)
+    print(np.shape(data))
     if type(data) is list:
         data = np.asarray(data)
     if len(data.shape) == 4:
@@ -147,10 +148,10 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
     else:
         lt = data.shape[0]
         data = np.reshape(data, (lt, data.shape[-2], data.shape[-1]))
-    print(np.shape(data))
     
     labels = utils.load_file(url2)
     labels = np.asarray(labels)
+    print(np.shape(labels))
     if not is_classify:
         loss_mae = [0.0] * decoder_length
         loss_rmse = [0.0] * decoder_length
@@ -158,6 +159,7 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
         acc = 0.
     else:
         acc = None
+    cr = Crawling() 
     for i, d in enumerate(data):
         if not is_grid:
             d = d[:decoder_length]
@@ -178,6 +180,10 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
             pred_t = pred_t.flatten()
             if not is_classify:
                 mae, mse, _ = get_evaluation(pred_t, l_t)
+                if t_i == 167:
+                    print("aqi pred", pred_t * 300)
+                    print("aqi label", l_t * 300)
+                    print(mae * 300)
                 # sum loss for each timestep prediction
                 loss_mae[t_i] += mae
                 loss_rmse[t_i] += mse

@@ -22,15 +22,16 @@ def get_softmax_attention(inputs):
     return outputs
 
 
-def get_cell(cell_type, size, layers=1):
+# 'unidirectional' or 'bidirectional'
+def get_cell(cell_type, size, layers=1, direction='unidirectional'):
     if cell_type == "layer_norm_basic":
         cell = LayerNormBasicLSTMCell(size)
     elif cell_type == "lstm_block_fused":
         cell = tf.contrib.rnn.LSTMBlockFusedCell(size)
     elif cell_type == "cudnn_lstm":
-        cell = CudnnLSTM(layers, size)
+        cell = CudnnLSTM(layers, size, direction=direction)
     elif cell_type == "cudnn_gru":
-        cell = CudnnGRU(layers, size)
+        cell = CudnnGRU(layers, size, direction=direction)
     elif cell_type == "lstm_block":
         cell = LSTMBlockCell(size)
     elif cell_type == "gru_block":
@@ -44,18 +45,41 @@ def get_cell(cell_type, size, layers=1):
     return cell
 
 
-# rnn through each 30', 1h 
+# elmo softmax
 def execute_sequence(inputs, params):
+    outputs, fn_state = None, None
+    if params["rnn_layer"] > 1:
+        outputs = inputs
+        all_outputs = []
+        for _ in xrange(params["rnn_layer"]):
+            outputs, fn_state = execute_sequence_engine(inputs, params)
+            all_outputs.append(outputs)
+        all_outputs = tf.concat(all_outputs, axis=2)
+        shape = all_outputs.get_shape()
+        dim = int(int(shape[2]) / params["rnn_layer"])
+        all_outputs = tf.reshape(all_outputs, (shape[0] * shape[1], params["rnn_layer"], dim), name="multilayer_reshape_softmax")
+        all_outputs = get_softmax_attention(all_outputs)
+        outputs = tf.reshape(all_outputs, (shape[0], shape[1], dim), name="multilayer_reshape")
+    else:
+        outputs, fn_state = execute_sequence_engine(inputs, params)
+        # residual network, like elmo, connect bidirectional vectors & inputs
+    #if "elmo" in params and  params["elmo"]:
+    outputs = tf.concat([outputs, inputs], axis=2, name="elmo_connection")
+    return outputs, fn_state
+
+
+# rnn through each 30', 1h 
+def execute_sequence_engine(inputs, params):
     if prp.device and "gpu" not in prp.device:
         if "cudnn" in params["fw_cell"]:
             params["fw_cell"] = "lstm_block_fused"
         else:
             params["fw_cell"] = "basic"
     # 1 is bidireciton
-    if  "fw_layers" not in params:
-        params["fw_layers"] = 1
+    if  "rnn_layer" not in params:
+        params["rnn_layer"] = 1
     # note: state_size of MultiRNNCell must be equal to size input_size
-    fw_cell = get_cell(params["fw_cell"], params["fw_cell_size"], params["fw_layers"])
+    fw_cell = get_cell(params["fw_cell"], params["fw_cell_size"], params["rnn_layer"], params["direction"])
     if "cudnn" in params["fw_cell"] or params["fw_cell"] == "lstm_block_fused":
         inputs = tf.transpose(inputs, [1, 0, 2])
         if "cudnn" in params["fw_cell"]:
@@ -69,6 +93,15 @@ def execute_sequence(inputs, params):
                     c = tf.squeeze(tf.gather(fn_state[1], [-1]), [0])
                     h = tf.squeeze(tf.gather(fn_state[0], [-1]), [0])
                 fn_state = (c, h)
+            # if params["direction"] == "bidirectional":
+            #     shape = outputs.get_shape()
+            #     outputs = tf.reshape(outputs, [shape[0]* shape[1], 2, params["fw_cell_size"]])
+            #     with tf.variable_scope("bidirectional_softmax", initializer= tf.contrib.layers.xavier_initializer()):
+            #         # get softmax of bidirectional vectors
+            #         outputs = get_softmax_attention(outputs)
+            #         # reshape to original shape
+            #         outputs = tf.reshape(outputs, [shape[0], shape[1], params["fw_cell_size"]])
+            
         else:
             outputs, fn_state = fw_cell(inputs, dtype=tf.float32)
         # => bs x length x hsize
@@ -115,7 +148,7 @@ def execute_decoder(inputs, init_state, sequence_length, params, attention=None,
 
 
 # perform cnn on pm2_5 output
-def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=None, cnn_rep=True, cnn_gen=False, mtype=4, use_batch_norm=True, dropout=0.5, dctype=5):
+def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=None, cnn_rep=True, cnn_gen=False, mtype=4, use_batch_norm=True, dropout=0.5, dctype=5, all_pred=True):
     # push final state of encoder to decoder
     if params["fw_cell"] == "gru_block" or params["fw_cell"] == "rnn":
         dec_state = tf.squeeze(init_state[0], [0])
@@ -140,21 +173,21 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=N
         dec_out, dec_state = cell_dec(dec_in, dec_state)
         if attention is not None: 
             dec_out = tf.concat([dec_out, attention], axis=1)
-        
-        if cnn_gen:
-            pm2_5_input = tf.layers.dense(dec_out, 256, name="decoder_output_cnn")
-            if mtype == 3 or mtype == 6 or mtype == 8 or mtype == 9:
-                pm2_5_input = tf.reshape(pm2_5_input, [params["batch_size"], 2, 2, 64])
+        if all_pred or t == (sequence_length - 1):
+            if cnn_gen:
+                pm2_5_input = tf.layers.dense(dec_out, 256, name="decoder_output_cnn")
+                if mtype == 3 or mtype == 6 or mtype == 8 or mtype == 9:
+                    pm2_5_input = tf.reshape(pm2_5_input, [params["batch_size"], 2, 2, 64])
+                else:
+                    pm2_5_input = tf.reshape(pm2_5_input, [params["batch_size"], 4, 4, 16])
+                pm2_5_cnn = get_cnn_rep(pm2_5_input, dctype, max_filters=64, use_batch_norm=use_batch_norm, dropout=dropout)
+                pm2_5 = tf.layers.flatten(pm2_5_cnn)
             else:
-                pm2_5_input = tf.reshape(pm2_5_input, [params["batch_size"], 4, 4, 16])
-            pm2_5_cnn = get_cnn_rep(pm2_5_input, dctype, max_filters=64, use_batch_norm=use_batch_norm, dropout=dropout)
-            pm2_5 = tf.layers.flatten(pm2_5_cnn)
-        else:
-            pm2_5 = tf.layers.dense(dec_out, 
-                        params["de_output_size"],
-                        name="decoder_output",
-                        activation=tf.nn.sigmoid)
-        outputs.append(pm2_5)
+                pm2_5 = tf.layers.dense(dec_out, 
+                            params["de_output_size"],
+                            name="decoder_output",
+                            activation=tf.nn.sigmoid)
+            outputs.append(pm2_5)
     return outputs
 
 
@@ -309,27 +342,27 @@ def get_cnn_rep(cnn_inputs, mtype=4, activation=tf.nn.relu, max_filters=8, use_b
 # get multiscale convolution output
 def get_multiscale_conv(inputs, filters, kernel=[7,5,3,1], activation=tf.nn.relu, is_trans=False, prefix="msf", strides=(1,1), use_softmax=False):
     convs = []
-    # conv_shape = None
+    conv_shape = None
     for k in kernel:
         if not is_trans:
             conv1 = get_cnn_unit(inputs, filters, (k, k), activation, "SAME", "%s_%ix%i" % (prefix, k,k), strides=strides)
         else:
             conv1 = get_cnn_transpose_unit(inputs, filters, (k, k), activation, "SAME", "%s_%ix%i" % (prefix, k,k), strides=strides)
-        # if not conv_shape:
-        #     conv_shape = conv1.get_shape()
-        # if use_softmax:
-        #     conv1 = tf.layers.flatten(conv1)
+        if not conv_shape:
+            conv_shape = conv1.get_shape()
+        if use_softmax:
+            conv1 = tf.layers.flatten(conv1)
         convs.append(conv1)
-    # if use_softmax:
-    #     # get shape: bs * l x w x h x k
-    #     temp_shape = convs[0].get_shape()
-    #     convs = tf.reshape(tf.concat(convs, axis=1), (temp_shape[0], len(convs), temp_shape[1]))
-    #     # conv = tf.transpose(convs, [0, 2, 1])
-    #     with tf.variable_scope("attention_%s" %prefix, initializer=tf.contrib.layers.xavier_initializer()):
-    #         conv_ = get_softmax_attention(convs)
-    #         conv_ = tf.reshape(conv_, conv_shape)
-    # else:
-    conv_ = tf.concat(convs, axis=-1)
+    if use_softmax:
+        # get shape: bs * l x w x h x k
+        temp_shape = convs[0].get_shape()
+        convs = tf.reshape(tf.concat(convs, axis=1), (temp_shape[0], len(convs), temp_shape[1]))
+        # conv = tf.transpose(convs, [0, 2, 1])
+        with tf.variable_scope("attention_%s" %prefix, initializer=tf.contrib.layers.xavier_initializer()):
+            conv_ = get_softmax_attention(convs)
+            conv_ = tf.reshape(conv_, conv_shape)
+    else:
+        conv_ = tf.concat(convs, axis=-1)
     return conv_
 
 

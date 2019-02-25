@@ -17,10 +17,10 @@ export class AppComponent implements OnInit {
     private zone: number = 0
     private selectedIndex: number = 0
     private mapConfig: object = {
-        // minZoom: 10,
-        // maxZoom: 14,
-        // zoom: 11,
-        zoom: 6,
+        minZoom: 10,
+        maxZoom: 14,
+        zoom: 11,
+        // zoom: 6,
         lat: 37.5617, // seoul
         lng: 126.93923,
         // lat: 34.38344, // cali
@@ -345,7 +345,7 @@ export class AppComponent implements OnInit {
     }
     addPointSeoul() {
         for (let x in this.selected_average) {
-            let d = Number(this.selected_average[x])
+            let d = Number(this.selected_average[x] + 20)
             this.addPoint(this.chart, d)
         }
     }
@@ -378,7 +378,7 @@ export class AppComponent implements OnInit {
             let obj = cloneDeep(this.district_geo)
             for (var x in obj["features"]) {
                 var dis = obj["features"][x]
-                dis["properties"]["density"] = Math.round(data[i])
+                dis["properties"]["density"] = Math.round(data[i]) + 20
                 i++
             }
             this.mapComponent.invalidateSize()

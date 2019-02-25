@@ -40,6 +40,7 @@ class BaselineModel(object):
         self.rnn_layers = rnn_layers
         self.atttention_hidden_size = atttention_hidden_size
         self.initializer = tf.contrib.layers.xavier_initializer()
+        self.dropout = 0.9
         self.e_params = {
             "fw_cell_size" : self.rnn_hidden_units,
             "fw_cell": "cudnn_lstm",
@@ -47,8 +48,8 @@ class BaselineModel(object):
             "type": 0,
             "rnn_layer": self.rnn_layers,
             "grid_size": grid_size,
+            "dropout": self.dropout
         }
-        self.dropout = 0.9
         self.use_attention = use_attention
         self.attention_length = attention_length
         if self.dtype == "grid":
@@ -71,6 +72,7 @@ class BaselineModel(object):
         self.use_batch_norm = False
         # 0 is predict pm2.5 while 1 is predict pm10
         self.forecast_factor = forecast_factor
+        self.all_pred = True
     
     def set_training(self, training):
         self.is_training = training
@@ -95,7 +97,10 @@ class BaselineModel(object):
         self.encoder_inputs = tf.placeholder(tf.int32, shape=(self.batch_size, self.encoder_length))
         self.decoder_inputs = tf.placeholder(tf.int32, shape=(self.batch_size, self.decoder_length))
         if self.dtype == "grid":
-            self.pred_placeholder = tf.placeholder(tf.float32, shape=(self.batch_size, self.decoder_length, self.grid_size, self. grid_size))
+            if self.all_pred:
+                self.pred_placeholder = tf.placeholder(tf.float32, shape=(self.batch_size, self.decoder_length, self.grid_size, self. grid_size))
+            else:
+                self.pred_placeholder = tf.placeholder(tf.float32, shape=(self.batch_size, self.grid_size, self. grid_size))
         # china attention_inputs
         self.attention_embedding = tf.Variable([], validate_shape=False, dtype=tf.float32, trainable=False, name="attention_embedding")
         self.attention_inputs = tf.placeholder(tf.int32, shape=(self.batch_size, self.attention_length))
@@ -128,14 +133,21 @@ class BaselineModel(object):
             dec = dec_f[:,:,:,:,self.df_ele:]
             dec.set_shape((self.batch_size, self.decoder_length, self.grid_size, self.grid_size, self.decode_vector_size))
             # 0 is pm2.5 1 is pm10
-            self.pred_placeholder = dec_f[:,:,:,:, self.forecast_factor]
+            if self.all_pred:
+                self.pred_placeholder = dec_f[:,:,:,:, self.forecast_factor]
+            else:
+                self.pred_placeholder = dec_f[:,-1,:,:, self.forecast_factor]
         else:
             enc.set_shape((self.batch_size, self.encoder_length, 25, self.encode_vector_size))
             dec_f.set_shape((self.batch_size, self.decoder_length, 25, self.encode_vector_size))
             dec = dec_f[:,:,:,self.df_ele:]
             dec.set_shape((self.batch_size, self.decoder_length, 25, self.decode_vector_size))
-            self.pred_placeholder = dec_f[:,:,:, self.forecast_factor]
-            self.pred_placeholder = tf.reduce_mean(self.pred_placeholder, axis=2)
+            if self.all_pred:
+                self.pred_placeholder = dec_f[:,:,:, self.forecast_factor]
+                self.pred_placeholder = tf.reduce_mean(self.pred_placeholder, axis=2)
+            else:
+                self.pred_placeholder = dec_f[:,-1,:, self.forecast_factor]
+                self.pred_placeholder = tf.reduce_mean(self.pred_placeholder, axis=1)
         return enc, dec
 
     # perform encoder
@@ -195,9 +207,10 @@ class BaselineModel(object):
         with tf.variable_scope("attention_rep", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             params = {
                 "fw_cell": self.e_params["fw_cell"],
-                "fw_cell_size": self.rnn_hidden_units
+                "fw_cell_size": self.rnn_hidden_units,
+                "direction": self.e_params["direction"],
+                "rnn_layer": self.e_params["rnn_layer"]
             }
-            print("attention_length", self.attention_length)
             inputs.set_shape((self.batch_size, self.attention_length, self.atttention_hidden_size))
             # inputs = tf.unstack(inputs, self.attention_length, 1)
             outputs, _ = rnn_utils.execute_sequence(inputs, params)
