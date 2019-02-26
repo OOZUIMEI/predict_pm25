@@ -17,7 +17,7 @@ class APNet(APGan):
         self.attention_length = 168
         self.atttention_hidden_size = 17
         self.all_pred = True
-        self.e_params["direction"] = "bidirectional"
+        self.e_params["direction"] = "unidirectional"
         self.e_params["rnn_layer"] = 1
         self.e_params["dropout"] = self.dropout
         self.e_params["elmo"] = False

@@ -180,11 +180,6 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
             pred_t = pred_t.flatten()
             if not is_classify:
                 mae, mse, _ = get_evaluation(pred_t, l_t)
-                if t_i == 167:
-                    print("aqi pred", pred_t * 300)
-                    print("aqi label", l_t * 300)
-                    print(mae * 300)
-                # sum loss for each timestep prediction
                 loss_mae[t_i] += mae
                 loss_rmse[t_i] += mse
             elif not confusion_title:

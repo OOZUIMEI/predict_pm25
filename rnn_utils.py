@@ -63,8 +63,8 @@ def execute_sequence(inputs, params):
     else:
         outputs, fn_state = execute_sequence_engine(inputs, params)
         # residual network, like elmo, connect bidirectional vectors & inputs
-    #if "elmo" in params and  params["elmo"]:
-    outputs = tf.concat([outputs, inputs], axis=2, name="elmo_connection")
+    if "elmo" in params and  params["elmo"]:
+        outputs = tf.concat([outputs, inputs], axis=2, name="elmo_connection")
     return outputs, fn_state
 
 
