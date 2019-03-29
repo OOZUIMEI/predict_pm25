@@ -109,7 +109,7 @@ class MaskGan(BaselineModel):
         with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             params = copy.deepcopy(self.e_params)
             params["fw_cell"] = "gru_block"
-            outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, params, attention, self.use_cnn, self.use_gen_cnn, self.mtype, self.use_batch_norm, self.dropout)
+            outputs, _ = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, params, attention, self.use_cnn, self.use_gen_cnn, self.mtype, self.use_batch_norm, self.dropout)
             # batch_size x decoder_length x grid_size x grid_size
             outputs = tf.stack(outputs, axis=1)
             # batch_size x decoder_length

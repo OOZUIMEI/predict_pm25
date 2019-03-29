@@ -19,13 +19,13 @@ class BaselineModel(object):
     def __init__(self, encoder_length=24, decoder_length=24, grid_size=25, rnn_hidden_units=128, 
                 encode_vector_size=12, decode_vector_size=6, learning_rate=0.01, batch_size=64, loss="mse", 
                 df_ele=6, rnn_layers=1, dtype="grid", attention_length=24, atttention_hidden_size=17,
-                use_attention=True, use_cnn=False, forecast_factor=1, **kwargs):
+                use_attention=True, use_cnn=False, use_gen_cnn=True, forecast_factor=1, mtype=6, num_class=0, districts=25, **kwargs):
         self.encoder_length = encoder_length
         self.decoder_length = decoder_length
         self.sequence_length = encoder_length + decoder_length
         self.is_training = True
         self.grid_size = grid_size
-        self.rnn_hidden_units=128
+        self.rnn_hidden_units=rnn_hidden_units
         self.encode_vector_size = encode_vector_size
         self.decode_vector_size = decode_vector_size
         self.learning_rate = learning_rate
@@ -36,11 +36,16 @@ class BaselineModel(object):
         self.dtype = dtype        
         self.map = heatmap.build_map()
         self.use_cnn = use_cnn
-        self.districts = 25
+        self.districts = districts
         self.rnn_layers = rnn_layers
+        # attention config
+        self.use_attention = use_attention
+        self.attention_length = attention_length
         self.atttention_hidden_size = atttention_hidden_size
+
         self.initializer = tf.contrib.layers.xavier_initializer()
         self.dropout = 0.9
+        self.num_class = num_class
         self.e_params = {
             "fw_cell_size" : self.rnn_hidden_units,
             "fw_cell": "cudnn_lstm",
@@ -48,27 +53,29 @@ class BaselineModel(object):
             "type": 0,
             "rnn_layer": self.rnn_layers,
             "grid_size": grid_size,
-            "dropout": self.dropout
+            "dropout": self.dropout,
+            "direction": "unidirectional",
+            "de_output_size" : self.grid_square,
+            "num_class": num_class,
+            "districts": self.districts
         }
-        self.use_attention = use_attention
-        self.attention_length = attention_length
-        if self.dtype == "grid":
-            if self.use_cnn:
-                self.grd_cnn = 12 * 12
-            else:
-                self.grd_cnn = self.grid_square * self.encode_vector_size
-            # size of output prediction matrix (24 * 24)
-            self.e_params["de_output_size"] = self.grid_square
-            if self.rnn_layers > 1:
-                self.e_params["fw_cell_size"] = self.grd_cnn
-        else:
-            self.e_params["de_output_size"] = 1
-            if self.rnn_layers > 1:
-                self.e_params["fw_cell_size"] = self.districts
+        # if self.dtype == "grid":
+        #     if self.use_cnn:
+        #         self.grd_cnn = 12 * 12
+        #     else:
+        #         self.grd_cnn = self.grid_square * self.encode_vector_size
+        #     # size of output prediction matrix (24 * 24)
+        #     self.e_params["de_output_size"] = self.grid_square
+        #     if self.rnn_layers > 1:
+        #         self.e_params["fw_cell_size"] = self.grd_cnn
+        # else:
+        #     self.e_params["de_output_size"] = 1
+        #     if self.rnn_layers > 1:
+        #         self.e_params["fw_cell_size"] = self.districts
         # true mean use generate output by transposed cnn whereas. cnn-lstm doesn't use trans cnn generation 
-        self.use_gen_cnn = False
+        self.use_gen_cnn = use_gen_cnn
         # 6 is regular cnn-lstm, 3 is msf apnet
-        self.mtype = 6
+        self.mtype = mtype
         self.use_batch_norm = False
         # 0 is predict pm2.5 while 1 is predict pm10
         self.forecast_factor = forecast_factor
@@ -77,10 +84,11 @@ class BaselineModel(object):
     def set_training(self, training):
         self.is_training = training
 
-    def set_data(self, datasets, train, valid, attention_vectors=None):
+    def set_data(self, datasets, train, valid, attention_vectors=None, labels=None):
         self.datasets = datasets
         self.train = train
         self.valid = valid
+        self.labels = labels
         self.attention_vectors = attention_vectors
 
     def init_ops(self, is_train=True):
@@ -103,6 +111,7 @@ class BaselineModel(object):
                 self.pred_placeholder = tf.placeholder(tf.float32, shape=(self.batch_size, self.grid_size, self. grid_size))
         # china attention_inputs
         self.attention_embedding = tf.Variable([], validate_shape=False, dtype=tf.float32, trainable=False, name="attention_embedding")
+        self.label_embedding = tf.Variable([], validate_shape=False, dtype=tf.int32, trainable=False, name="label_class_embedding")
         self.attention_inputs = tf.placeholder(tf.int32, shape=(self.batch_size, self.attention_length))
         self.dropout_placeholder = tf.Variable(self.dropout, False, name="dropout", dtype=tf.float32)
 
@@ -148,6 +157,10 @@ class BaselineModel(object):
             else:
                 self.pred_placeholder = dec_f[:,-1,:, self.forecast_factor]
                 self.pred_placeholder = tf.reduce_mean(self.pred_placeholder, axis=1)
+        self.pred_class_placeholder = None
+        if self.num_class:
+            self.pred_class_placeholder = tf.nn.embedding_lookup(self.label_embedding, self.decoder_inputs)
+            self.pred_class_placeholder.set_shape((self.batch_size, self.decoder_length, self.districts))
         return enc, dec
 
     # perform encoder
@@ -191,7 +204,7 @@ class BaselineModel(object):
             params["fw_cell"] = "lstm_block"
         with tf.variable_scope("decoder", initializer=self.initializer, reuse=tf.AUTO_REUSE):
             if self.dtype == "grid":                
-                outputs = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, params, attention, self.use_cnn, self.use_gen_cnn, self.mtype, self.use_batch_norm, self.dropout)
+                outputs, _ = rnn_utils.execute_decoder_cnn(dec, enc_output, self.decoder_length, params, attention, self.use_cnn, self.use_gen_cnn, self.mtype, self.use_batch_norm, self.dropout)
                 outputs = tf.stack(outputs, axis=1)
             else: 
                 if "gru" in self.e_params["fw_cell"] or self.e_params["fw_cell"] == "rnn":
@@ -262,6 +275,9 @@ class BaselineModel(object):
         if self.use_attention:
             att_ops = tf.assign(self.attention_embedding, self.attention_vectors, False)
             session.run(att_ops)
+        if self.num_class:
+            lbl_ops = tf.assign(self.label_embedding, self.labels, False)
+            session.run(lbl_ops)
     
     # operation of each epoch
     def run_epoch(self, session, data, num_epoch=0, train_writer=None, verbose=True, train=False, shuffle=True, stride=4):

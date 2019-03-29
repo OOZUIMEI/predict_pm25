@@ -39,8 +39,7 @@ class APGan(BaselineModel):
         self.beta1 = 0.5
         self.lamda = 100
         # discriminator unit type 6 & 7 is hard to control / should be 4
-        self.gmtype = 7
-        self.mtype = 7
+        self.gmtype = 10
         self.all_pred = True
         self.learning_rate = learning_rate
         self.use_cnn = use_cnn
@@ -56,7 +55,7 @@ class APGan(BaselineModel):
         # self.merged = tf.summary.merge_all()
 
     def inference(self, is_train=True):
-        fake_outputs, conditional_vectors = self.create_generator(self.encoder_inputs, self.decoder_inputs, self.attention_inputs)
+        fake_outputs, conditional_vectors, _ = self.create_generator(self.encoder_inputs, self.decoder_inputs, self.attention_inputs)
         if is_train:
             fake_vals, real_vals, fake_rewards = self.create_discriminator(fake_outputs, conditional_vectors)
             self.dis_loss = self.add_discriminator_loss(fake_vals, real_vals)
@@ -78,8 +77,8 @@ class APGan(BaselineModel):
                 inputs = tf.nn.embedding_lookup(self.attention_embedding, att)
                 attention = self.get_attention_rep(inputs)
             conditional_vectors = self.add_conditional_layer(dec, enc_outputs, attention)
-            outputs = self.exe_decoder(conditional_vectors, fn_state)
-        return outputs, conditional_vectors
+            outputs, classes = self.exe_decoder(conditional_vectors, fn_state)
+        return outputs, conditional_vectors, classes
     
     def sample_z(self):
         # better for pm2.5
@@ -87,18 +86,26 @@ class APGan(BaselineModel):
         # better for pm10
         return np.random.normal(0., 0.01, size=self.z_dim)
     
-    def get_generator_loss(self, fake_preds, outputs, fake_rewards=None):
+    def get_generator_loss(self, fake_preds, outputs, fake_rewards=None, classes=None):
         if self.all_pred:
             labels = tf.reshape(self.pred_placeholder, shape=(self.batch_size, self.decoder_length, self.grid_square))
         else:
             labels = tf.reshape(self.pred_placeholder, shape=(self.batch_size, self.grid_square))
-        gen_loss = self.add_generator_loss(fake_preds, outputs, labels, fake_rewards)
+        gen_loss = self.add_generator_loss(fake_preds, outputs, labels, fake_rewards, classes, self.pred_class_placeholder)
         return gen_loss
     
     # add generation loss
     # use log_sigmoid instead of log because fake_vals is w * x + b (not the probability value)
-    def add_generator_loss(self, fake_vals, outputs, labels, fake_rewards=None):
+    def add_generator_loss(self, fake_vals, outputs, labels, fake_rewards=None, classes=None, class_labels=None):
         loss = tf.losses.mean_squared_error(labels, outputs)
+        if not classes is None and not class_labels is None:
+            class_labels = tf.cast(class_labels, tf.int32)
+            class_labels = tf.one_hot(class_labels, self.num_class)
+            print("class", class_labels.get_shape())
+            classes = tf.reshape(classes, (self.batch_size, self.decoder_length, self.districts, self.num_class))
+            class_loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=class_labels, logits=classes)
+            loss += class_loss
+        
         if not fake_rewards is None:
             print("Using reinsforcement learning")
             advatages = tf.abs(fake_rewards)
@@ -112,12 +119,6 @@ class APGan(BaselineModel):
                 loss = loss - sigmoid_loss
                 #loss_values = sigmoid_loss
                 loss = tf.reduce_mean(loss)
-                """
-                for v in tf.trainable_variables():
-                    name = v.name.lower()
-                    if 'generator' in name and not 'bias' in name:
-                        loss += 0.0001 * tf.nn.l2_loss(v)
-                """
             else:
                 loss = tf.reduce_mean(loss)
                 for v in tf.trainable_variables():
@@ -186,20 +187,23 @@ class APGan(BaselineModel):
             dec_outputs = tf.layers.dense(dec_inputs_vectors, 256, name="generation_hidden_seed", activation=tf.nn.tanh)
             dec_outputs = tf.unstack(dec_outputs, axis=1)
             gen_outputs = []
+            dtype = 5
+            if self.grid_size == 32:
+                dtype = 7
             for d in dec_outputs:
                 d_ = tf.reshape(d, [self.batch_size, 2, 2, 64])
-                out = rnn_utils.get_cnn_rep(d_, 5, tf.nn.relu, 8, self.use_batch_norm, 0.5, False)
+                out = rnn_utils.get_cnn_rep(d_, dtype, tf.nn.relu, 8, self.use_batch_norm, self.dropout, False)
                 gen_outputs.append(out)
             outputs = tf.stack(gen_outputs, axis=1)
             outputs = tf.tanh(tf.layers.flatten(outputs))
-            outputs = tf.reshape(outputs, [self.batch_size, self.decoder_length, pr.grid_size * pr.grid_size])
-        return outputs
+            outputs = tf.reshape(outputs, [self.batch_size, self.decoder_length, self.grid_size * self.grid_size])
+        return outputs, None
 
     # just decide whether an image is fake or real
     # calculate the outpute validation of discriminator
     # output is the value of a dense layer w * x + b
     def validate_output(self, inputs, conditional_vectors):
-        inputs = tf.reshape(inputs, [self.batch_size * self.decoder_length, pr.grid_size, pr.grid_size, 1])
+        inputs = tf.reshape(inputs, [self.batch_size * self.decoder_length, self.grid_size, self.grid_size, 1])
         inputs_rep = rnn_utils.get_cnn_rep(inputs, self.gmtype, tf.nn.leaky_relu, 8, self.use_batch_norm, self.dropout, False)
         inputs_rep = tf.layers.flatten(inputs_rep)
         inputs_rep = tf.concat([inputs_rep, conditional_vectors], axis=1)

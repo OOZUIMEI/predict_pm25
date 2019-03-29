@@ -17,7 +17,7 @@ export class AppComponent implements OnInit {
     private zone: number = 0
     private selectedIndex: number = 0
     private mapConfig: object = {
-        minZoom: 10,
+        // minZoom: 10,
         maxZoom: 14,
         zoom: 11,
         // zoom: 6,
@@ -40,12 +40,16 @@ export class AppComponent implements OnInit {
             stroke: true,
             color: "#f00",
             weight: 0.3
-        }
+        },
+        seoulColor: "#ff0000"
     }
     public ifShowGrid : Boolean = true
     public chinaStations: any = []
     public china_polylineH: any = []
     public china_polylineV: any = []
+    public seoulStations: any = []
+    public seoul_polylineH: any = []
+    public seoul_polylineV: any = []
 
     // zone 1 & zone 2 of cali
     public polylineH: any = []
@@ -100,6 +104,11 @@ export class AppComponent implements OnInit {
         this.services.getChinaStations().subscribe(
             res => {
                 this.chinaStations = res["data"]
+            }
+        )
+        this.services.getSeoulStations().subscribe(
+            res => {
+                this.seoulStations = res["data"]
             }
         )
         this.services.getCurrentTimestamp().subscribe(
@@ -192,6 +201,10 @@ export class AppComponent implements OnInit {
         let china_outputs = this.calculatePolyline(2)
         this.china_polylineV = this.initPolyline(china_outputs[1])
         this.china_polylineH = this.initPolyline(china_outputs[0])
+
+        let seoul_outputs = this.calculatePolyline(3)
+        this.seoul_polylineV = this.initPolyline(seoul_outputs[1])
+        this.seoul_polylineH = this.initPolyline(seoul_outputs[0])
     }
 
     initChart(sz: number, name: string, title: string, yAxis:string="Values", xcategories=[], tooltip: object=null) {
@@ -288,6 +301,11 @@ export class AppComponent implements OnInit {
             ws = [115.971999, 39.52]
             es = [117.12, 39.52]
             en = [117.12, 40.530]
+        }else if(zone == 3){
+            ws = [126.764442, 37.701488]
+            es = [127.1817333, 37.701488]
+            wn = [126.764442, 37.428176]
+            en = [127.1817333, 37.428176]
         }
         // let wn = [-124.409818, 41.995140]
         // let ws = [-124.409818, 32.534125]
@@ -295,6 +313,7 @@ export class AppComponent implements OnInit {
         // let en = [-114.131055, 41.995140]
         let deltaY = (es[0] - wn[0]) / total
         let deltaX = (ws[1] - wn[1]) / total
+        console.log(deltaY, deltaX)
         outputsV.push(wn)
         outputsV.push(ws)
         for(var x = 1; x < total; x++){

@@ -1,6 +1,8 @@
 """
 craw weather from https://www.worldweatheronline.com/daegu-weather-history/kr.aspx
 https://www.worldweatheronline.com/weifang-weather/shandong/cn.aspx
+# previous crawling: by default wind speed is mph (beijing, shenyang, seoul 2008-2018)
+# now: by default wind speed is km/h (shandong)
 """
 
 # _*_ coding: utf-8 _*_
@@ -144,20 +146,20 @@ class CrawlWeather(Crawling):
         while start <= end:
             now = utils.get_datetime_now()
             if (now - start_point).total_seconds() >= args.interval:
-                #try:
-                counter += 1
-                date = "%s-%s-%s" % (start.year, self.format10(start.month), self.format10(start.day))
-                for c in cities:
-                    html = self.craw_data(c, date)
-                    data = self.mine_data(date, html, c)
-                    if data:
-                        output += "\n".join(data) + "\n"
-                    if (counter - last_save) == save_interval:
-                        last_save = counter
-                        self.write_log(output)
-                        output = ""
-                #except Exception as e:
-                #    print(start.strftime(pr.fm), e)
+                try:
+                    counter += 1
+                    date = "%s-%s-%s" % (start.year, self.format10(start.month), self.format10(start.day))
+                    for c in cities:
+                        html = self.craw_data(c, date)
+                        data = self.mine_data(date, html, c)
+                        if data:
+                            output += "\n".join(data) + "\n"
+                        if (counter - last_save) == save_interval:
+                            last_save = counter
+                            self.write_log(output)
+                            output = ""
+                except Exception as e:
+                   print(start.strftime(pr.fm), e)
                 start = start + timedelta(days=1)
                 start_point = now   
                 utils.update_progress(counter * 1.0 / length)
@@ -170,7 +172,7 @@ class CrawlWeather(Crawling):
         print("Collecting future forecasting")
         start_point = utils.get_datetime_now()
         start_point = start_point - timedelta(days=1)
-        interval = args.interval * 86400
+        # interval = args.interval * 86400
         cities = []
         if "," in args.city:
             cities = args.city.split(",")

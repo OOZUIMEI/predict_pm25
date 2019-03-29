@@ -32,4 +32,7 @@ export class Services{
     getChinaStations(){
         return this.http.get("assets/data/china.json")
     }
+    getSeoulStations(){
+        return this.http.get("assets/data/seoul.json")
+    }
 }

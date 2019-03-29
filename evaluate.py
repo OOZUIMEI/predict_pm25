@@ -1,7 +1,8 @@
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score, accuracy_score, confusion_matrix
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
-
+import math
 import argparse
 import itertools
 import numpy as np
@@ -11,7 +12,7 @@ import properties as pr
 import utils
 from crawling_base import Crawling  
 import aqi
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score, accuracy_score, confusion_matrix
+from utils import save_file
 
 
 # old eval
@@ -151,7 +152,6 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
     
     labels = utils.load_file(url2)
     labels = np.asarray(labels)
-    print(np.shape(labels))
     if not is_classify:
         loss_mae = [0.0] * decoder_length
         loss_rmse = [0.0] * decoder_length
@@ -179,15 +179,21 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
                 pred_t = t
             pred_t = pred_t.flatten()
             if not is_classify:
-                mae, mse, _ = get_evaluation(pred_t, l_t)
-                loss_mae[t_i] += mae
-                loss_rmse[t_i] += mse
+                if not forecast_factor:
+                    # mae, mse, _ = get_evaluation(pred_t, l_t)
+                    #mae = mean_absolute_error(pred_t * 300, l_t * 300)
+                    mae = mean_absolute_error([cr.ConcPM25(x*300) for x in pred_t], [cr.ConcPM25(x * 300) for x in l_t])
+                    loss_mae[t_i] += mae
+                    # loss_rmse[t_i] += mse
+                else:
+                    mae = mean_absolute_error([cr.ConcPM10(x*300) for x in pred_t], [cr.ConcPM10(x * 300) for x in l_t])
+                    loss_mae[t_i] += mae
             elif not confusion_title:
-                a += classify_data(pred_t, l_t, forecast_factor)
+                a += classify_data(pred_t, l_t, forecast_factor, tp="G")
             elif a is None:
-                a = classify_data(pred_t, l_t, forecast_factor, True)
+                a = classify_data(pred_t, l_t, forecast_factor, True, tp="G")
             else:
-                a += classify_data(pred_t, l_t, forecast_factor, True)
+                a += classify_data(pred_t, l_t, forecast_factor, True, tp="G")
         if is_classify:
             a = a / decoder_length
             if not confusion_title:
@@ -200,10 +206,11 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
     if not is_classify:
         # print mae loss score
         # caculate loss for each timestep
-        loss_mae = np.array(loss_mae) / lt * 300
-        loss_rmse = [sqrt(x / lt)  * 300 for x in loss_rmse]
+        loss_mae = np.array(loss_mae) / lt
+        # loss_rmse = [sqrt(x / lt)  * 300 for x in loss_rmse]
         # calculate accumulated loss
-        print_accumulate_error(loss_mae, loss_rmse, decoder_length, forecast_factor)
+        print(loss_mae)
+        #print_accumulate_error(loss_mae, loss_rmse, decoder_length, forecast_factor)
     elif not confusion_title:
         # print classification score
         acc = acc / lt * 100
@@ -216,7 +223,7 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
 
 
 # evaluate grid training
-def evaluate_us(url, url2, stations, stride=2, encoder_length=48, decoder_length=48, forecast_factor=0):
+def evaluate_us(url, url2, stations, stride=2, encoder_length=48, decoder_length=48, forecast_factor=0, eval_stat=False):
     data = utils.load_file(url)
     if type(data) is list:
         data = np.asarray(data)
@@ -228,47 +235,142 @@ def evaluate_us(url, url2, stations, stride=2, encoder_length=48, decoder_length
         data = np.reshape(data, (lt, data.shape[-2], data.shape[-1]))
     
     labels = utils.load_file(url2)
-    labels = np.asarray(labels)
-    loss_mae = [0.0] * decoder_length
-
-    for i, d in enumerate(data):
-        d = d[:decoder_length,:]
+    print(data.shape)
+    if not eval_stat:
+        loss_mae = [0.0] * decoder_length
+    else:
+        loss_mae = np.array([[0.0] * decoder_length] * len(stations))
+    for i, d_ in enumerate(data):
+        d = d_[:decoder_length,:]
         lb_i = i * stride + encoder_length
-        lbt = labels[lb_i:(lb_i+decoder_length),:,:]
-        # for t_i, (t, l_t) in enumerate(zip(d, lbt)):
-        #     mae, mse, _ = get_evaluation(t.flatten(), l_t.flatten())
-        #     # sum loss for each timestep prediction
-        #     loss_mae[t_i] += mae
-        #     loss_rmse[t_i] += mse
+        lbt = labels[lb_i:(lb_i+decoder_length),:]
         for t_i, (t, l_t) in enumerate(zip(d, lbt)):
             l_t = l_t.flatten()
             pred_t = []
             label_t = []
-            t = np.reshape(t, (32, 32))
+            t_ = np.reshape(t, (32, 32))
             for r in stations:
                 er = r / 32
                 ex = r % 32
-                sty = er - 2
+                sty = er - 1
                 if sty < 0:
                     sty = 0
-                stx = ex - 2
+                stx = ex - 1
                 if stx < 0:
                     stx = 0
-                pred_point = t[sty:er+3,stx:ex+3]
+                pred_point = t_[sty:er+1,stx:ex+2]
                 pred_t.append(np.mean(pred_point))
                 label_t.append(l_t[r])
-            mae = mean_absolute_error(pred_t, label_t)
-            loss_mae[t_i] += mae
+            if not eval_stat:
+                mae = mean_absolute_error(pred_t, label_t)
+                loss_mae[t_i] += mae
+            else:
+                # loss of all stations at timestep t_i
+                # print("pre",[prt*300 for prt in pred_t])
+                mae = [abs(p_s - l_s) for p_s, l_s in zip(pred_t,label_t)]
+                for m_i, m in enumerate(mae):
+                    loss_mae[m_i, t_i] += m
         utils.update_progress((i + 1.0) / lt)
     # print mae loss score
     # caculate loss for each timestep
     barrier = 300
     if forecast_factor:
         barrier = 500
-    loss_mae = np.array(loss_mae) / lt * barrier
-    # calculate accumulated loss
+    loss_mae = np.array(loss_mae) / lt  * barrier
+    # print loss
     for i, x in enumerate(loss_mae):
-        print("%i %.6f" % ((i+1), x))
+        print(x)
+
+
+# evaluate grid china training
+def evaluate_china(url, url2, stations, encoder_length=12, decoder_length=24, eval_stat=False):
+    cr = Crawling()
+    # missing = [136,156,824,1028,1053,1084,1085,1457,1460,1461,1462,1464,1465,1476,1477, \
+    #         1478,1479,1481,1482,1484,1485,1486,1487,1510,1841,3814,4246,4268,4301,4311, \
+    #         4313,4317,4329,4331,4333,4349,4360,4504,4524,4529,4532,4535,4580,4860,5270, \
+    #         5457,5489,5509,5962,6007,6011,6039,6054,6125,6172,6189,6192,6201,6230,6234, \
+    #         6246,6254,6255,6256,6257,6258,6295,6300,6319,6336,6356,6362,6371,6372,6394, \
+    #         6491,6492,6493,6494,6497,6517,6519,6523,6539,6559,6564,6568,6569,6570,6612, \
+    #         6613,6614,6615,6616,6617,6618,6619,6620,6621,6622,6623,6624,6625,6626,6627, \
+    #         6628,6629,6630,6631,6632,6633,6634,6635,6636,6637,6638,6687,6704,6754,6832, \
+    #         6849,6858,6873,6979,7255,8099,8100,8101,8225,8226,8227,8228,8229,8230,8231, \
+    #         8232,8233,8234,8235,8236,8237,8238,8239,8240,8241,8273,8274,8275,8276,8277, \
+    #         8278,8279,8280,8281,8282,8283,8284,8285,8286,8287,8288,8289,8290,8291,8344, \
+    #         8421,8422,8423,8424,8425,8426,8427,8428,8429,8430,8431,8432,8495,8496,8497, \
+    #         8498,8499,8500,8501,8502,8503,8504,8631,8759]
+    data = utils.load_file(url)
+    labels = utils.load_file(url2)
+    if type(data) is list:
+        data = np.asarray(data)
+    if len(data.shape) == 4:
+        lt = data.shape[0] * data.shape[1]
+        data = np.reshape(data, (lt, data.shape[-2], data.shape[-1]))
+        labels =  np.reshape(labels, (lt, data.shape[-2], data.shape[-1])) 
+    else:
+        lt = len(data)
+        data = np.array(data)
+        labels = np.array(labels)
+    if not eval_stat:
+        loss_mae = [0.0] * decoder_length
+    else:
+        loss_mae = np.array([[0.0] * decoder_length] * len(stations))
+    classes = [0.0] * decoder_length
+    # loss_lt = 0
+    loss_total = [0.0] * decoder_length
+    # ckt = 0
+    valid = []
+    for i, (d_, l_) in enumerate(zip(data, labels)):
+        # st = 2 * i
+        # ed = st + decoder_length
+        # flag = False
+        # for ck in range(st, ed):
+        #     if ck in missing:
+        #         flag = True
+        #         break
+        # if flag:
+        #     continue                
+        d = d_[:decoder_length,:]
+        lbt = l_[:decoder_length,:]
+        for t_i, (t, l_t) in enumerate(zip(d, lbt)):
+            pred_t = []
+            label_t = []
+            for r in stations:
+                #pred_t.append(t[r])
+                #label_t.append(l_t[r])
+                # if not math.isnan(t[r]):
+                pr = t[r]
+                if pr < 0:
+                    pr = 0
+                print(pr)
+                pred_t.append(cr.aqi_pm25_china(pr))
+                label_t.append(cr.aqi_pm25_china(l_t[r] * 300))
+                # label_t.append(l_t[r])
+                # print(t[r], l_t[r])
+            # if pred_t:
+            if not eval_stat:
+                mae = mean_absolute_error(pred_t, label_t)
+                classes[t_i] += accuracy_score([cr.aqi_pm25_china_class(x) for x in pred_t], [cr.aqi_pm25_china_class(x) for x in label_t])
+                if mae > 80:
+                    valid.append("%i,%i" % (i, t_i))
+                if mae < 80:
+                    loss_total[t_i] += 1
+                    loss_mae[t_i] += mae
+            else:
+                mae = [abs(p_s - l_s) for p_s, l_s in zip(pred_t,label_t)]
+                for m_i, m in enumerate(mae):
+                    loss_mae[m_i, t_i] += m
+        # loss_lt += 1
+        # utils.update_progress((i + 1.0) / lt)
+    va = "\n".join(valid)
+    save_file("outline_china", va, False)
+    loss_mae = [x / y if y > 0 else 0 for x, y in zip(loss_mae, loss_total)]
+    for i, x in enumerate(loss_mae):
+        # if not eval_stat:
+        print(x, loss_total[i])
+        # else:
+            # print([y/loss_lt for y in x])
+    # print("accumulated:", np.mean(loss_mae[1:6]))
+    print(np.array(classes) / lt)
 
 
 # evaluate grid training
@@ -399,6 +501,7 @@ def evaluate_lstm(url, url2, decoder_length=24, forecast_factor=0, is_classify=F
     else:
         acc = 0.
     #: r2_total = 0.0
+    cr = Crawling() 
     for i, d in enumerate(data):
         if decoder_length < data.shape[-1]:
             pred_t = d[:decoder_length]
@@ -409,9 +512,10 @@ def evaluate_lstm(url, url2, decoder_length=24, forecast_factor=0, is_classify=F
         a = 0.
         for t_i, (p, l) in enumerate(zip(pred_t, lbt)):
             if not is_classify:
-                mae, mse, _ = get_evaluation(p, l)
+                # mae, mse, _ = get_evaluation(p, l)
+                mae = abs(cr.ConcPM10(p*300) - cr.ConcPM10(l * 300))
                 loss_mae[t_i] += mae
-                loss_rmse[t_i] += mse
+                # loss_rmse[t_i] += mse
             else:
                 a += classify_data(pred_t, lbt, forecast_factor)
         if is_classify:
@@ -420,8 +524,8 @@ def evaluate_lstm(url, url2, decoder_length=24, forecast_factor=0, is_classify=F
         # r2_total += r2
         utils.update_progress((i + 1.0) / dtl)
     if not is_classify:
-        loss_mae = np.array(loss_mae) / lt * 300
-        loss_rmse = [sqrt(x / lt)  * 300 for x in loss_rmse]
+        loss_mae = np.array(loss_mae) / lt
+        # loss_rmse = [sqrt(x / lt)  * 300 for x in loss_rmse]
         # print("R2 score: %.6f" % r2_total)
         print_accumulate_error(loss_mae, loss_rmse, decoder_length, forecast_factor=forecast_factor)
     else: 
@@ -477,13 +581,23 @@ def print_us_error(loss_mae, loss_rmse, decoder_length, forecast_factor=0):
                 print("T PM10 MAE: %.6f" % (t_mae))
 
 
-def classify_data(pr, lb, factor, is_conf=False):
-    pr = [get_class(x * 300, factor) for x in pr]
-    lb = [get_class(x * 300, factor) for x in lb]
-    if is_conf:
-        acc = confusion_matrix(lb, pr, labels=[0,1,2,3])
-    else:
-        acc = accuracy_score(lb, pr)
+def classify_data(pr, lb, factor, is_conf=False, tp="S"):
+    # use seoul metric
+    if tp == "S":
+        pr = [get_class(x * 300, factor) for x in pr]
+        lb = [get_class(x * 300, factor) for x in lb]
+        if is_conf:
+            acc = confusion_matrix(lb, pr, labels=[0,1,2,3])
+        else:
+            acc = accuracy_score(lb, pr)
+    else: 
+        # use global metric
+        pr_ = [get_aqi_class(x * 300) for x in pr]
+        lb_ = [get_aqi_class(x * 300) for x in lb]
+        if is_conf:
+            acc = confusion_matrix(lb_, pr_, labels=[0,1,2,3,4,5])
+        else:
+            acc = accuracy_score(lb_, pr_)
     return acc
 
 
@@ -508,6 +622,21 @@ def get_class(x, factor):
             return 2
         else:
             return 3
+
+
+def get_aqi_class(x):    
+    if x <= 50:
+        return 0
+    elif x <= 100:
+        return 1
+    elif x <= 150:
+        return 2
+    elif x <= 200:
+        return 3
+    elif x <= 300:
+        return 4
+    return 5
+    
     
 
 def draw_confusion_matrix(conf, title="Confusion Matrix", norm=True):
@@ -573,14 +702,18 @@ if __name__ == "__main__":
     elif args.task == 4:
         evaluate_by_districts(args.url, args.url2, pr.strides, decoder_length=args.time_lags, forecast_factor=args.forecast_factor, is_classify=args.classify, confusion_title=args.confusion, is_grid=bool(args.grid))
     elif args.task == 5:
-        us_pm10 = [344,404,414,439,440,497,500,502,505,523,558,582,583,601,603,612,613,632,640,641,690,762,770,800,801,818,864,908,940,960,992,1013] 
-        # us_pm10 = [(10,24),(12,20),(12,30),(13,23),(13,24),(15,17),(15,20),(15,22),(15,25),(16,11),(17,14),(18,6),(18,7),(18,25),(18,27),(19,4),(19,5), \
-        #             (19,24),(20,0),(20,1),(21,18),(23,26),(24,2),(25,0),(25,1),(25,18),(27,0),(28,12),(29,12),(30,0),(31,0),(31,21)]
-        us_pm25 = [31,60,184,250,402,444,470,523,525,558,582,583,586,589,632,641,690,770,800,801,818,864,960,1013]
-        # us_pm25 = [(0,31),(1,28),(5,24),(7,26),(12,18),(13,28),(14,22),(16,11),(16,13),(17,14),(18,6),(18,7),(18,10),(18,13),(19,24),(20,1),(21,18),(24,2),\
-        #             (25,0),(25,1),(25,18),(27,0),(30,0),(31,21)]
-        
-        evaluate_us(args.url, args.url2, us_pm10, pr.strides, encoder_length=args.time_lags, decoder_length=args.time_lags, forecast_factor=args.forecast_factor)
+        print(args.forecast_factor, args.time_lags)
+        # us_pm10 = [344,404,414,439,440,497,500,502,505,523,558,582,583,601,603,612,613,632,640,641,690,762,770,800,801,818,864,908,940,960,992,1013] 
+        us_pm10 = [414,603,612,641,864,960,992] 
+        # us_pm25 = [31,60,184,250,402,444,470,523,525,558,582,583,586,589,632,641,690,770,800,801,818,864,960,1013]
+        us_pm25 = [31,60,184,250,641,690,770,818,864,960,1013]
+        if args.forecast_factor:
+            evaluate_us(args.url, args.url2, us_pm10, pr.strides, encoder_length=args.time_lags, decoder_length=args.time_lags, forecast_factor=args.forecast_factor, eval_stat=False)
+        else:
+            evaluate_us(args.url, args.url2, us_pm25, pr.strides, encoder_length=args.time_lags, decoder_length=args.time_lags, forecast_factor=args.forecast_factor, eval_stat=False)
+    elif args.task == 6:
+        china = [9,32,204,214,228,270,293,328,331,362,363,364,371,389,394,395,396,397,419,426,429,430,456,459,486,581,608,627,639,711,774,818,832,855,928,1018]
+        evaluate_china(args.url, args.url2, china, decoder_length=args.time_lags)
     else:
         # train_data
         # pm25: 0.24776679025820308, 0.11997866025609479

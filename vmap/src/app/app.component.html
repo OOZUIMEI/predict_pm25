@@ -6,9 +6,9 @@
             <!-- 
           don't use [(data)]. use [data] instead
         -->
-            <yaga-geojson [data]="district_geo" *ngIf="district_geo" [defaultStyle]="mapConfig.style" [styler]="style"
+            <!-- <yaga-geojson [data]="district_geo" *ngIf="district_geo" [defaultStyle]="mapConfig.style" [styler]="style"
                 (click)="openDistrict($event)">
-            </yaga-geojson>
+            </yaga-geojson> -->
 
             <yaga-layers-control opacity="1">
                 <yaga-feature-group yaga-overlay-layer="Marker" *ngFor="let s of stations">
@@ -16,7 +16,7 @@
                 </yaga-feature-group>
             </yaga-layers-control>
 
-            <yaga-polyline *ngIf="ifShowGrid"
+            <!-- <yaga-polyline *ngIf="ifShowGrid"
                 [(geoJSON)]="polylineH"
                 [(stroke)]="mapConfig.polyline.stroke"
                 [(color)]="mapConfig.polyline.color"
@@ -27,7 +27,7 @@
                 [(stroke)]="mapConfig.polyline.stroke"
                 [(color)]="mapConfig.polyline.color"
                 [(weight)]="mapConfig.polyline.weight">
-            </yaga-polyline>
+            </yaga-polyline> -->
 
             
             <yaga-polyline *ngIf="ifShowGrid"
@@ -58,6 +58,27 @@
 
             <yaga-polyline *ngIf="ifShowGrid"
                 [(geoJSON)]="china_polylineH"
+                [(stroke)]="mapConfig.polyline.stroke"
+                [(color)]="mapConfig.polyline.color"
+                [(weight)]="mapConfig.polyline.weight">
+            </yaga-polyline>
+
+            <yaga-layers-control opacity="1">
+                <yaga-feature-group yaga-overlay-layer="Marker" *ngFor="let s of seoulStations">
+                    <yaga-circle-marker [title]="s.name" [(radius)]="mapConfig.radius" [(weight)]="mapConfig.polyline.stroke" [lat]="s.lat" [lng]="s.lng" 
+                        (click)="markerClick(s)" [(color)]="mapConfig.polyline.color"></yaga-circle-marker>
+                </yaga-feature-group>
+            </yaga-layers-control>
+
+            <yaga-polyline *ngIf="ifShowGrid"
+                [(geoJSON)]="seoul_polylineV"
+                [(stroke)]="mapConfig.polyline.stroke"
+                [(color)]="mapConfig.polyline.color"
+                [(weight)]="mapConfig.polyline.weight">
+            </yaga-polyline>
+
+            <yaga-polyline *ngIf="ifShowGrid"
+                [(geoJSON)]="seoul_polylineH"
                 [(stroke)]="mapConfig.polyline.stroke"
                 [(color)]="mapConfig.polyline.color"
                 [(weight)]="mapConfig.polyline.weight">

@@ -30,7 +30,12 @@ class Crawling(object):
             with open(self.filename, "a") as f:
                 f.write(output)
 
-    
+    def Linear(self, AQIhigh, AQIlow, Conchigh, Conclow, Concentration):
+        Conc = float(Concentration)
+        a = ((Conc - Conclow) / (Conchigh - Conclow)) * (AQIhigh - AQIlow) + AQIlow
+        # linear = round(a)
+        return a
+
     # convert pm10 micro value to aqi value
     def AQIPM10(self, Concentration):
         Conc = float(Concentration)
@@ -75,6 +80,42 @@ class Crawling(object):
         else:
             AQI = 0
         return AQI
+    
+
+    def aqi_pm25_china(self, c):
+        c = (math.floor(10 * c)) / 10
+        if (c >= 0.0 and c < 35.1):
+            AQI = self.Linear(50.0, 0, 35.0, 0, c)
+        elif (c >= 35.1 and c < 75.0):
+            AQI = self.Linear(100.0, 51, 75.0, 35.1, c)
+        elif (c >= 75.0 and c < 115.0):
+            AQI = self.Linear(150, 101, 115.0, 75.1, c)
+        elif (c >= 115.0 and c < 150.0):
+            AQI = self.Linear(200.0, 151.0, 150.0, 115.1, c)
+        elif (c >= 150.0 and c < 250.0):
+            AQI = self.Linear(300.0, 201.0, 250.0, 150.1, c)
+        elif (c >= 250.0 and c < 500.0):
+            AQI = self.Linear(500.0, 301.0, 500.0, 250.1, c)
+        else:
+            AQI = 0.
+        return AQI
+    
+
+    def aqi_pm25_china_class(self, c):
+        c = (math.floor(10 * c)) / 10
+        if (c >= 0.0 and c < 35.1):
+            return 0
+        elif (c >= 35.1 and c < 75.0):
+            return 1
+        elif (c >= 75.0 and c < 115.0):
+            return 2
+        elif (c >= 115.0 and c < 150.0):
+            return 3
+        elif (c >= 150.0 and c < 250.0):
+            return 4
+        elif (c >= 250.0):
+            return 5
+        return 0
 
 
     def InvLinear(self, AQIhigh, AQIlow, Conchigh, Conclow, a):
@@ -121,12 +162,6 @@ class Crawling(object):
             ConcCalc = 0.
         return ConcCalc
 
-
-    def Linear(self, AQIhigh, AQIlow, Conchigh, Conclow, Concentration):
-        Conc = float(Concentration)
-        a = ((Conc - Conclow) / (Conchigh - Conclow)) * (AQIhigh - AQIlow) + AQIlow
-        # linear = round(a)
-        return a
 
     def init_env(self):
         subprocess.call("source activate tensorflow")

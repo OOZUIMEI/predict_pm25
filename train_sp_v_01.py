@@ -35,7 +35,6 @@ from tnetlstm import TNetLSTM
 from tnet import TNet
 from apnet import APNet
 from srcns import SRCN
-from apnet_china import APNetChina
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -70,7 +69,7 @@ def get_gpu_options(use_fraction=True):
     return configs
 
 
-def execute(path, attention_url, label_path, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None, offset=0, validation_url="", attention_valid_url="", best_val_loss=None):
+def execute(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None, offset=0, validation_url="", attention_valid_url="", best_val_loss=None):
     print("==> Loading dataset")
     dataset = utils.load_file(path)
     print(np.shape(dataset))
@@ -81,7 +80,6 @@ def execute(path, attention_url, label_path, url_weight, model, session, saver, 
         if validation_url:
             valid_set = utils.load_file(validation_url)
             valid_set = np.asarray(valid_set, dtype=np.float32)
-            print(np.shape(valid_set))
             dataset = np.concatenate((dataset, valid_set), axis=0)
             valid_length = len(valid_set)
             print("using separated valid data %i" % valid_length)
@@ -90,7 +88,7 @@ def execute(path, attention_url, label_path, url_weight, model, session, saver, 
             valid = valid + lt
             del(valid_set) 
         else:
-            train, valid = utils.process_data_grid(lt, batch_size, encoder_length, decoder_length, is_test, 1.0)
+            train, valid = utils.process_data_grid(lt, batch_size, encoder_length, decoder_length, is_test)
         if attention_url:
             attention_data = utils.load_file(attention_url)
             if attention_valid_url:
@@ -100,13 +98,7 @@ def execute(path, attention_url, label_path, url_weight, model, session, saver, 
                 del(valid_att_data)
         else:
             attention_data = None
-        
-        # load classed labels
-        labels = None
-        if label_path:
-            labels = utils.load_file(label_path)
-
-        model.set_data(dataset, train, valid, attention_data, labels)
+        model.set_data(dataset, train, valid, attention_data)
         model.assign_datasets(session)
         if not is_test:
             best_val_epoch = 0
@@ -153,81 +145,6 @@ def execute(path, attention_url, label_path, url_weight, model, session, saver, 
     return global_t, best_val_loss
 
 
-# execute model for china transfer
-def execute_china(path, attention_url, label_path, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None, offset=0):
-    print("==> Loading dataset")
-    dataset = utils.load_file(path)
-    lt = len(dataset)
-    global_t = offset
-    # load classed labels
-    labels = None
-    if label_path:
-        labels = utils.load_file(label_path)
-    if not dataset is None:
-        dataset = np.asarray(dataset, dtype=np.float32)
-        if attention_url:
-            attention_data = utils.load_file(attention_url)
-        else:
-            attention_data = None
-        ratio = 0.8
-        if is_test:
-            ratio = 0.3
-        train, valid = utils.process_data_grid(lt, batch_size, encoder_length, decoder_length, is_test=is_test, ratio=ratio)
-        model.set_data(dataset, train, valid, attention_data, labels)
-        model.assign_datasets(session)
-        # training if train set is not none
-        if len(train):
-            global_t, best_val_loss = 0, float("inf")
-            print('==> starting training')
-            iter_no = p.total_iteration
-            if is_test:
-                iter_no = 100
-                train_f = None
-            else:
-                # training & valid
-                best_val_epoch = 0
-                # best_overall_val_loss = float('inf')
-                train_f, valid_f = train_writer
-            for epoch in xrange(iter_no):
-                if not is_test:
-                    print('Epoch {}'.format(epoch))
-                    start = time.time()
-                # running model
-                global_t = offset + epoch
-                train_loss, _ = model.run_epoch(session, train, global_t, train_f, train=True, stride=1)
-                # validate set
-                if not is_test:
-                    print('Training loss: {}'.format(train_loss))
-                    valid_loss, _ = model.run_epoch(session, valid, global_t, train_writer=valid_f, stride=1)
-                    print('Validation loss: {}'.format(valid_loss))
-                    if valid_loss < best_val_loss:
-                        best_val_loss = valid_loss
-                        best_val_epoch = epoch
-                        # if best_val_loss < best_overall_val_loss:
-                        print('Saving weights')
-                        # best_overall_val_loss = best_val_loss
-                        saver.save(session, 'weights/%s.weights' % url_weight)
-                    if (epoch - best_val_epoch) > p.early_stopping:
-                        break
-                    print('Total time: {}'.format(time.time() - start))
-        
-        if is_test:
-            name_file = path.split("/")[-1]
-            print('==> testing process')
-            print(len(valid))
-            _, (preds, labels) = model.run_epoch(session, valid, shuffle=False, stride=1)
-            pt = re.compile("weights/([A-Za-z0-9_.]*).weights")
-            name = pt.match(url_weight)
-            if name:
-                name_s = name.group(1)
-            else:
-                name_s = url_weight
-            print(np.shape(preds))
-            utils.save_file("test_sp/%s/%s" % (name_s, name_file), preds)
-            utils.save_file("labels/%s/%s" % (name_s, name_file), labels)
-    return global_t, best_val_loss
-
-
 def initialize_uninitialized(sess):
     global_vars          = tf.global_variables()
     is_not_initialized   = sess.run([tf.is_variable_initialized(var) for var in global_vars])
@@ -259,13 +176,14 @@ def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size
                 atttention_hidden_size=atttention_hidden_size, use_gen_cnn=args.use_gen_cnn, num_class=num_class, districts=districts)
     print('==> initializing models')
     with tf.device('/%s' % p.device):
-        if model_name != "APNET_CHINA":
-            model.init_ops(is_train=(not is_test))
-        else:
-            model.init_ops(is_train=True)
+        model.init_ops(is_train=(not is_test))
         init = tf.global_variables_initializer()
+        saver = tf.train.Saver()
     utils.assert_url(url_feature)
     tconfig = get_gpu_options()
+    sum_dir = 'summaries'
+    if not utils.check_file(sum_dir):
+        os.makedirs(sum_dir)
 
     train_writer = None
     valid_writer = None
@@ -291,27 +209,22 @@ def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size
         # "should not save embedding in weights"
         var = [v for v in tf.global_variables() if not "embedding" in v.name]
         saver = tf.train.Saver(var)
+
         if not is_test:
             # suf = time.strftime("%Y.%m.%d_%H.%M")
             csn = int(time.time())
-            train_writer = tf.summary.FileWriter("summaries/" + url_weight  + str(csn) + "/train", session.graph)
-            valid_writer = tf.summary.FileWriter("summaries/" + url_weight + str(csn) + "/valid" , session.graph)
+            train_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_train_" + str(csn), session.graph)
+            valid_writer = tf.summary.FileWriter(sum_dir + "/" + url_weight + "_valid_" + str(csn), session.graph)
             if restore:
                 url_weight = url_weight + "_" + str(csn)
        
         folders = None
         best_val_loss = float('inf')
         if is_folder:
-            folders = np.array(sorted(os.listdir(url_feature)))
-            ran = np.random.permutation(len(folders))
+            folders = sorted(os.listdir(url_feature))
             if attention_url:
-                a_folders = np.array(sorted(os.listdir(attention_url)))
-                folders = zip(folders[ran], a_folders[ran])
-            
-            lfolders = None
-            if label_path:
-                lfolders = np.array(sorted(os.listdir(label_path)))
-                lfolders = lfolders[ran]
+                a_folders = sorted(os.listdir(attention_url))
+                folders = zip(folders, a_folders)
             last_epoch = 0
             for i, files in enumerate(folders):
                 if attention_url:
@@ -322,24 +235,15 @@ def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size
                     x = files
                     att_url = ""
                     print("==> Training set (%i, %s)" % (i + 1, x))
-                if label_path:
-                    label_path_url = os.path.join(label_path, lfolders[i])
-                else:
-                    label_path_url = None
-                if model_name == "APNET_CHINA":
-                    last_epoch, _ = execute_china(os.path.join(url_feature, x), att_url, label_path_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, 
-                                    is_test, (train_writer, valid_writer), last_epoch)
-                else:    
-                    last_epoch, _ = execute(os.path.join(url_feature, x), att_url, label_path_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, 
+                last_epoch, best_val_loss = execute(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, 
                                     is_test, (train_writer, valid_writer), last_epoch, validation_url=validation_url, attention_valid_url=attention_valid_url, best_val_loss=best_val_loss)
-        else:
-            if model_name == "APNET_CHINA":
-                _, best_val_loss = execute_china(url_feature, attention_url, label_path, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer))
-            else:
-                _, best_val_loss = execute(url_feature, attention_url, label_path, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer), 
-                                            validation_url=validation_url, attention_valid_url=attention_valid_url, best_val_loss=best_val_loss)
                 if not is_test:
                     print("best val loss:" + str(best_val_loss))
+        else:
+            _, best_val_loss = execute(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, (train_writer, valid_writer), 
+                        validation_url=validation_url, attention_valid_url=attention_valid_url, best_val_loss=best_val_loss)
+            if not is_test:
+                print("best val loss:" + str(best_val_loss))
 
 
 def save_gan_preds(url_weight, preds):
@@ -380,7 +284,7 @@ def get_gan_model(model_name, encoder_length, embed_size, batch_size, decoder_si
     return model
 
 
-def execute_gan(path, attention_url, label_path, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None, offset=0, gpu_nums=1):
+def execute_gan(path, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer=None, offset=0, gpu_nums=1):
     print("==> Loading dataset")
     dataset = utils.load_file(path)
     if dataset:
@@ -390,13 +294,8 @@ def execute_gan(path, attention_url, label_path, url_weight, model, session, sav
     attention_data = None
     if attention_url:
         attention_data = utils.load_file(attention_url)
-
-    labels = None
-    if label_path:
-        labels = utils.load_file(label_path)
-    model.set_data(dataset, train, None, attention_data, labels)
+    model.set_data(dataset, train, None, attention_data)
     model.assign_datasets(session)
-
     if not is_test:
         print('==> starting training')
         suffix = p.weight_saving_break
@@ -416,12 +315,10 @@ def execute_gan(path, attention_url, label_path, url_weight, model, session, sav
 
 
 def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, 
-    decoder_length=24, decoder_size=4, grid_size=25, is_folder=False, is_test=False, restore=False, model_name="APGAN", forecast_factor=0,
-    encoder_type=3, atttention_hidden_size=17, use_gen_cnn=True, label_path="", num_class=0, districts=25):
+    decoder_length=24, decoder_size=4, grid_size=25, is_folder=False, is_test=False, restore=False, model_name="APGAN", forecast_factor=0):
     if model_name == "APGAN":
         model = APGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, 
-                    decoder_length=decoder_length, grid_size=grid_size, forecast_factor=forecast_factor, use_attention=bool(attention_url), 
-                    mtype=encoder_type, atttention_hidden_size=atttention_hidden_size, num_class=num_class, districts=districts)
+                    decoder_length=decoder_length, grid_size=grid_size, forecast_factor=forecast_factor, use_attention=bool(attention_url))
     elif model_name == "MASKGAN":
         model = MaskGan(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decode_vector_size=decoder_size, grid_size=grid_size, use_cnn=1)
     elif model_name == "APGAN_LSTM":
@@ -460,10 +357,6 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
             if attention_url:
                 a_folders = sorted(os.listdir(attention_url))
                 folders = zip(folders, a_folders)
-            
-            lfolders = None
-            if label_path:
-                lfolders = sorted(os.listdir(label_path))
             for i, files in enumerate(folders):
                 if attention_url:
                     x, y = files
@@ -473,12 +366,9 @@ def train_gan(url_feature="", attention_url="", url_weight="sp", batch_size=128,
                     att_url = None
                     x = files
                     print("==> Training set (%i, %s)" % (i + 1, x))
-                if label_path:
-                    label_path_url = os.path.join(label_path, lfolders[i])
-
-                execute_gan(os.path.join(url_feature, x), att_url, label_path_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer, i * p.total_iteration)
+                execute_gan(os.path.join(url_feature, x), att_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer, i * p.total_iteration)
         else:
-            execute_gan(url_feature, attention_url, label_path, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
+            execute_gan(url_feature, attention_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, is_test, train_writer)
 
 
 # def  get_districts_preds(preds):
@@ -720,3 +610,4 @@ if __name__ == "__main__":
         run_neural_nets(args.feature, args.attention_url, args.url_weight, args.encoder_length, args.embed_size, args.decoder_length, args.decoder_size, bool(args.is_test), bool(args.restore), args.forecast_factor)
     elif args.model == "TGAN" or args.model == "TGANLSTM":
         train_gan(args.feature, "", args.url_weight, args.batch_size, args.encoder_length, 1, args.decoder_length, 1, 32, False, is_test=bool(args.is_test), restore=bool(args.restore), model_name=args.model)
+

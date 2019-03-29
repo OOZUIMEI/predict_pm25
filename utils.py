@@ -137,7 +137,7 @@ def get_pm25_class(index):
 
 # pre-process data for training 
 # convert 1-d data to grid-data
-def process_data_grid(dtlength, batch_size, encoder_length, decoder_length=None, is_test=False):
+def process_data_grid(dtlength, batch_size, encoder_length, decoder_length=None, is_test=False, ratio=1.0):
     # ma = heatmap.build_map()
     # maximum = (dtlength - encoder_length - decoder_length) // batch_size * batch_size
     maximum = dtlength - encoder_length - decoder_length
@@ -145,14 +145,35 @@ def process_data_grid(dtlength, batch_size, encoder_length, decoder_length=None,
     # random from 0 -> maximum_index to separate valid & train set
     indices = np.asarray(range(maximum), dtype=np.int32)
     if not is_test:
-        train_length = int((maximum * 0.8) // batch_size * batch_size)
+        train_length = int((maximum * ratio) // batch_size * batch_size)
         r = np.random.permutation(maximum)
         indices = indices[r]
         train = indices[:train_length]
         valid = indices[train_length:]
     else:
-        train, valid = indices, None
+        if ratio != 1.0:
+            train_length = int((maximum * ratio) // batch_size * batch_size)
+            train = indices[:train_length]
+            valid = indices[train_length:]
+        else:
+            train, valid = indices, None
     return train, valid
+
+
+"""
+Process china grid training & testing data
+20 days each month for train, 10 days each month for test
+"""
+def process_data_china(dtlength, encoder_length, decoder_length):
+    indices = np.asarray(range(dtlength), dtype=np.int32)
+    train_, valid_ = [], []
+    for x in xrange(12):
+        st = x * 720
+        train = indices[st:st+480 - encoder_length - decoder_length].tolist()
+        valid = indices[st+480:st+720 - encoder_length -  decoder_length].tolist()
+        train_ += train
+        valid_ += valid
+    return np.array(train_), np.array(valid_)
 
 
 # pre-process data to batch
