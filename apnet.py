@@ -19,7 +19,10 @@ class APNet(APGan):
         self.e_params["rnn_layer"] = 1
         self.e_params["dropout"] = self.dropout
         self.e_params["elmo"] = False
-        self.use_weather = True
+        # flag checks whether uses weather or not
+        self.use_weather = True 
+        # flag checks weather uses encoder or not. if not it's merely decode with weather or with china
+        self.use_encoder = False
     
     def inference(self, is_train=True):
         fake_outputs, _, classes = self.create_generator(self.encoder_inputs, self.decoder_inputs, self.attention_inputs)
@@ -31,8 +34,11 @@ class APNet(APGan):
     # mapping input indices to dataset
     def lookup_input(self, enc, dec):
         self.pred_class_placeholder = None
-        enc = tf.nn.embedding_lookup(self.embedding, enc)
-        enc.set_shape((self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.encode_vector_size))
+        if self.use_encoder:
+            enc = tf.nn.embedding_lookup(self.embedding, enc)
+            enc.set_shape((self.batch_size, self.encoder_length, self.grid_size, self.grid_size, self.encode_vector_size))
+        else:
+            enc = None
         dec_f = tf.nn.embedding_lookup(self.embedding, dec)
         dec_f.set_shape((self.batch_size, self.decoder_length, self.grid_size, self.grid_size, self.encode_vector_size))
         self.pred_placeholder = dec_f[:,:,:,:,self.forecast_factor]
@@ -41,7 +47,8 @@ class APNet(APGan):
             dec.set_shape((self.batch_size, self.decoder_length, self.grid_size, self.grid_size, self.decode_vector_size))
             # 0 is pm2.5 1 is pm10
         else:
-            enc = enc[:,:,:,:,:self.df_ele]
+            if self.use_encoder:
+                enc = enc[:,:,:,:,:self.df_ele]
             dec = None
         return enc, dec
     
@@ -49,8 +56,9 @@ class APNet(APGan):
     # this is different to prevous apnet model. 
     # decode and encoder do not shared softmax weights => when predicting long (>24) => decrease loss then increase
     def add_conditional_layer(self, dec, enc_outputs, attention=None):
-        with tf.variable_scope("encoder_attention", initializer=self.initializer):
-            enc_outputs = self.get_softmax_attention(enc_outputs)
+        if self.use_encoder:
+            with tf.variable_scope("encoder_attention", initializer=self.initializer):
+                enc_outputs = self.get_softmax_attention(enc_outputs)
         
         # add attentional layer here to measure the importance of each timestep. (past hidden, future forecast, china)
         with tf.variable_scope("conditional", initializer=self.initializer):
@@ -61,21 +69,31 @@ class APNet(APGan):
                 cnn_shape = cnn_dec_input.get_shape()
                 dec_data = tf.reshape(cnn_dec_input, [self.batch_size, self.decoder_length, int(cnn_shape[-1])])
                 dec_rep, _ = rnn_utils.execute_sequence(dec_data, self.e_params)
-                dec_rep = self.get_softmax_attention(dec_rep)
-                # dec_input with shape bs x 3hidden_size
-                enc_outputs = tf.concat([enc_outputs, dec_rep], axis=1)
-            
-            # china factor
-            if not attention is None:
-                enc_outputs = tf.concat([enc_outputs, attention], axis=1)
-            
-            if self.use_weather:
+                # this is forecast weather vector
+                hidden_input = self.get_softmax_attention(dec_rep)
+                if self.use_encoder:
+                    #concat encoder output and weather forecast
+                    hidden_input = tf.concat([enc_outputs, hidden_input], axis=1)
+            else:
+                hidden_input = enc_outputs
+
+            if not attention is None and not hidden_input is None:
+                # concate with china factor
+                hidden_input = tf.concat([hidden_input, attention], axis=1)
+            elif not attention is None:
+                hidden_input = attention
+
+            # get output shape to check the number of concatenation vectors:
+            # if hidden_input is none then die
+            hidden_input_shape = hidden_input.get_shape()
+            if hidden_input_shape[-1] != 128:
                 # dec_hidden_vectors with shape bs x 128 
-                dec_hidden_vectors = tf.layers.dense(enc_outputs, 128, name="conditional_layer", activation=tf.nn.tanh)
+                dec_hidden_vectors = tf.layers.dense(hidden_input, 128, name="conditional_layer", activation=tf.nn.tanh)
                 if self.dropout:
                     dec_hidden_vectors = tf.nn.dropout(dec_hidden_vectors, 0.5)
             else:
-                dec_hidden_vectors = enc_outputs
+                # what if all vectors is none:
+                dec_hidden_vectors = hidden_input
                 
             return dec_hidden_vectors
 
@@ -97,12 +115,12 @@ class APNet(APGan):
             classes = None
             if self.all_pred:
                 outputs = tf.stack(outputs, axis=1)
-                if classes:
-                    classes = tf.stack(classes, axis=1)
+                # if classes:
+                #     classes = tf.stack(classes, axis=1)
                 outputs = tf.reshape(outputs, [self.batch_size, self.decoder_length, self.grid_size * self.grid_size])
             else:
                 outputs = outputs[-1]
-                classes = classes[-1]
+                # classes = classes[-1]
                 outputs = tf.reshape(outputs, [self.batch_size, self.grid_size * self.grid_size])
         return outputs, classes
 

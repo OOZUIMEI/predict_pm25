@@ -69,7 +69,12 @@ class APGan(BaselineModel):
         with tf.variable_scope("generator", self.initializer, reuse=tf.AUTO_REUSE):
             # shape:  batch_size x decoder_length x grid_size x grid_size
             enc, dec = self.lookup_input(enc, dec)
-            fn_state, enc_outputs = self.exe_encoder(enc, False, 0.0)
+            if not enc is None:
+                fn_state, enc_outputs = self.exe_encoder(enc, False, 0.0)
+            else:
+                # do not use internal historical data
+                fn_state, enc_outputs = None, None
+            # maybe use only china factor or weather forecast 
             attention = None
             if self.use_attention:
                 # print("use attention")
