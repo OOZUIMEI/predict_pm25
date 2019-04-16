@@ -131,7 +131,7 @@ def aggregate_predictions(districts, timstep_data):
 
 
 # evaluate grid training
-def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length=24, forecast_factor=0, is_classify=False, confusion_title="", norm=True, is_grid=True):
+def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length=24, forecast_factor=0, is_classify=False, confusion_title="", norm=True, is_grid=True, offset=48):
     if not utils.validate_path("district_idx.pkl"):
         districts = convert_coordinate_to_idx()
     else:
@@ -149,12 +149,16 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
     else:
         lt = data.shape[0]
         data = np.reshape(data, (lt, data.shape[-2], data.shape[-1]))
-    
+    days = int(math.ceil(data.shape[1] / 24.0))
+    if days > 2:
+        st_h = (days - 1) * 24
+    else: 
+        st_h = 0
     labels = utils.load_file(url2)
     labels = np.asarray(labels)
     if not is_classify:
         loss_mae = [0.0] * decoder_length
-        loss_rmse = [0.0] * decoder_length
+        # loss_rmse = [0.0] * decoder_length
     elif not confusion_title:
         acc = 0.
     else:
@@ -162,16 +166,17 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
     cr = Crawling() 
     for i, d in enumerate(data):
         if not is_grid:
-            d = d[:decoder_length]
+            d = d[st_h:decoder_length]
         else:
-            d = d[:decoder_length,:]
+            d = d[st_h:decoder_length,:]
         lb_i = i * stride + encoder_length
-        lbt = labels[lb_i:(lb_i+decoder_length),:,forecast_factor]
+        lbt = labels[lb_i+offset:(lb_i+offset+decoder_length),:,forecast_factor]
         if not confusion_title:
             a = 0.
         else:
             a = None
         for t_i, (t, l_t) in enumerate(zip(d, lbt)):
+            t_i += st_h
             if is_grid:
                 pred_t = aggregate_predictions(districts, t)
                 pred_t = np.array(pred_t)
@@ -209,7 +214,18 @@ def evaluate_by_districts(url, url2, stride=2, encoder_length=24, decoder_length
         loss_mae = np.array(loss_mae) / lt
         # loss_rmse = [sqrt(x / lt)  * 300 for x in loss_rmse]
         # calculate accumulated loss
-        print(loss_mae)
+        no_h = len(loss_mae)
+        if no_h > 24:
+            print("hourly errors", loss_mae[:24])
+            days = math.ceil(no_h * 1.0 / 24)
+            for x in xrange(1, int(days)):
+                ed = (x+1) * 24
+                if ed > no_h:
+                    ed = no_h
+                print("day %i" % (x + 1), np.mean(loss_mae[x*24:ed]))
+        else:
+            print(loss_mae)
+        # print(loss_mae)
         #print_accumulate_error(loss_mae, loss_rmse, decoder_length, forecast_factor)
     elif not confusion_title:
         # print classification score
@@ -674,6 +690,7 @@ if __name__ == "__main__":
     parser.add_argument("-gev", "--grid_eval", type=int, default=1)
     parser.add_argument("-tl", "--time_lags", type=int, default=24)
     parser.add_argument("-f", "--forecast_factor", type=int, default=0)
+    parser.add_argument("-o", "--offset", type=int, default=0)
     """
     SVR         & \textbf{0.657} & 0.618 & 0.582 & 0.551 & 0.525 & 0.501 & 0.480 & 0.462 & 0.446 & 0.432 & 0.419 \\
     SAE         & 0.462 & 0.421 & 0.384 & 0.379 & 0.349 & 0.315 & 0.310 & 0.289 & 0.278 & 0.281 & 0.262 \\
@@ -700,7 +717,7 @@ if __name__ == "__main__":
     elif args.task == 3:
         evaluate_lstm(args.url, args.url2, args.time_lags, args.forecast_factor, args.classify)
     elif args.task == 4:
-        evaluate_by_districts(args.url, args.url2, pr.strides, decoder_length=args.time_lags, forecast_factor=args.forecast_factor, is_classify=args.classify, confusion_title=args.confusion, is_grid=bool(args.grid))
+        evaluate_by_districts(args.url, args.url2, pr.strides, decoder_length=args.time_lags, forecast_factor=args.forecast_factor, is_classify=args.classify, confusion_title=args.confusion, is_grid=bool(args.grid), offset=args.offset)
     elif args.task == 5:
         print(args.forecast_factor, args.time_lags)
         # us_pm10 = [344,404,414,439,440,497,500,502,505,523,558,582,583,601,603,612,613,632,640,641,690,762,770,800,801,818,864,908,940,960,992,1013] 

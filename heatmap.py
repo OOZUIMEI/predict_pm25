@@ -20,6 +20,7 @@ import math
 import numpy as np
 import properties as pr
 import district_neighbors as dis
+from aqi import AQIPM25, AQIPM10
 import utils
 
 
@@ -83,14 +84,14 @@ def fill_map(data, districts, is_interpolate=False, is_clear_out=True):
     else:
         # grid_size x grid_size x features_dim
         grid = np.zeros((pr.map_size, pr.map_size, data_s[-1]))
-    dis = -1
+    # dis = -1
     for d_i, d in enumerate(districts):
         for p_x, p_y in d:
             grid[p_y][p_x] = data[d_i]
-    if is_interpolate:
-        grid = interpolate(grid)
-        if is_clear_out:
-            clear_interpolate_bound(grid, m)
+    # if is_interpolate:
+    #     grid = interpolate(grid)
+    #     if is_clear_out:
+    #         clear_interpolate_bound(grid, d)
     return grid
 
 
@@ -99,9 +100,10 @@ def visualize(data, m):
     _, ax = plt.subplots(figsize=(10, 10))
     # mapping coordination to data
     grid_ = fill_map(data, m)
-    ax.imshow(grid_, interpolation="bilinear", cmap="Oranges")
-    ax.set_title("Seoul Air Pollution")
-    plt.show()
+    # ax.imshow(grid_, interpolation="bilinear", cmap="Oranges")
+    ax.imshow(grid_, cmap=cmap, norm=norm)
+    # ax.set_title("Seoul Air Pollution")
+    plt.savefig("figures/test.png", format="png", bbox_inches="tight", dpi=300)
 
 
 # preload map points to matrix map
@@ -114,6 +116,7 @@ def build_map(grid_size=25):
         grid = dis.points_25
     else:
         raise ValueError("Not support grid size: %i" % grid_size)
+    # print(grid[23])
     # m = np.zeros((grid_size, grid_size), dtype=np.int32)
     # for k, value in enumerate(grid):
     #     for part in value:
@@ -225,15 +228,20 @@ if __name__ == "__main__":
     fig = plt.figure(figsize=(8, 3))
     cmap = ListedColormap(colors)
     norm = BoundaryNorm(bounds, cmap.N)
-    # h1 = [19,25,24,16,19,15,12,35,14,26,12,33,11,17,16,16,16,21,14,25,26,22,15,0,18,17]
-    # h2 = np.asarray([67,78,74,69,54,63,61,45,73,67,53,57,65,73,89,115,64,66,98,52,63,88,49,71,43,35])
+    # 2019-04-16 10h (conc)
+    pm10 = [50,56,49,65,57,59,46,58,62,52,54,65,62,67,72,70,79,54,75,61,71,79,54,79,64]
+    pm25 = [21,25,24,29,31,28,22,20,25,28,22,27,30,29,28,27,40,29,33,26,34,39,27,39,28]
+    pm25_aqi = [AQIPM25(x) for x in pm25]
+    pm10_aqi = [AQIPM10(x) for x in pm10]
+    visualize(pm10_aqi, map_)
+
     # seoulmap = mpimg.imread(pr.seoul_map)
     # ax.imshow(seoulmap, cmap=plt.cm.gray)
     # fig = plt.figure(figsize=(100, 100), tight_layout=True)
     # data = utils.load_file("test_sp/gan_cnn2_fulldt_2400")
-    labels = utils.load_file("vectors/sp_china_combined/sp_seoul_test_bin_ip")
-    labels = np.asarray(labels)
+    # labels = utils.load_file("vectors/sp_china_combined/sp_seoul_test_bin_ip")
+    # labels = np.asarray(labels)
     # visualize_real_fake(data, labels, map_)
-    draw_real_images(labels, map_)
+    # draw_real_images(labels, map_)
 
 

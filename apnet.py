@@ -4,8 +4,12 @@ from copy import deepcopy
 from apgan import APGan
 import properties as pr
 import rnn_utils
+
 # add noise to input & label
 # alpha is zero => use only content loss in APNet
+# embedding: 
+# https://roamanalytics.com/2016/10/28/are-categorical-variables-getting-lost-in-your-random-forests/
+# https://medium.com/data-design/visiting-categorical-features-and-encoding-in-decision-trees-53400fa65931
 
 class APNet(APGan):
 
@@ -14,15 +18,18 @@ class APNet(APGan):
         self.beta1 = 0.5
         self.alpha = 0
         self.attention_length = 96
-        self.all_pred = True
         self.e_params["direction"] = "unidirectional"
         self.e_params["rnn_layer"] = 1
         self.e_params["dropout"] = self.dropout
         self.e_params["elmo"] = False
+        # use up-scale transposed cnn or not 
+        # self.use_gen_cnn = False
         # flag checks whether uses weather or not
         self.use_weather = True 
         # flag checks weather uses encoder or not. if not it's merely decode with weather or with china
-        self.use_encoder = False
+        self.use_encoder = True
+        self.enc_att_dis = None
+        self.offset = 144
     
     def inference(self, is_train=True):
         fake_outputs, _, classes = self.create_generator(self.encoder_inputs, self.decoder_inputs, self.attention_inputs)
@@ -41,7 +48,7 @@ class APNet(APGan):
             enc = None
         dec_f = tf.nn.embedding_lookup(self.embedding, dec)
         dec_f.set_shape((self.batch_size, self.decoder_length, self.grid_size, self.grid_size, self.encode_vector_size))
-        self.pred_placeholder = dec_f[:,:,:,:,self.forecast_factor]
+        self.pred_placeholder = dec_f[:,self.offset:,:,:,self.forecast_factor]
         if self.use_weather:
             dec = dec_f[:,:,:,:,self.df_ele:]
             dec.set_shape((self.batch_size, self.decoder_length, self.grid_size, self.grid_size, self.decode_vector_size))
@@ -59,7 +66,9 @@ class APNet(APGan):
         if self.use_encoder:
             with tf.variable_scope("encoder_attention", initializer=self.initializer):
                 enc_outputs = self.get_softmax_attention(enc_outputs)
-        
+                # enc_outputs = tf.reduce_mean(enc_outputs, axis=1)
+                # self.enc_att_dis = enc_att_dis
+
         # add attentional layer here to measure the importance of each timestep. (past hidden, future forecast, china)
         with tf.variable_scope("conditional", initializer=self.initializer):
             # use weather to validate impact factor to seoul weather
@@ -70,6 +79,7 @@ class APNet(APGan):
                 dec_data = tf.reshape(cnn_dec_input, [self.batch_size, self.decoder_length, int(cnn_shape[-1])])
                 dec_rep, _ = rnn_utils.execute_sequence(dec_data, self.e_params)
                 # this is forecast weather vector
+                # hidden_input = tf.reduce_mean(dec_rep, axis=1)
                 hidden_input = self.get_softmax_attention(dec_rep)
                 if self.use_encoder:
                     #concat encoder output and weather forecast
@@ -111,17 +121,10 @@ class APNet(APGan):
                 dctype = 7
             outputs = rnn_utils.execute_decoder_cnn(None, fn_state, self.decoder_length, params, dec_hidden_vectors, \
                                                     self.use_cnn, self.use_gen_cnn, self.mtype, self.use_batch_norm, \
-                                                    self.dropout, dctype=dctype, all_pred=self.all_pred)
+                                                    self.dropout, dctype=dctype, offset=self.offset)
             classes = None
-            if self.all_pred:
-                outputs = tf.stack(outputs, axis=1)
-                # if classes:
-                #     classes = tf.stack(classes, axis=1)
-                outputs = tf.reshape(outputs, [self.batch_size, self.decoder_length, self.grid_size * self.grid_size])
-            else:
-                outputs = outputs[-1]
-                # classes = classes[-1]
-                outputs = tf.reshape(outputs, [self.batch_size, self.grid_size * self.grid_size])
+            outputs = tf.stack(outputs, axis=1)
+            outputs = tf.reshape(outputs, [self.batch_size, self.decoder_length - self.offset, self.grid_size * self.grid_size])
         return outputs, classes
 
     # operate in each interation of an epoch
@@ -143,7 +146,7 @@ class APNet(APGan):
             total_gen_loss += gen_loss
             # print("preds", pred[0,0,:10])
         else:
-            gen_loss, pred, _= session.run([self.gen_loss, self.outputs, self.gen_op], feed_dict=feed)
+            gen_loss, pred, _ = session.run([self.gen_loss, self.outputs, self.gen_op], feed_dict=feed)
             total_gen_loss += gen_loss
 
         return pred, total_gen_loss, 0

@@ -40,7 +40,7 @@ class APGan(BaselineModel):
         self.lamda = 100
         # discriminator unit type 6 & 7 is hard to control / should be 4
         self.gmtype = 10
-        self.all_pred = True
+        self.offset = 0
         self.learning_rate = learning_rate
         self.use_cnn = use_cnn
         self.z_dim = [self.batch_size, self.decoder_length, 128]
@@ -92,10 +92,7 @@ class APGan(BaselineModel):
         return np.random.normal(0., 0.01, size=self.z_dim)
     
     def get_generator_loss(self, fake_preds, outputs, fake_rewards=None, classes=None):
-        if self.all_pred:
-            labels = tf.reshape(self.pred_placeholder, shape=(self.batch_size, self.decoder_length, self.grid_square))
-        else:
-            labels = tf.reshape(self.pred_placeholder, shape=(self.batch_size, self.grid_square))
+        labels = tf.reshape(self.pred_placeholder, shape=(self.batch_size, self.decoder_length - self.offset, self.grid_square))
         gen_loss = self.add_generator_loss(fake_preds, outputs, labels, fake_rewards, classes, self.pred_class_placeholder)
         return gen_loss
     

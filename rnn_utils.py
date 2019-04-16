@@ -11,6 +11,11 @@ import properties as prp
 import utils
 
 
+"""
+https://medium.com/apache-mxnet/transposed-convolutions-explained-with-ms-excel-52d13030c7e8
+https://towardsdatascience.com/transpose-convolution-77818e55a123
+https://distill.pub/2016/deconv-checkerboard/
+"""
 def get_softmax_attention(inputs):
     logits = tf.layers.dense(inputs, units=1, activation=None, name="attention_logits")
     attention_logits = tf.squeeze(logits)
@@ -148,7 +153,7 @@ def execute_decoder(inputs, init_state, sequence_length, params, attention=None,
 
 
 # perform cnn on pm2_5 output
-def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=None, cnn_rep=True, cnn_gen=False, mtype=4, use_batch_norm=True, dropout=0.5, dctype=5, all_pred=True):
+def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=None, cnn_rep=True, cnn_gen=False, mtype=4, use_batch_norm=True, dropout=0.5, dctype=5, offset=0):
     # push final state of encoder to decoder
     if not init_state is None:
         if params["fw_cell"] == "gru_block" or params["fw_cell"] == "rnn":
@@ -178,7 +183,7 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=N
         dec_out, dec_state = cell_dec(dec_in, dec_state)
         if attention is not None: 
             dec_out = tf.concat([dec_out, attention], axis=1)
-        if all_pred or t == (sequence_length - 1):
+        if not offset or t >= offset:
             if cnn_gen:
                 pm2_5_input = tf.layers.dense(dec_out, 256, name="decoder_output_cnn")
                 if mtype == 3 or mtype == 6 or mtype == 8 or mtype == 9:
@@ -188,10 +193,14 @@ def execute_decoder_cnn(inputs, init_state, sequence_length, params, attention=N
                 pm2_5_cnn = get_cnn_rep(pm2_5_input, dctype, max_filters=64, use_batch_norm=use_batch_norm, dropout=dropout)
                 pm2_5 = tf.layers.flatten(pm2_5_cnn)
             else:
+                # pm2_5 = tf.layers.dense(dec_out, 
+                #             params["de_output_size"],
+                #             name="decoder_output",
+                #             activation=tf.nn.sigmoid)
                 pm2_5 = tf.layers.dense(dec_out, 
                             params["de_output_size"],
                             name="decoder_output",
-                            activation=tf.nn.sigmoid)
+                            activation=tf.nn.relu)
             outputs.append(pm2_5)
     return outputs
 

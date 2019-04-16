@@ -330,7 +330,7 @@ def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size
                     last_epoch, _ = execute_china(os.path.join(url_feature, x), att_url, label_path_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, 
                                     is_test, (train_writer, valid_writer), last_epoch)
                 else:    
-                    last_epoch, _ = execute(os.path.join(url_feature, x), att_url, label_path_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, 
+                    last_epoch, best_val_loss = execute(os.path.join(url_feature, x), att_url, label_path_url, url_weight, model, session, saver, batch_size, encoder_length, decoder_length, 
                                     is_test, (train_writer, valid_writer), last_epoch, validation_url=validation_url, attention_valid_url=attention_valid_url, best_val_loss=best_val_loss)
         else:
             if model_name == "APNET_CHINA":
