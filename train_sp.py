@@ -239,11 +239,11 @@ def initialize_uninitialized(sess):
 
 def train_baseline(url_feature="", attention_url="", url_weight="sp", batch_size=128, encoder_length=24, embed_size=None, loss=None, decoder_length=24, decoder_size=4, grid_size=25, 
                     rnn_layers=1, dtype="grid", is_folder=False, is_test=False, use_cnn=True, restore=False, model_name="", validation_url="", attention_valid_url="", best_val_loss=None, 
-                    forecast_factor=0, encoder_type=3, atttention_hidden_size=17, use_gen_cnn=True, label_path="", num_class=0, districts=25):
+                    forecast_factor=0, encoder_type=3, atttention_hidden_size=17, use_gen_cnn=True, label_path="", num_class=0, districts=25, offset=0):
     if model_name == "APNET":
         model = APNet(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decoder_length=decoder_length, decode_vector_size=decoder_size, grid_size=grid_size,  
                         use_attention=bool(attention_url), forecast_factor=forecast_factor, mtype=encoder_type, atttention_hidden_size=atttention_hidden_size, use_gen_cnn=args.use_gen_cnn, 
-                        num_class=num_class, districts=districts)
+                        num_class=num_class, districts=districts, offset=offset)
     elif model_name == "APNET_CHINA":
         model = APNetChina(encoder_length=encoder_length, encode_vector_size=embed_size, batch_size=batch_size, decoder_length=decoder_length, grid_size=grid_size,  
                     use_attention=bool(attention_url), forecast_factor=forecast_factor, atttention_hidden_size=atttention_hidden_size, num_class=num_class, districts=districts)
@@ -679,6 +679,7 @@ if __name__ == "__main__":
     parser.add_argument("-et", "--encoder_type", type=int, default=3, help="3,6,8,9")
     parser.add_argument("-nc", "--number_class", type=int, default=0)
     parser.add_argument("-dn", "--districts", type=int, default=25)
+    parser.add_argument("-o", "--offset", type=int, default=0)
     args = parser.parse_args()
     """
     # sparkEngine = SparkEngine()
@@ -694,7 +695,7 @@ if __name__ == "__main__":
         train_baseline(args.feature, args.attention_url, args.url_weight, args.batch_size, args.encoder_length, args.embed_size, args.loss, args.decoder_length, args.decoder_size, \
         args.grid_size, args.rnn_layers, dtype=args.dtype, is_folder=bool(args.folder), is_test=bool(args.is_test), use_cnn=bool(args.use_cnn),  restore=bool(args.restore), \
         model_name=args.model, validation_url=args.validation_url, attention_valid_url=args.valid_attention_url, best_val_loss=args.best_val_loss, forecast_factor=args.forecast_factor,\
-        encoder_type=args.encoder_type, atttention_hidden_size=args.attention_size, use_gen_cnn=args.use_gen_cnn, label_path=args.label_path, num_class=args.number_class, districts=args.districts)
+        encoder_type=args.encoder_type, atttention_hidden_size=args.attention_size, use_gen_cnn=args.use_gen_cnn, label_path=args.label_path, num_class=args.number_class, districts=args.districts, offset=args.offset)
     elif args.model == "ADAIN":
         dataset = utils.load_file(args.feature)
         if dataset:

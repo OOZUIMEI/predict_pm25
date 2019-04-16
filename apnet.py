@@ -13,7 +13,7 @@ import rnn_utils
 
 class APNet(APGan):
 
-    def __init__(self, **kwargs):
+    def __init__(self, offset=0, **kwargs):
         super(APNet, self).__init__(**kwargs)
         self.beta1 = 0.5
         self.alpha = 0
@@ -29,7 +29,8 @@ class APNet(APGan):
         # flag checks weather uses encoder or not. if not it's merely decode with weather or with china
         self.use_encoder = True
         self.enc_att_dis = None
-        self.offset = 144
+        self.offset = offset
+        print("only pred exe from %i" % self.offset)
     
     def inference(self, is_train=True):
         fake_outputs, _, classes = self.create_generator(self.encoder_inputs, self.decoder_inputs, self.attention_inputs)
